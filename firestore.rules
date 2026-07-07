@@ -30,9 +30,11 @@ service cloud.firestore {
       allow list: if esAdmin();
       allow write: if false;
 
-      // Credenciales Tuya: solo las Cloud Functions (Admin SDK) las leen.
+      // Config Tuya: las Functions la leen con Admin SDK; el admin puede
+      // verla para editarla desde el panel. Nadie escribe desde el cliente.
       match /privado/{doc} {
-        allow read, write: if false;
+        allow read: if esAdmin();
+        allow write: if false;
       }
     }
 

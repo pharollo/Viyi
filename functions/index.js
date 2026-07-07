@@ -133,6 +133,119 @@ exports.ejecutarComando = onCall(
   }
 );
 
+async function exigirAdmin(request) {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
+  }
+  const snap = await db.doc(`usuarios/${request.auth.uid}`).get();
+  const usuario = snap.exists ? snap.data() : null;
+  if (!usuario || usuario.rol !== 'admin' || usuario.activo === false) {
+    throw new HttpsError('permission-denied', 'Solo el administrador puede hacer esto.');
+  }
+  return usuario;
+}
+
+exports.adminCrearUsuario = onCall(async (request) => {
+  await exigirAdmin(request);
+  const { email, password, nombre, unidad, rol, dispositivos } = request.data || {};
+  if (!email || !password || !nombre) {
+    throw new HttpsError('invalid-argument', 'Faltan correo, contraseña o nombre.');
+  }
+  if (String(password).length < 6) {
+    throw new HttpsError('invalid-argument', 'La contraseña debe tener al menos 6 caracteres.');
+  }
+  let user;
+  try {
+    user = await admin.auth().createUser({ email, password, displayName: nombre });
+  } catch (err) {
+    if (err.code === 'auth/email-already-exists') {
+      throw new HttpsError('already-exists', 'Ya existe una cuenta con ese correo.');
+    }
+    if (err.code === 'auth/invalid-email') {
+      throw new HttpsError('invalid-argument', 'El correo no es válido.');
+    }
+    throw new HttpsError('internal', 'No se pudo crear la cuenta.');
+  }
+  await db.doc(`usuarios/${user.uid}`).set({
+    nombre,
+    unidad: unidad || '',
+    email,
+    rol: rol === 'admin' ? 'admin' : 'vecino',
+    activo: true,
+    dispositivos: Array.isArray(dispositivos) ? dispositivos : [],
+  });
+  return { uid: user.uid };
+});
+
+exports.adminActualizarUsuario = onCall(async (request) => {
+  await exigirAdmin(request);
+  const { uid, nombre, unidad, rol, activo, dispositivos, password } = request.data || {};
+  if (!uid || typeof uid !== 'string') {
+    throw new HttpsError('invalid-argument', 'Falta el uid.');
+  }
+  if (uid === request.auth.uid && (activo === false || (rol && rol !== 'admin'))) {
+    throw new HttpsError('failed-precondition', 'No puedes quitarte el acceso a ti mismo.');
+  }
+  const cambios = {};
+  if (typeof nombre === 'string' && nombre) cambios.nombre = nombre;
+  if (typeof unidad === 'string') cambios.unidad = unidad;
+  if (rol === 'admin' || rol === 'vecino') cambios.rol = rol;
+  if (typeof activo === 'boolean') cambios.activo = activo;
+  if (Array.isArray(dispositivos)) cambios.dispositivos = dispositivos;
+  if (Object.keys(cambios).length) {
+    await db.doc(`usuarios/${uid}`).set(cambios, { merge: true });
+  }
+  if (typeof activo === 'boolean') {
+    await admin.auth().updateUser(uid, { disabled: !activo }).catch(() => {});
+  }
+  if (typeof password === 'string' && password) {
+    if (password.length < 6) {
+      throw new HttpsError('invalid-argument', 'La contraseña debe tener al menos 6 caracteres.');
+    }
+    await admin.auth().updateUser(uid, { password });
+  }
+  return { ok: true };
+});
+
+exports.adminGuardarDispositivo = onCall(async (request) => {
+  await exigirAdmin(request);
+  const {
+    id, nombre, tipo, modo, etiquetaBoton, orden, activo,
+    tuyaDeviceId, codigo, pulsoMs,
+  } = request.data || {};
+  if (!id || !/^[a-z0-9-]{2,40}$/.test(id)) {
+    throw new HttpsError('invalid-argument', 'El id debe ser minúsculas, números y guiones (ej: porton-garaje).');
+  }
+  if (!nombre || !tuyaDeviceId) {
+    throw new HttpsError('invalid-argument', 'Faltan el nombre o el Device ID de Tuya.');
+  }
+  await db.doc(`dispositivos/${id}`).set({
+    nombre,
+    tipo: ['puerta', 'ascensor', 'luz', 'rele', 'otro'].includes(tipo) ? tipo : 'otro',
+    modo: modo === 'interruptor' ? 'interruptor' : 'pulso',
+    etiquetaBoton: etiquetaBoton || '',
+    orden: Number(orden) || 99,
+    activo: activo !== false,
+  }, { merge: true });
+  await db.doc(`dispositivos/${id}/privado/tuya`).set({
+    tuyaDeviceId: String(tuyaDeviceId).trim(),
+    codigo: (codigo || 'switch_1').trim(),
+    pulsoMs: Number(pulsoMs) || 1000,
+  }, { merge: true });
+  return { ok: true };
+});
+
+exports.adminEliminarDispositivo = onCall(async (request) => {
+  await exigirAdmin(request);
+  const { id } = request.data || {};
+  if (!id || typeof id !== 'string') {
+    throw new HttpsError('invalid-argument', 'Falta el id.');
+  }
+  await db.doc(`dispositivos/${id}/privado/tuya`).delete().catch(() => {});
+  await db.doc(`dispositivos/${id}`).delete();
+  return { ok: true };
+});
+
 exports.consultarEstado = onCall(
   { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
   async (request) => {

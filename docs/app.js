@@ -33,6 +33,12 @@ async function iniciar() {
   const functions = getFunctions(app, FUNCTIONS_REGION);
   const ejecutarComando = httpsCallable(functions, 'ejecutarComando');
   const consultarEstado = httpsCallable(functions, 'consultarEstado');
+  const adminCrearUsuario = httpsCallable(functions, 'adminCrearUsuario');
+  const adminActualizarUsuario = httpsCallable(functions, 'adminActualizarUsuario');
+  const adminGuardarDispositivo = httpsCallable(functions, 'adminGuardarDispositivo');
+  const adminEliminarDispositivo = httpsCallable(functions, 'adminEliminarDispositivo');
+
+  let usuarioActual = null;
 
   const TIPOS = [
     { clave: 'puerta', titulo: 'Puertas y portones' },
@@ -101,6 +107,7 @@ async function iniciar() {
         return;
       }
       const usuario = perfilSnap.data();
+      usuarioActual = usuario;
       $('nombre-usuario').textContent = usuario.unidad
         ? `${usuario.nombre} · ${usuario.unidad}`
         : usuario.nombre;
@@ -111,6 +118,7 @@ async function iniciar() {
 
       if (usuario.rol === 'admin') {
         $('seccion-admin').classList.remove('oculto');
+        cargarGestion();
         cargarRegistros();
       } else {
         $('seccion-admin').classList.add('oculto');
@@ -239,6 +247,285 @@ async function iniciar() {
       // Sin estado disponible: el botón queda como apagado.
     }
   }
+
+  // ── Gestión (solo admin) ──────────────────────────────────────────────
+
+  let cacheDispositivos = [];
+  let cacheUsuarios = [];
+
+  async function cargarGestion() {
+    try {
+      const [dispSnap, usuSnap] = await Promise.all([
+        getDocs(collection(db, 'dispositivos')),
+        getDocs(collection(db, 'usuarios')),
+      ]);
+      cacheDispositivos = dispSnap.docs
+        .map((s) => ({ id: s.id, ...s.data() }))
+        .sort((a, b) => (a.orden || 99) - (b.orden || 99));
+      cacheUsuarios = usuSnap.docs
+        .map((s) => ({ uid: s.id, ...s.data() }))
+        .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+      renderGestion();
+    } catch (err) {
+      toast('No se pudo cargar la gestión.', 'error');
+    }
+  }
+
+  function filaGestion(texto, inactivo, alEditar) {
+    const li = document.createElement('li');
+    if (inactivo) li.classList.add('inactivo');
+    const info = document.createElement('span');
+    info.textContent = texto;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-secundario';
+    btn.textContent = 'Editar';
+    btn.addEventListener('click', alEditar);
+    li.append(info, btn);
+    return li;
+  }
+
+  function renderGestion() {
+    const ld = $('gestion-dispositivos');
+    ld.textContent = '';
+    for (const d of cacheDispositivos) {
+      const texto = `${d.nombre} · ${d.modo === 'interruptor' ? 'interruptor' : 'pulso'}`;
+      ld.appendChild(filaGestion(texto, d.activo === false, () => abrirEditorDispositivo(d)));
+    }
+    const lu = $('gestion-usuarios');
+    lu.textContent = '';
+    for (const u of cacheUsuarios) {
+      const partes = [u.nombre, u.unidad, u.rol === 'admin' ? 'admin' : null].filter(Boolean);
+      lu.appendChild(filaGestion(partes.join(' · '), u.activo === false, () => abrirEditorUsuario(u)));
+    }
+  }
+
+  function campo(etiqueta, control) {
+    const label = document.createElement('label');
+    label.className = 'campo';
+    const span = document.createElement('span');
+    span.textContent = etiqueta;
+    label.append(span, control);
+    return label;
+  }
+
+  function entrada(valor, placeholder, tipo) {
+    const i = document.createElement('input');
+    i.type = tipo || 'text';
+    i.value = valor == null ? '' : valor;
+    if (placeholder) i.placeholder = placeholder;
+    return i;
+  }
+
+  function selector(opciones, valor) {
+    const s = document.createElement('select');
+    for (const [v, t] of opciones) {
+      const o = document.createElement('option');
+      o.value = v;
+      o.textContent = t;
+      s.appendChild(o);
+    }
+    if (valor != null) s.value = valor;
+    return s;
+  }
+
+  function casilla(texto, marcada) {
+    const label = document.createElement('label');
+    label.className = 'casilla';
+    const c = document.createElement('input');
+    c.type = 'checkbox';
+    c.checked = Boolean(marcada);
+    const span = document.createElement('span');
+    span.textContent = texto;
+    label.append(c, span);
+    return { label, c };
+  }
+
+  function casillasDispositivos(asignados) {
+    const cont = document.createElement('div');
+    cont.className = 'casillas';
+    const set = new Set(asignados || []);
+    const mapa = new Map();
+    for (const d of cacheDispositivos) {
+      const { label, c } = casilla(d.nombre, set.has(d.id));
+      mapa.set(d.id, c);
+      cont.appendChild(label);
+    }
+    return { cont, seleccionados: () => [...mapa].filter(([, c]) => c.checked).map(([id]) => id) };
+  }
+
+  function botonForm(texto, clase, alHacerClic) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = clase;
+    b.textContent = texto;
+    b.addEventListener('click', alHacerClic);
+    return b;
+  }
+
+  function abrirEditor(titulo, filas, acciones) {
+    const ed = $('editor');
+    ed.textContent = '';
+    const h = document.createElement('h3');
+    h.className = 'titulo-editor';
+    h.textContent = titulo;
+    ed.appendChild(h);
+    for (const f of filas) ed.appendChild(f);
+    const barra = document.createElement('div');
+    barra.className = 'barra-editor';
+    for (const a of acciones) barra.appendChild(a);
+    ed.appendChild(barra);
+    ed.classList.remove('oculto');
+    ed.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function cerrarEditor() {
+    $('editor').classList.add('oculto');
+    $('editor').textContent = '';
+  }
+
+  async function trasGuardar(boton) {
+    cerrarEditor();
+    await cargarGestion();
+    renderDispositivos(await cargarDispositivos(usuarioActual));
+  }
+
+  async function abrirEditorDispositivo(existente) {
+    const esNuevo = !existente;
+    const d = existente || {};
+    let tuya = { tuyaDeviceId: '', codigo: 'switch_1', pulsoMs: 1000 };
+    if (!esNuevo) {
+      try {
+        const s = await getDoc(doc(db, `dispositivos/${d.id}/privado/tuya`));
+        if (s.exists()) tuya = { ...tuya, ...s.data() };
+      } catch (err) { /* sin acceso todavía: campos vacíos */ }
+    }
+    const iId = entrada(d.id, 'ej: porton-garaje');
+    if (!esNuevo) iId.disabled = true;
+    const iNombre = entrada(d.nombre, 'ej: Portón del garaje');
+    const sTipo = selector([['puerta', 'Puerta / portón'], ['ascensor', 'Ascensor'], ['luz', 'Luz'], ['rele', 'Relé / equipo'], ['otro', 'Otro']], d.tipo || 'puerta');
+    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)']], d.modo || 'pulso');
+    const iOrden = entrada(d.orden != null ? d.orden : 10, '', 'number');
+    const cActivo = casilla('Activo', d.activo !== false);
+    const iDevice = entrada(tuya.tuyaDeviceId, 'Device ID de Tuya');
+    const iCodigo = entrada(tuya.codigo, 'switch_1');
+    const iPulso = entrada(tuya.pulsoMs, '', 'number');
+
+    const acciones = [
+      botonForm('Guardar', 'btn-primario', async (ev) => {
+        const b = ev.currentTarget;
+        b.disabled = true;
+        try {
+          await adminGuardarDispositivo({
+            id: (iId.value || '').trim().toLowerCase(),
+            nombre: iNombre.value.trim(),
+            tipo: sTipo.value,
+            modo: sModo.value,
+            orden: Number(iOrden.value) || 99,
+            activo: cActivo.c.checked,
+            tuyaDeviceId: iDevice.value.trim(),
+            codigo: iCodigo.value.trim(),
+            pulsoMs: Number(iPulso.value) || 1000,
+          });
+          toast('Dispositivo guardado ✓', 'ok');
+          await trasGuardar();
+        } catch (err) {
+          toast(err.message || 'No se pudo guardar.', 'error');
+          b.disabled = false;
+        }
+      }),
+      botonForm('Cancelar', 'btn-secundario', cerrarEditor),
+    ];
+    if (!esNuevo) {
+      acciones.push(botonForm('Eliminar', 'btn-peligro', async (ev) => {
+        if (!confirm(`¿Eliminar "${d.nombre}"? Esta acción no se puede deshacer.`)) return;
+        const b = ev.currentTarget;
+        b.disabled = true;
+        try {
+          await adminEliminarDispositivo({ id: d.id });
+          toast('Dispositivo eliminado.', 'ok');
+          await trasGuardar();
+        } catch (err) {
+          toast(err.message || 'No se pudo eliminar.', 'error');
+          b.disabled = false;
+        }
+      }));
+    }
+
+    abrirEditor(esNuevo ? 'Nuevo dispositivo' : `Editar: ${d.nombre}`, [
+      campo('Identificador (no cambia después)', iId),
+      campo('Nombre visible', iNombre),
+      campo('Tipo', sTipo),
+      campo('Modo', sModo),
+      campo('Orden (menor = primero)', iOrden),
+      cActivo.label,
+      campo('Device ID de Tuya', iDevice),
+      campo('Código del interruptor (Debug Device)', iCodigo),
+      campo('Duración del pulso (ms)', iPulso),
+    ], acciones);
+  }
+
+  function abrirEditorUsuario(existente) {
+    const esNuevo = !existente;
+    const u = existente || {};
+    const iNombre = entrada(u.nombre, 'ej: María Pérez');
+    const iUnidad = entrada(u.unidad, 'ej: Apto 3B');
+    const iEmail = entrada(u.email, 'correo@ejemplo.com', 'email');
+    if (!esNuevo) iEmail.disabled = true;
+    const iPass = entrada('', esNuevo ? 'Mínimo 6 caracteres' : 'Dejar vacío para no cambiarla', 'password');
+    const sRol = selector([['vecino', 'Vecino'], ['admin', 'Administrador']], u.rol || 'vecino');
+    const cActivo = casilla('Cuenta activa', u.activo !== false);
+    const casillas = casillasDispositivos(u.dispositivos);
+
+    const filas = [
+      campo('Nombre', iNombre),
+      campo('Unidad / apartamento', iUnidad),
+      campo('Correo electrónico', iEmail),
+      campo(esNuevo ? 'Contraseña' : 'Nueva contraseña (opcional)', iPass),
+      campo('Rol', sRol),
+    ];
+    if (!esNuevo) filas.push(cActivo.label);
+    filas.push(campo('Dispositivos permitidos (el admin ve todos)', casillas.cont));
+
+    abrirEditor(esNuevo ? 'Nuevo vecino' : `Editar: ${u.nombre}`, filas, [
+      botonForm('Guardar', 'btn-primario', async (ev) => {
+        const b = ev.currentTarget;
+        b.disabled = true;
+        try {
+          if (esNuevo) {
+            await adminCrearUsuario({
+              nombre: iNombre.value.trim(),
+              unidad: iUnidad.value.trim(),
+              email: iEmail.value.trim(),
+              password: iPass.value,
+              rol: sRol.value,
+              dispositivos: casillas.seleccionados(),
+            });
+            toast('Vecino creado ✓ Ya puede entrar con su correo y contraseña.', 'ok');
+          } else {
+            await adminActualizarUsuario({
+              uid: u.uid,
+              nombre: iNombre.value.trim(),
+              unidad: iUnidad.value.trim(),
+              rol: sRol.value,
+              activo: cActivo.c.checked,
+              dispositivos: casillas.seleccionados(),
+              password: iPass.value || undefined,
+            });
+            toast('Vecino actualizado ✓', 'ok');
+          }
+          await trasGuardar();
+        } catch (err) {
+          toast(err.message || 'No se pudo guardar.', 'error');
+          b.disabled = false;
+        }
+      }),
+      botonForm('Cancelar', 'btn-secundario', cerrarEditor),
+    ]);
+  }
+
+  $('btn-nuevo-dispositivo').addEventListener('click', () => abrirEditorDispositivo(null));
+  $('btn-nuevo-usuario').addEventListener('click', () => abrirEditorUsuario(null));
 
   async function cargarRegistros() {
     const lista = $('lista-registros');

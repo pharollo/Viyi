@@ -136,7 +136,9 @@ code {
   color: var(--texto-suave);
 }
 
-#form-login input {
+#form-login input,
+.campo input,
+.campo select {
   padding: 13px 14px;
   border: none;
   border-radius: 12px;
@@ -146,10 +148,19 @@ code {
   margin-bottom: 8px;
   box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
   outline: none;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
-#form-login input:focus {
+#form-login input:focus,
+.campo input:focus,
+.campo select:focus {
   box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara), 0 0 0 1.5px var(--primario);
+}
+
+.campo input:disabled {
+  opacity: 0.5;
 }
 
 button {
@@ -335,6 +346,100 @@ button:disabled {
 
 #toast.toast-error {
   color: var(--error);
+}
+
+.lista-gestion {
+  list-style: none;
+  padding: 0;
+}
+
+.lista-gestion li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--fondo);
+  border-radius: 12px;
+  padding: 10px 10px 10px 15px;
+  margin-bottom: 9px;
+  font-size: 14px;
+  color: var(--texto);
+  box-shadow: inset 3px 3px 7px var(--sombra-oscura), inset -3px -3px 7px var(--sombra-clara);
+}
+
+.lista-gestion li.inactivo span:first-child {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.titulo-editor {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.campo {
+  display: block;
+  font-size: 13px;
+  color: var(--texto-suave);
+  margin-bottom: 4px;
+}
+
+.campo > span {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.casillas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 6px 0 12px;
+}
+
+.casilla {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--texto);
+  background: var(--fondo);
+  border-radius: 10px;
+  padding: 9px 13px;
+  box-shadow: inset 3px 3px 6px var(--sombra-oscura), inset -3px -3px 6px var(--sombra-clara);
+  cursor: pointer;
+}
+
+.casilla input {
+  accent-color: var(--primario);
+  width: 17px;
+  height: 17px;
+}
+
+.barra-editor {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.barra-editor .btn-primario {
+  flex: 1;
+  min-width: 130px;
+}
+
+.btn-peligro {
+  border-radius: 12px;
+  padding: 8px 16px;
+  min-height: 38px;
+  font-size: 14px;
+  color: var(--error);
+  background: var(--superficie);
+  box-shadow: 4px 4px 10px var(--sombra-oscura), -4px -4px 10px var(--sombra-clara);
+}
+
+.btn-peligro:not(:disabled):active {
+  box-shadow: inset 4px 4px 8px var(--sombra-oscura), inset -4px -4px 8px var(--sombra-clara);
 }
 
 .oculto {
