@@ -15,7 +15,7 @@
 }
 
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: "Josefin Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background: var(--fondo);
   color: var(--texto);
   min-height: 100vh;
@@ -31,9 +31,14 @@ header {
 }
 
 header h1 {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 19px;
+  font-weight: 300;
+  letter-spacing: 0.16em;
   line-height: 1.15;
+}
+
+.logo {
+  border-radius: 9px;
 }
 
 .marca {
@@ -117,8 +122,10 @@ code {
 }
 
 #form-login h2 {
-  font-size: 22px;
-  margin: 8px 0 2px;
+  font-size: 26px;
+  font-weight: 300;
+  letter-spacing: 0.18em;
+  margin: 12px 0 2px;
 }
 
 .logo-login {

@@ -1,0 +1,13 @@
+{
+  "name": "Viyi.io",
+  "short_name": "Viyi",
+  "description": "Control de accesos del condominio",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0a0a0b",
+  "theme_color": "#1b1c1e",
+  "icons": [
+    { "src": "icono-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icono-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
