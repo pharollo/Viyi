@@ -43,7 +43,7 @@ Las credenciales de Tuya **nunca** llegan al navegador: viven como secretos en C
 2. **Authentication → Sign-in method**: habilita *Email/Password*.
 3. **Firestore Database**: créala en modo producción.
 4. **Configuración del proyecto → Facturación**: sube al plan **Blaze** (necesario para que las Functions hagan llamadas externas a Tuya; con el uso de un condominio el costo real es ~$0).
-5. **Authentication → Settings → Authorized domains**: agrega `TU-USUARIO.github.io`.
+5. **Authentication → Settings → Authorized domains**: agrega `mabentechnologies.github.io`.
 6. Registra una **App web** (Configuración del proyecto → Tus apps) y copia el objeto `firebaseConfig` en `docs/firebase-config.js`.
 
 ## Paso 3 — Desplegar reglas y funciones
@@ -119,7 +119,7 @@ git commit -m "Viyi.io: app de acceso del condominio"
 gh repo create viyi --private --source . --push
 ```
 
-Luego en GitHub: **Settings → Pages → Source: Deploy from a branch → main / `/docs`**. En un minuto la app queda en `https://TU-USUARIO.github.io/viyi/`.
+Luego en GitHub: **Settings → Pages → Source: Deploy from a branch → main / `/docs`**. En un minuto la app queda en <https://mabentechnologies.github.io/viyi/>.
 
 > El repo puede ser privado y GitHub Pages seguir siendo público (en plan gratuito, Pages de repos privados requiere GitHub Pro; si no lo tienes, usa repo público — no pasa nada, el código no contiene secretos).
 
