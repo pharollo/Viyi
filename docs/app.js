@@ -121,12 +121,13 @@ async function iniciar() {
       renderDispositivos(dispositivos);
 
       if (usuario.rol === 'admin') {
-        $('seccion-admin').classList.remove('oculto');
+        $('pestanas').classList.remove('oculto');
         cargarGestion();
         cargarRegistros();
       } else {
-        $('seccion-admin').classList.add('oculto');
+        $('pestanas').classList.add('oculto');
       }
+      mostrarTab('tab-controles');
       mostrarVista('vista-panel');
     } catch (err) {
       console.error(err);
@@ -561,6 +562,17 @@ async function iniciar() {
 
   $('btn-nuevo-dispositivo').addEventListener('click', () => abrirEditorDispositivo(null));
   $('btn-nuevo-usuario').addEventListener('click', () => abrirEditorUsuario(null));
+
+  const PANELES_TAB = ['tab-controles', 'tab-gestion', 'tab-registro'];
+  function mostrarTab(id) {
+    PANELES_TAB.forEach((t) => $(t).classList.toggle('oculto', t !== id));
+    document.querySelectorAll('.pestana').forEach((p) => {
+      p.classList.toggle('activa', p.dataset.tab === id);
+    });
+  }
+  document.querySelectorAll('.pestana').forEach((p) => {
+    p.addEventListener('click', () => mostrarTab(p.dataset.tab));
+  });
 
   async function cargarRegistros() {
     const lista = $('lista-registros');

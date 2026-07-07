@@ -207,6 +207,29 @@ button:disabled {
   font-size: 14px;
 }
 
+.pestanas {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin: 8px 0 14px;
+}
+
+.pestana {
+  border-radius: 14px;
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--texto-suave);
+  background: var(--superficie);
+  box-shadow: 5px 5px 12px var(--sombra-oscura), -5px -5px 12px var(--sombra-clara);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pestana.activa {
+  color: var(--primario);
+  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
+}
+
 .titulo-grupo {
   font-size: 12px;
   font-weight: 600;

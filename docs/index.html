@@ -60,8 +60,15 @@
     </section>
 
     <section id="vista-panel" class="oculto">
-      <div id="lista-dispositivos"></div>
-      <div id="seccion-admin" class="oculto">
+      <nav id="pestanas" class="pestanas oculto" aria-label="Secciones">
+        <button type="button" class="pestana activa" data-tab="tab-controles">Controles</button>
+        <button type="button" class="pestana" data-tab="tab-gestion">Gestión</button>
+        <button type="button" class="pestana" data-tab="tab-registro">Registro</button>
+      </nav>
+      <div id="tab-controles" class="panel-tab">
+        <div id="lista-dispositivos"></div>
+      </div>
+      <div id="tab-gestion" class="panel-tab oculto">
         <div class="encabezado-admin">
           <h2>Dispositivos</h2>
           <button id="btn-nuevo-dispositivo" type="button" class="btn-secundario">+ Agregar</button>
@@ -73,6 +80,8 @@
         </div>
         <ul id="gestion-usuarios" class="lista-gestion"></ul>
         <div id="editor" class="tarjeta oculto"></div>
+      </div>
+      <div id="tab-registro" class="panel-tab oculto">
         <div class="encabezado-admin">
           <h2>Registro de actividad</h2>
           <button id="btn-refrescar" type="button" class="btn-secundario">Actualizar</button>
