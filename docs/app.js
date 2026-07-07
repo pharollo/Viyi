@@ -42,6 +42,7 @@ async function iniciar() {
 
   const TIPOS = [
     { clave: 'puerta', titulo: 'Puertas y portones' },
+    { clave: 'cortina', titulo: 'Cortinas y persianas' },
     { clave: 'ascensor', titulo: 'Ascensores' },
     { clave: 'luz', titulo: 'Luces' },
     { clave: 'rele', titulo: 'Relés y equipos' },
@@ -54,6 +55,9 @@ async function iniciar() {
     ascensor: '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 15l7-9 7 9"/><path d="M13 25l7 9 7-9"/></svg>',
     rele: '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M20 5v14"/><path d="M28.8 11a12 12 0 1 1-17.6 0"/></svg>',
     otro: '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M20 5v14"/><path d="M28.8 11a12 12 0 1 1-17.6 0"/></svg>',
+    arriba: '<svg viewBox="0 0 40 40" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 25l10-11 10 11"/></svg>',
+    stop: '<svg viewBox="0 0 40 40" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" aria-hidden="true"><rect x="12" y="12" width="16" height="16" rx="3"/></svg>',
+    abajo: '<svg viewBox="0 0 40 40" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 15l10 11 10-11"/></svg>',
   };
 
   let temporizadorToast = null;
@@ -189,6 +193,24 @@ async function iniciar() {
       boton.addEventListener('click', () => pulsar(boton, dispositivo));
       anillo.appendChild(boton);
       control.appendChild(anillo);
+    } else if (dispositivo.modo === 'cortina') {
+      const fila = document.createElement('div');
+      fila.className = 'fila-cortina';
+      const acciones = [
+        ['abrir', ICONOS.arriba, 'Abrir'],
+        ['detener', ICONOS.stop, 'Detener'],
+        ['cerrar', ICONOS.abajo, 'Cerrar'],
+      ];
+      for (const [accion, icono, texto] of acciones) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'boton-circular chico';
+        b.innerHTML = icono;
+        b.setAttribute('aria-label', `${texto} ${dispositivo.nombre}`);
+        b.addEventListener('click', () => accionCortina(b, dispositivo, accion, texto));
+        fila.appendChild(b);
+      }
+      control.appendChild(fila);
     } else {
       boton = document.createElement('button');
       boton.type = 'button';
@@ -214,6 +236,19 @@ async function iniciar() {
       toast(`${dispositivo.nombre}: listo ✓`, 'ok');
       boton.classList.add('exito');
       setTimeout(() => boton.classList.remove('exito'), 1500);
+    } catch (err) {
+      toast(err.message || 'No se pudo enviar el comando.', 'error');
+    } finally {
+      boton.classList.remove('enviando');
+    }
+  }
+
+  async function accionCortina(boton, dispositivo, accion, texto) {
+    if (boton.classList.contains('enviando')) return;
+    boton.classList.add('enviando');
+    try {
+      await ejecutarComando({ dispositivoId: dispositivo.id, accion });
+      toast(`${dispositivo.nombre}: ${texto.toLowerCase()} ✓`, 'ok');
     } catch (err) {
       toast(err.message || 'No se pudo enviar el comando.', 'error');
     } finally {
@@ -403,8 +438,8 @@ async function iniciar() {
     const iId = entrada(d.id, 'ej: porton-garaje');
     if (!esNuevo) iId.disabled = true;
     const iNombre = entrada(d.nombre, 'ej: Portón del garaje');
-    const sTipo = selector([['puerta', 'Puerta / portón'], ['ascensor', 'Ascensor'], ['luz', 'Luz'], ['rele', 'Relé / equipo'], ['otro', 'Otro']], d.tipo || 'puerta');
-    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)']], d.modo || 'pulso');
+    const sTipo = selector([['puerta', 'Puerta / portón'], ['cortina', 'Cortina / persiana'], ['ascensor', 'Ascensor'], ['luz', 'Luz'], ['rele', 'Relé / equipo'], ['otro', 'Otro']], d.tipo || 'puerta');
+    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (abrir / parar / cerrar)']], d.modo || 'pulso');
     const iOrden = entrada(d.orden != null ? d.orden : 10, '', 'number');
     const cActivo = casilla('Activo', d.activo !== false);
     const iDevice = entrada(tuya.tuyaDeviceId, 'Device ID de Tuya');

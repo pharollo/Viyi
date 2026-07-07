@@ -99,6 +99,16 @@ exports.ejecutarComando = onCall(
         await tuya().enviarComandos(config.tuyaDeviceId, [{ code: codigo, value: true }]);
         await dormir(config.pulsoMs || 1000);
         await tuya().enviarComandos(config.tuyaDeviceId, [{ code: codigo, value: false }]);
+      } else if (dispositivo.modo === 'cortina') {
+        const mapa = { abrir: 'open', detener: 'stop', cerrar: 'close' };
+        if (!mapa[accion]) {
+          throw new HttpsError('invalid-argument', "La acción debe ser 'abrir', 'detener' o 'cerrar'.");
+        }
+        accionRegistrada = accion;
+        const codigoCortina = codigo === 'switch_1' ? 'control' : codigo;
+        await tuya().enviarComandos(config.tuyaDeviceId, [
+          { code: codigoCortina, value: mapa[accion] },
+        ]);
       } else {
         if (accion !== 'encender' && accion !== 'apagar') {
           throw new HttpsError('invalid-argument', "La acción debe ser 'encender' o 'apagar'.");
@@ -222,7 +232,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
   await db.doc(`dispositivos/${id}`).set({
     nombre,
     tipo: ['puerta', 'ascensor', 'luz', 'rele', 'otro'].includes(tipo) ? tipo : 'otro',
-    modo: modo === 'interruptor' ? 'interruptor' : 'pulso',
+    modo: ['interruptor', 'cortina'].includes(modo) ? modo : 'pulso',
     etiquetaBoton: etiquetaBoton || '',
     orden: Number(orden) || 99,
     activo: activo !== false,

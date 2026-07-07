@@ -272,6 +272,16 @@ button:disabled {
   height: 92px;
 }
 
+.boton-circular.chico {
+  width: 72px;
+  height: 72px;
+}
+
+.fila-cortina {
+  display: flex;
+  gap: 18px;
+}
+
 .boton-circular.activo {
   color: var(--primario);
   box-shadow: inset 6px 6px 13px var(--sombra-oscura), inset -6px -6px 13px var(--sombra-clara);
