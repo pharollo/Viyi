@@ -3,13 +3,13 @@
 // Estos valores son públicos por diseño (identifican tu proyecto, no dan acceso);
 // la seguridad real está en las reglas de Firestore y en las Cloud Functions.
 export const firebaseConfig = {
-  apiKey: "AIzaSyBDaYfTCgXXmKvO3y4JaGFGgZWR4PEi8q4",
-  authDomain: "viyi-a1fef.firebaseapp.com",
-  projectId: "viyi-a1fef",
-  storageBucket: "viyi-a1fef.firebasestorage.app",
-  messagingSenderId: "475503984065",
-  appId: "1:475503984065:web:722225206f2349252d0340",
-  measurementId: "G-TSTM3H6JYY",
+  apiKey: "AIzaSyDgYJ9unbuT3Xw3IJ1DjqfCDRlCs6Ae1jA",
+  authDomain: "viyi-25a09.firebaseapp.com",
+  projectId: "viyi-25a09",
+  storageBucket: "viyi-25a09.firebasestorage.app",
+  messagingSenderId: "1009083361507",
+  appId: "1:1009083361507:web:4542a4e00a2ec17e61bdd6",
+  measurementId: "G-DVRQSY6SXY",
 };
 
 // Región donde se despliegan las Cloud Functions (déjala igual salvo que la cambies allá).
