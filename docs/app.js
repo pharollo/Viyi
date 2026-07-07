@@ -547,7 +547,8 @@ async function iniciar() {
         const fecha = r.fecha && r.fecha.toDate
           ? r.fecha.toDate().toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })
           : '—';
-        item.textContent = `${fecha} · ${r.usuarioNombre}${r.unidad ? ` (${r.unidad})` : ''} · ${r.dispositivoNombre} · ${r.accion} ${r.exito ? '✓' : '✗'}`;
+        const motivo = !r.exito && r.detalle ? ` — ${r.detalle}` : '';
+        item.textContent = `${fecha} · ${r.usuarioNombre}${r.unidad ? ` (${r.unidad})` : ''} · ${r.dispositivoNombre} · ${r.accion} ${r.exito ? '✓' : '✗'}${motivo}`;
         lista.appendChild(item);
       }
     } catch (err) {
