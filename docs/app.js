@@ -32,14 +32,23 @@ async function iniciar() {
   const db = getFirestore(app);
   const functions = getFunctions(app, FUNCTIONS_REGION);
   const ejecutarComando = httpsCallable(functions, 'ejecutarComando');
+  const consultarEstado = httpsCallable(functions, 'consultarEstado');
 
   const TIPOS = [
-    { clave: 'puerta', titulo: 'Puertas y portones', icono: '🚪' },
-    { clave: 'ascensor', titulo: 'Ascensores', icono: '🛗' },
-    { clave: 'luz', titulo: 'Luces', icono: '💡' },
-    { clave: 'rele', titulo: 'Relés y equipos', icono: '🔌' },
-    { clave: 'otro', titulo: 'Otros', icono: '⚙️' },
+    { clave: 'puerta', titulo: 'Puertas y portones' },
+    { clave: 'ascensor', titulo: 'Ascensores' },
+    { clave: 'luz', titulo: 'Luces' },
+    { clave: 'rele', titulo: 'Relés y equipos' },
+    { clave: 'otro', titulo: 'Otros' },
   ];
+
+  const ICONOS = {
+    candados: '<svg viewBox="0 0 88 40" width="88" height="40" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="17" width="24" height="19" rx="3.5"/><path d="M13 17v-5.5a7 7 0 0 1 14 0V17"/><circle cx="20" cy="26.5" r="2.3" fill="currentColor" stroke="none"/><line x1="44" y1="7" x2="44" y2="33" stroke-opacity="0.3"/><rect x="56" y="17" width="24" height="19" rx="3.5"/><path d="M61 17v-5.5a7 7 0 0 1 14 0"/><circle cx="68" cy="26.5" r="2.3" fill="currentColor" stroke="none"/></svg>',
+    luz: '<svg viewBox="0 0 40 40" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="20" cy="20" r="7"/><path d="M20 4v5M20 31v5M4 20h5M31 20h5M8.7 8.7l3.5 3.5M27.8 27.8l3.5 3.5M31.3 8.7l-3.5 3.5M12.2 27.8l-3.5 3.5"/></svg>',
+    ascensor: '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 15l7-9 7 9"/><path d="M13 25l7 9 7-9"/></svg>',
+    rele: '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M20 5v14"/><path d="M28.8 11a12 12 0 1 1-17.6 0"/></svg>',
+    otro: '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M20 5v14"/><path d="M28.8 11a12 12 0 1 1-17.6 0"/></svg>',
+  };
 
   let temporizadorToast = null;
   function toast(mensaje, tipo) {
@@ -146,55 +155,89 @@ async function iniciar() {
       if (!grupo.length) continue;
       const titulo = document.createElement('h2');
       titulo.className = 'titulo-grupo';
-      titulo.textContent = `${tipo.icono} ${tipo.titulo}`;
+      titulo.textContent = tipo.titulo;
       contenedor.appendChild(titulo);
+      const fila = document.createElement('div');
+      fila.className = 'grupo-controles';
       for (const dispositivo of grupo) {
-        contenedor.appendChild(tarjetaDispositivo(dispositivo));
+        fila.appendChild(tarjetaDispositivo(dispositivo));
       }
+      contenedor.appendChild(fila);
     }
   }
 
   function tarjetaDispositivo(dispositivo) {
-    const tarjeta = document.createElement('div');
-    tarjeta.className = 'tarjeta tarjeta-dispositivo';
-    const nombre = document.createElement('span');
-    nombre.className = 'nombre-dispositivo';
-    nombre.textContent = dispositivo.nombre;
-    tarjeta.appendChild(nombre);
-
-    const acciones = document.createElement('div');
-    acciones.className = 'acciones';
+    const control = document.createElement('div');
+    control.className = 'control';
+    let boton;
     if (dispositivo.modo === 'pulso') {
-      acciones.appendChild(
-        botonAccion(dispositivo, null, dispositivo.etiquetaBoton || 'Abrir', 'btn-primario')
-      );
+      const anillo = document.createElement('div');
+      anillo.className = 'anillo';
+      boton = document.createElement('button');
+      boton.type = 'button';
+      boton.className = 'boton-circular grande';
+      boton.innerHTML = ICONOS.candados;
+      boton.setAttribute('aria-label', `${dispositivo.etiquetaBoton || 'Abrir'} ${dispositivo.nombre}`);
+      boton.addEventListener('click', () => pulsar(boton, dispositivo));
+      anillo.appendChild(boton);
+      control.appendChild(anillo);
     } else {
-      acciones.appendChild(botonAccion(dispositivo, 'encender', 'Encender', 'btn-primario'));
-      acciones.appendChild(botonAccion(dispositivo, 'apagar', 'Apagar', 'btn-secundario'));
+      boton = document.createElement('button');
+      boton.type = 'button';
+      boton.className = 'boton-circular medio';
+      boton.innerHTML = ICONOS[dispositivo.tipo] || ICONOS.otro;
+      boton.setAttribute('aria-label', `Encender o apagar ${dispositivo.nombre}`);
+      boton.addEventListener('click', () => alternar(boton, dispositivo));
+      control.appendChild(boton);
+      estadoInicial(boton, dispositivo);
     }
-    tarjeta.appendChild(acciones);
-    return tarjeta;
+    const etiqueta = document.createElement('span');
+    etiqueta.className = 'etiqueta-control';
+    etiqueta.textContent = dispositivo.nombre;
+    control.appendChild(etiqueta);
+    return control;
   }
 
-  function botonAccion(dispositivo, accion, etiqueta, clase) {
-    const boton = document.createElement('button');
-    boton.type = 'button';
-    boton.className = clase;
-    boton.textContent = etiqueta;
-    boton.addEventListener('click', async () => {
-      boton.disabled = true;
-      boton.textContent = 'Enviando…';
-      try {
-        await ejecutarComando({ dispositivoId: dispositivo.id, accion: accion || undefined });
-        toast(`${dispositivo.nombre}: listo ✓`, 'ok');
-      } catch (err) {
-        toast(err.message || 'No se pudo enviar el comando.', 'error');
-      } finally {
-        boton.disabled = false;
-        boton.textContent = etiqueta;
+  async function pulsar(boton, dispositivo) {
+    if (boton.classList.contains('enviando')) return;
+    boton.classList.add('enviando');
+    try {
+      await ejecutarComando({ dispositivoId: dispositivo.id });
+      toast(`${dispositivo.nombre}: listo ✓`, 'ok');
+      boton.classList.add('exito');
+      setTimeout(() => boton.classList.remove('exito'), 1500);
+    } catch (err) {
+      toast(err.message || 'No se pudo enviar el comando.', 'error');
+    } finally {
+      boton.classList.remove('enviando');
+    }
+  }
+
+  async function alternar(boton, dispositivo) {
+    if (boton.classList.contains('enviando')) return;
+    const encendido = boton.classList.contains('activo');
+    const accion = encendido ? 'apagar' : 'encender';
+    boton.classList.add('enviando');
+    try {
+      await ejecutarComando({ dispositivoId: dispositivo.id, accion });
+      boton.classList.toggle('activo', !encendido);
+      toast(`${dispositivo.nombre}: ${accion === 'encender' ? 'encendido ✓' : 'apagado ✓'}`, 'ok');
+    } catch (err) {
+      toast(err.message || 'No se pudo enviar el comando.', 'error');
+    } finally {
+      boton.classList.remove('enviando');
+    }
+  }
+
+  async function estadoInicial(boton, dispositivo) {
+    try {
+      const res = await consultarEstado({ dispositivoId: dispositivo.id });
+      if (res.data && res.data.encendido === true) {
+        boton.classList.add('activo');
       }
-    });
-    return boton;
+    } catch (err) {
+      // Sin estado disponible: el botón queda como apagado.
+    }
   }
 
   async function cargarRegistros() {
