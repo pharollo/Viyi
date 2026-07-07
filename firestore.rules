@@ -1,0 +1,45 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function autenticado() {
+      return request.auth != null;
+    }
+
+    function miUsuario() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    function esAdmin() {
+      return autenticado() && miUsuario().rol == 'admin';
+    }
+
+    // Cada vecino solo puede leer su propio perfil; el admin puede leer todos.
+    // Nadie escribe desde la app: los usuarios se administran en la consola de Firebase.
+    match /usuarios/{uid} {
+      allow get: if autenticado() && (request.auth.uid == uid || esAdmin());
+      allow list: if esAdmin();
+      allow write: if false;
+    }
+
+    // Un vecino solo puede leer los dispositivos que tiene asignados.
+    match /dispositivos/{id} {
+      allow get: if autenticado() &&
+        (esAdmin() || id in miUsuario().get('dispositivos', []));
+      allow list: if esAdmin();
+      allow write: if false;
+
+      // Credenciales Tuya: solo las Cloud Functions (Admin SDK) las leen.
+      match /privado/{doc} {
+        allow read, write: if false;
+      }
+    }
+
+    // El log de auditoría lo escriben las Cloud Functions y lo lee solo el admin.
+    match /registros/{id} {
+      allow read: if esAdmin();
+      allow write: if false;
+    }
+  }
+}

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10231d">
+  <title>Viyi.io</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="marca">
+      <img src="logo.svg" alt="Viyi.io" class="logo">
+      <div>
+        <h1>Viyi.io</h1>
+        <span id="nombre-condominio" class="subtitulo-marca"></span>
+      </div>
+    </div>
+    <div id="info-usuario" class="oculto">
+      <span id="nombre-usuario"></span>
+      <button id="btn-salir" type="button" class="btn-secundario">Salir</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="vista-cargando">
+      <p class="centrado">Cargando…</p>
+    </section>
+
+    <section id="vista-config" class="oculto">
+      <div class="tarjeta aviso">
+        <h2>Falta configurar Firebase</h2>
+        <p>Edita <code>docs/firebase-config.js</code> y pega la configuración web de tu proyecto de Firebase (Consola → Configuración del proyecto → Tus apps).</p>
+      </div>
+    </section>
+
+    <section id="vista-login" class="oculto">
+      <form id="form-login" class="tarjeta">
+        <div class="cabecera-login">
+          <img src="logo.svg" alt="" class="logo-login">
+          <h2>Viyi.io</h2>
+          <p id="condominio-login" class="subtitulo-login"></p>
+        </div>
+        <label for="campo-email">Correo electrónico</label>
+        <input type="email" id="campo-email" required autocomplete="email" inputmode="email">
+        <label for="campo-password">Contraseña</label>
+        <input type="password" id="campo-password" required autocomplete="current-password">
+        <button type="submit" id="btn-login" class="btn-primario">Entrar</button>
+        <p id="error-login" class="mensaje-error oculto"></p>
+      </form>
+    </section>
+
+    <section id="vista-sin-acceso" class="oculto">
+      <div class="tarjeta aviso">
+        <h2>Cuenta sin acceso</h2>
+        <p>Tu cuenta no está registrada en el condominio o fue desactivada. Contacta al administrador.</p>
+        <button id="btn-salir-2" type="button" class="btn-secundario">Salir</button>
+      </div>
+    </section>
+
+    <section id="vista-panel" class="oculto">
+      <div id="lista-dispositivos"></div>
+      <div id="seccion-admin" class="oculto">
+        <div class="encabezado-admin">
+          <h2>Registro de actividad</h2>
+          <button id="btn-refrescar" type="button" class="btn-secundario">Actualizar</button>
+        </div>
+        <ul id="lista-registros"></ul>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="oculto" role="status"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
