@@ -5,6 +5,9 @@ const VISTAS = ['vista-cargando', 'vista-config', 'vista-login', 'vista-sin-acce
 
 function mostrarVista(id) {
   VISTAS.forEach((v) => $(v).classList.toggle('oculto', v !== id));
+  // El header con marca + usuario solo tiene sentido dentro del panel;
+  // en login/config/sin-acceso la tarjeta central ya lleva el branding.
+  document.querySelector('header').classList.toggle('oculto', id !== 'vista-panel');
 }
 
 document.title = `Viyi.io · ${NOMBRE_CONDOMINIO}`;
@@ -220,13 +223,30 @@ async function iniciar() {
       boton.setAttribute('aria-label', `Encender o apagar ${dispositivo.nombre}`);
       boton.addEventListener('click', () => alternar(boton, dispositivo));
       control.appendChild(boton);
-      estadoInicial(boton, dispositivo);
     }
     const etiqueta = document.createElement('span');
     etiqueta.className = 'etiqueta-control';
     etiqueta.textContent = dispositivo.nombre;
     control.appendChild(etiqueta);
+    if (boton && dispositivo.modo !== 'pulso') {
+      const estado = document.createElement('span');
+      estado.className = 'estado-control';
+      estado.textContent = '—';
+      control.appendChild(estado);
+      estadoInicial(boton, dispositivo);
+    }
     return control;
+  }
+
+  // Refleja el estado on/off en el botón y en su etiqueta de texto.
+  function pintarEstado(boton, encendido) {
+    boton.classList.toggle('activo', encendido);
+    boton.setAttribute('aria-pressed', encendido ? 'true' : 'false');
+    const estado = boton.closest('.control')?.querySelector('.estado-control');
+    if (estado) {
+      estado.textContent = encendido ? 'Encendido' : 'Apagado';
+      estado.classList.toggle('on', encendido);
+    }
   }
 
   async function pulsar(boton, dispositivo) {
@@ -264,7 +284,7 @@ async function iniciar() {
     boton.classList.add('enviando');
     try {
       await ejecutarComando({ dispositivoId: dispositivo.id, accion });
-      boton.classList.toggle('activo', !encendido);
+      pintarEstado(boton, !encendido);
       toast(`${dispositivo.nombre}: ${accion === 'encender' ? 'encendido ✓' : 'apagado ✓'}`, 'ok');
     } catch (err) {
       toast(err.message || 'No se pudo enviar el comando.', 'error');
@@ -276,11 +296,11 @@ async function iniciar() {
   async function estadoInicial(boton, dispositivo) {
     try {
       const res = await consultarEstado({ dispositivoId: dispositivo.id });
-      if (res.data && res.data.encendido === true) {
-        boton.classList.add('activo');
+      if (res.data && typeof res.data.encendido === 'boolean') {
+        pintarEstado(boton, res.data.encendido);
       }
     } catch (err) {
-      // Sin estado disponible: el botón queda como apagado.
+      // Sin estado disponible: la etiqueta queda en "—".
     }
   }
 

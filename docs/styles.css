@@ -28,6 +28,8 @@ header {
   gap: 12px;
   padding: 18px 22px;
   background: transparent;
+  max-width: 640px;
+  margin: 0 auto;
 }
 
 header h1 {
@@ -58,6 +60,10 @@ header h1 {
   display: block;
   font-size: 12px;
   color: var(--texto-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40vw;
 }
 
 #info-usuario {
@@ -66,6 +72,18 @@ header h1 {
   gap: 10px;
   font-size: 13px;
   color: var(--texto-suave);
+  min-width: 0;
+}
+
+#nombre-usuario {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 42vw;
+}
+
+#info-usuario .btn-secundario {
+  flex-shrink: 0;
 }
 
 main {
@@ -297,6 +315,11 @@ button:disabled {
   height: 168px;
 }
 
+.boton-circular.grande svg {
+  width: 108px;
+  height: auto;
+}
+
 .boton-circular.medio {
   width: 92px;
   height: 92px;
@@ -314,11 +337,25 @@ button:disabled {
 
 .boton-circular.activo {
   color: var(--primario);
-  box-shadow: inset 6px 6px 13px var(--sombra-oscura), inset -6px -6px 13px var(--sombra-clara);
+  box-shadow: inset 6px 6px 13px var(--sombra-oscura), inset -6px -6px 13px var(--sombra-clara),
+              inset 0 0 0 2px rgba(29, 158, 117, 0.55);
 }
 
 .boton-circular.activo svg {
-  filter: drop-shadow(0 0 7px rgba(29, 158, 117, 0.65));
+  filter: drop-shadow(0 0 9px rgba(29, 158, 117, 0.8));
+}
+
+.estado-control {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--texto-suave);
+  text-align: center;
+  min-height: 15px;
+}
+
+.estado-control.on {
+  color: var(--primario);
 }
 
 .boton-circular.exito {
