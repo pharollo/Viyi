@@ -11,6 +11,7 @@ on:
       - 'firestore.indexes.json'
       - 'firebase.json'
       - '.firebaserc'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch: {}   # permite lanzarlo a mano desde la pestaña Actions
 
 # Evita despliegues pisándose si haces varios push seguidos.
@@ -43,6 +44,12 @@ jobs:
 
       - name: Instalar Firebase CLI
         run: npm install -g firebase-tools
+
+      # TUYA_BASE_URL es un parámetro (no secreto) que en local vive en
+      # functions/.env (ignorado por git). Lo recreamos aquí para el deploy.
+      # Se puede sobreescribir con una variable de repo TUYA_BASE_URL.
+      - name: Configurar parámetros de las functions
+        run: echo "TUYA_BASE_URL=${{ vars.TUYA_BASE_URL || 'https://openapi.tuyaus.com' }}" > functions/.env
 
       - name: Desplegar functions y Firestore
         run: firebase deploy --only functions,firestore --project viyi-25a09 --non-interactive
