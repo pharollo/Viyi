@@ -231,7 +231,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
   }
   await db.doc(`dispositivos/${id}`).set({
     nombre,
-    tipo: ['puerta', 'ascensor', 'luz', 'rele', 'otro'].includes(tipo) ? tipo : 'otro',
+    tipo: ['puerta', 'cortina', 'ascensor', 'bunker', 'luz', 'rele', 'otro'].includes(tipo) ? tipo : 'otro',
     modo: ['interruptor', 'cortina'].includes(modo) ? modo : 'pulso',
     etiquetaBoton: etiquetaBoton || '',
     orden: Number(orden) || 99,
