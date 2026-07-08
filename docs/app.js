@@ -191,8 +191,9 @@ async function iniciar() {
       anillo.className = 'anillo';
       boton = document.createElement('button');
       boton.type = 'button';
-      boton.className = 'boton-circular grande';
-      boton.innerHTML = ICONOS.candados;
+      const esAscensor = dispositivo.tipo === 'ascensor';
+      boton.className = 'boton-circular grande' + (esAscensor ? ' cuadrado' : '');
+      boton.innerHTML = esAscensor ? ICONOS.ascensor : ICONOS.candados;
       boton.setAttribute('aria-label', `${dispositivo.etiquetaBoton || 'Abrir'} ${dispositivo.nombre}`);
       boton.addEventListener('click', () => pulsar(boton, dispositivo));
       anillo.appendChild(boton);

@@ -320,6 +320,11 @@ button:disabled {
   height: auto;
 }
 
+.boton-circular.grande.cuadrado svg {
+  width: 82px;
+  height: 82px;
+}
+
 .boton-circular.medio {
   width: 92px;
   height: 92px;
