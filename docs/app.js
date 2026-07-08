@@ -47,6 +47,7 @@ async function iniciar() {
     { clave: 'puerta', titulo: 'Puertas y portones' },
     { clave: 'cortina', titulo: 'Cortinas y persianas' },
     { clave: 'ascensor', titulo: 'Ascensores' },
+    { clave: 'bunker', titulo: 'Búnker' },
     { clave: 'luz', titulo: 'Luces' },
     { clave: 'rele', titulo: 'Relés y equipos' },
     { clave: 'otro', titulo: 'Otros' },
@@ -56,6 +57,7 @@ async function iniciar() {
     candados: '<svg viewBox="0 0 88 40" width="88" height="40" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="17" width="24" height="19" rx="3.5"/><path d="M13 17v-5.5a7 7 0 0 1 14 0V17"/><circle cx="20" cy="26.5" r="2.3" fill="currentColor" stroke="none"/><line x1="44" y1="7" x2="44" y2="33" stroke-opacity="0.3"/><rect x="56" y="17" width="24" height="19" rx="3.5"/><path d="M61 17v-5.5a7 7 0 0 1 14 0"/><circle cx="68" cy="26.5" r="2.3" fill="currentColor" stroke="none"/></svg>',
     luz: '<svg viewBox="0 0 40 40" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="20" cy="20" r="7"/><path d="M20 4v5M20 31v5M4 20h5M31 20h5M8.7 8.7l3.5 3.5M27.8 27.8l3.5 3.5M31.3 8.7l-3.5 3.5M12.2 27.8l-3.5 3.5"/></svg>',
     ascensor: '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="5" width="24" height="31" rx="3"/><line x1="8" y1="14" x2="32" y2="14"/><line x1="20" y1="14" x2="20" y2="36"/><path d="M13.3 11.5L15.3 9l2 2.5"/><path d="M22.7 9l2 2.5 2-2.5"/></svg>',
+    bunker: '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 27L20 16L33 27"/><path d="M10 27V35H30V27"/><path d="M17 35V30H23V35"/><path d="M20 15C17.6 12.5 17.6 8.5 20 6C22.4 8.5 22.4 12.5 20 15Z"/><path d="M17.3 7L20 3.8L22.7 7"/><path d="M25 6L23 8.6"/><path d="M26.6 10L24.6 12"/></svg>',
     rele: '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M20 5v14"/><path d="M28.8 11a12 12 0 1 1-17.6 0"/></svg>',
     otro: '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M20 5v14"/><path d="M28.8 11a12 12 0 1 1-17.6 0"/></svg>',
     arriba: '<svg viewBox="0 0 40 40" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 25l10-11 10 11"/></svg>',
@@ -191,9 +193,9 @@ async function iniciar() {
       anillo.className = 'anillo';
       boton = document.createElement('button');
       boton.type = 'button';
-      const esAscensor = dispositivo.tipo === 'ascensor';
-      boton.className = 'boton-circular grande' + (esAscensor ? ' cuadrado' : '');
-      boton.innerHTML = esAscensor ? ICONOS.ascensor : ICONOS.candados;
+      const iconoCuadrado = dispositivo.tipo === 'ascensor' || dispositivo.tipo === 'bunker';
+      boton.className = 'boton-circular grande' + (iconoCuadrado ? ' cuadrado' : '');
+      boton.innerHTML = iconoCuadrado ? ICONOS[dispositivo.tipo] : ICONOS.candados;
       boton.setAttribute('aria-label', `${dispositivo.etiquetaBoton || 'Abrir'} ${dispositivo.nombre}`);
       boton.addEventListener('click', () => pulsar(boton, dispositivo));
       anillo.appendChild(boton);
@@ -460,7 +462,7 @@ async function iniciar() {
     const iId = entrada(d.id, 'ej: porton-garaje');
     if (!esNuevo) iId.disabled = true;
     const iNombre = entrada(d.nombre, 'ej: Portón del garaje');
-    const sTipo = selector([['puerta', 'Puerta / portón'], ['cortina', 'Cortina / persiana'], ['ascensor', 'Ascensor'], ['luz', 'Luz'], ['rele', 'Relé / equipo'], ['otro', 'Otro']], d.tipo || 'puerta');
+    const sTipo = selector([['puerta', 'Puerta / portón'], ['cortina', 'Cortina / persiana'], ['ascensor', 'Ascensor'], ['bunker', 'Búnker'], ['luz', 'Luz'], ['rele', 'Relé / equipo'], ['otro', 'Otro']], d.tipo || 'puerta');
     const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (abrir / parar / cerrar)']], d.modo || 'pulso');
     const iOrden = entrada(d.orden != null ? d.orden : 10, '', 'number');
     const cActivo = casilla('Activo', d.activo !== false);
