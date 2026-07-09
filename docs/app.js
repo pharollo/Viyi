@@ -10,7 +10,7 @@ function mostrarVista(id) {
   document.querySelector('header').classList.toggle('oculto', id !== 'vista-panel');
 }
 
-document.title = `Viyi.io · ${NOMBRE_CONDOMINIO}`;
+document.title = `ViYi · ${NOMBRE_CONDOMINIO}`;
 $('nombre-condominio').textContent = NOMBRE_CONDOMINIO;
 $('condominio-login').textContent = NOMBRE_CONDOMINIO;
 
