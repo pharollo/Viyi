@@ -34,14 +34,15 @@ header {
 }
 
 header h1 {
-  font-size: 19px;
-  font-weight: 300;
-  letter-spacing: 0.16em;
-  line-height: 1.15;
+  font-family: "Poppins", sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.1;
 }
 
 .logo {
-  border-radius: 9px;
+  color: var(--texto);
 }
 
 .marca {
@@ -52,8 +53,8 @@ header h1 {
 }
 
 .logo {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
 }
 
@@ -138,15 +139,17 @@ code {
 }
 
 #form-login h2 {
-  font-size: 26px;
-  font-weight: 300;
-  letter-spacing: 0.18em;
+  font-family: "Poppins", sans-serif;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: 0;
   margin: 12px 0 2px;
 }
 
 .logo-login {
   width: 68px;
   height: 68px;
+  color: var(--texto);
 }
 
 .subtitulo-login {
