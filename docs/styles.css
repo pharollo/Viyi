@@ -380,6 +380,19 @@ button:disabled {
   fill: var(--primario);
 }
 
+/* Búnker: la bomba se mantiene neutra; la mecha se enciende (verde con
+   brillo) al pulsar/activar, como si prendiera. */
+.icono-bunker {
+  color: var(--texto-suave);
+}
+
+.boton-circular.enviando .mecha,
+.boton-circular.exito .mecha,
+.boton-circular.activo .mecha {
+  stroke: var(--primario);
+  filter: drop-shadow(0 0 2.5px rgba(29, 158, 117, 0.9));
+}
+
 .boton-circular.enviando {
   animation: pulso-envio 0.9s ease-in-out infinite;
 }
