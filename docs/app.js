@@ -274,7 +274,6 @@ async function iniciar() {
     boton.classList.add('enviando');
     try {
       await ejecutarComando({ dispositivoId: dispositivo.id });
-      toast(`${dispositivo.nombre}: listo ✓`, 'ok');
       boton.classList.add('exito');
       setTimeout(() => boton.classList.remove('exito'), 1500);
     } catch (err) {
@@ -289,7 +288,6 @@ async function iniciar() {
     boton.classList.add('enviando');
     try {
       await ejecutarComando({ dispositivoId: dispositivo.id, accion });
-      toast(`${dispositivo.nombre}: ${texto.toLowerCase()} ✓`, 'ok');
     } catch (err) {
       toast(err.message || 'No se pudo enviar el comando.', 'error');
     } finally {
@@ -305,7 +303,6 @@ async function iniciar() {
     try {
       await ejecutarComando({ dispositivoId: dispositivo.id, accion });
       pintarEstado(boton, !encendido);
-      toast(`${dispositivo.nombre}: ${accion === 'encender' ? 'encendido ✓' : 'apagado ✓'}`, 'ok');
     } catch (err) {
       toast(err.message || 'No se pudo enviar el comando.', 'error');
     } finally {
