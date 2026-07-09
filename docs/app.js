@@ -319,6 +319,28 @@ async function iniciar() {
     }
   }
 
+  // Clic corto tipo dial usando Web Audio (sin archivos). Se crea el contexto
+  // en el primer gesto del usuario (el arrastre) y se reutiliza.
+  let audioCtx = null;
+  function tic() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!audioCtx) audioCtx = new AC();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const t = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(500, t);
+      gain.gain.setValueAtTime(0.05, t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.035);
+    } catch (e) { /* audio no disponible */ }
+  }
+
   // Perilla giratoria para dimmers: se arrastra alrededor del aro para fijar
   // el brillo (0–100%) y al soltar envía el comando.
   function perillaDimmer(dispositivo) {
@@ -328,18 +350,25 @@ async function iniciar() {
     perilla.setAttribute('aria-label', `Brillo de ${dispositivo.nombre}`);
     perilla.setAttribute('aria-valuemin', '0');
     perilla.setAttribute('aria-valuemax', '100');
-    perilla.innerHTML = '<svg class="perilla-svg" viewBox="0 0 120 120" aria-hidden="true"><circle class="perilla-track" cx="60" cy="60" r="48" pathLength="100" transform="rotate(135 60 60)"/><circle class="perilla-nivel" cx="60" cy="60" r="48" pathLength="100" stroke-dasharray="0 100" transform="rotate(135 60 60)"/></svg><div class="perilla-centro"><span class="perilla-valor">0%</span></div>';
+    perilla.innerHTML = '<svg class="perilla-svg" viewBox="0 0 120 120" aria-hidden="true"><circle class="perilla-track" cx="60" cy="60" r="48" pathLength="100" transform="rotate(135 60 60)"/><circle class="perilla-nivel" cx="60" cy="60" r="48" pathLength="100" stroke-dasharray="0 100" transform="rotate(135 60 60)"/></svg><div class="perilla-centro"><div class="perilla-indicador"></div><span class="perilla-valor">0%</span></div>';
     const nivel = perilla.querySelector('.perilla-nivel');
     const txt = perilla.querySelector('.perilla-valor');
+    const indicador = perilla.querySelector('.perilla-indicador');
     let valor = 0;
     let enviando = false;
+    let ultimoDetente = -1;
 
-    const pintar = (v) => {
+    const pintar = (v, sonar) => {
       valor = Math.max(0, Math.min(100, Math.round(v)));
       nivel.setAttribute('stroke-dasharray', `${valor * 0.75} 100`);
+      indicador.style.transform = `rotate(${valor * 2.7 - 135}deg)`;
       txt.textContent = valor + '%';
       perilla.classList.toggle('encendido', valor > 0);
       perilla.setAttribute('aria-valuenow', String(valor));
+      if (sonar) {
+        const detente = Math.round(valor / 3);
+        if (detente !== ultimoDetente) { tic(); ultimoDetente = detente; }
+      }
     };
     pintar(0);
 
@@ -374,7 +403,7 @@ async function iniciar() {
     const alMover = (e) => {
       if (!arrastrando) return;
       const v = valorDesde(e);
-      if (v !== null) { pintar(v); cambiado = true; }
+      if (v !== null) { pintar(v, true); cambiado = true; }
       e.preventDefault();
     };
     const alSoltar = () => {
@@ -388,7 +417,7 @@ async function iniciar() {
       arrastrando = true;
       cambiado = false;
       const v = valorDesde(e);
-      if (v !== null) { pintar(v); cambiado = true; }
+      if (v !== null) { pintar(v, true); cambiado = true; }
       window.addEventListener('pointermove', alMover);
       window.addEventListener('pointerup', alSoltar);
       e.preventDefault();

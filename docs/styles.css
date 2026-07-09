@@ -367,6 +367,31 @@ button:disabled {
   justify-content: center;
 }
 
+.perilla-indicador {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;
+  transform: rotate(-135deg);
+  pointer-events: none;
+}
+
+.perilla-indicador::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  border-radius: 50%;
+  background: var(--texto-suave);
+}
+
+.perilla.encendido .perilla-indicador::before {
+  background: var(--primario);
+  box-shadow: 0 0 6px rgba(29, 158, 117, 0.7);
+}
+
 .perilla-valor {
   font-size: 23px;
   font-weight: 600;
