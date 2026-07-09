@@ -71,6 +71,10 @@ class TuyaClient {
   estado(deviceId) {
     return this.peticion('GET', `/v1.0/iot-03/devices/${deviceId}/status`);
   }
+
+  especificacion(deviceId) {
+    return this.peticion('GET', `/v1.0/iot-03/devices/${deviceId}/specification`);
+  }
 }
 
 module.exports = { TuyaClient };

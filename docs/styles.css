@@ -306,6 +306,14 @@ button:disabled {
   color: var(--error);
 }
 
+.dps-detectados {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--texto-suave);
+  line-height: 1.55;
+  word-break: break-word;
+}
+
 .titulo-grupo {
   font-size: 12px;
   font-weight: 600;

@@ -267,6 +267,35 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
   return { ok: true };
 });
 
+exports.adminInspeccionarDispositivo = onCall(
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
+  async (request) => {
+    await exigirAdmin(request);
+    const { tuyaDeviceId } = request.data || {};
+    if (!tuyaDeviceId || typeof tuyaDeviceId !== 'string') {
+      throw new HttpsError('invalid-argument', 'Falta el Device ID de Tuya.');
+    }
+    const spec = await tuya().especificacion(tuyaDeviceId.trim()).catch(() => null);
+    const estado = await tuya().estado(tuyaDeviceId.trim()).catch(() => null);
+    let funciones = (spec && spec.functions) || [];
+    // Fallback: si no hay especificación, usar los DPs del estado actual.
+    if (!funciones.length && Array.isArray(estado)) {
+      funciones = estado.map((e) => ({
+        code: e.code,
+        type: typeof e.value === 'boolean' ? 'Boolean' : (typeof e.value === 'number' ? 'Integer' : 'String'),
+        values: '',
+      }));
+    }
+    if (!funciones.length) {
+      throw new HttpsError('failed-precondition', 'No se pudieron leer los datapoints. Revisa el Device ID.');
+    }
+    return {
+      funciones: funciones.map((f) => ({ code: f.code, type: f.type, values: f.values || '' })),
+      estado: (estado || []).map((e) => ({ code: e.code, value: e.value })),
+    };
+  }
+);
+
 exports.adminEliminarDispositivo = onCall(async (request) => {
   await exigirAdmin(request);
   const { id } = request.data || {};

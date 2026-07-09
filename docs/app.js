@@ -45,6 +45,7 @@ async function iniciar() {
   const adminActualizarUsuario = httpsCallable(functions, 'adminActualizarUsuario');
   const adminGuardarDispositivo = httpsCallable(functions, 'adminGuardarDispositivo');
   const adminEliminarDispositivo = httpsCallable(functions, 'adminEliminarDispositivo');
+  const adminInspeccionarDispositivo = httpsCallable(functions, 'adminInspeccionarDispositivo');
 
   let usuarioActual = null;
 
@@ -604,10 +605,46 @@ async function iniciar() {
     const iBrilloMax = entrada(tuya.brilloMax, '', 'number');
     const campoBrilloCodigo = campo('Código de brillo (Tuya)', iCodigoBrillo);
     const campoBrilloMax = campo('Brillo máximo (rango Tuya, ej. 1000)', iBrilloMax);
+    const iResultadoDps = document.createElement('div');
+    iResultadoDps.className = 'dps-detectados';
+    const btnDetectar = botonForm('Detectar DPs del dispositivo', 'btn-secundario', async (ev) => {
+      const b = ev.currentTarget;
+      const idTuya = iDevice.value.trim();
+      if (!idTuya) { toast('Primero pon el Device ID de Tuya.', 'error'); return; }
+      b.disabled = true;
+      const orig = b.textContent;
+      b.textContent = 'Detectando…';
+      iResultadoDps.textContent = '';
+      try {
+        const res = await adminInspeccionarDispositivo({ tuyaDeviceId: idTuya });
+        const funciones = (res.data && res.data.funciones) || [];
+        const sw = funciones.find((f) => f.type === 'Boolean' && /switch|light/i.test(f.code)) || funciones.find((f) => f.type === 'Boolean');
+        const brillo = funciones.find((f) => /bright/i.test(f.code));
+        if (sw) iCodigo.value = sw.code;
+        if (brillo) {
+          iCodigoBrillo.value = brillo.code;
+          try { const v = JSON.parse(brillo.values || '{}'); if (v.max) iBrilloMax.value = v.max; } catch (e) { /* sin rango */ }
+        }
+        const lista = funciones.map((f) => f.code).join(', ');
+        iResultadoDps.innerHTML = (brillo
+          ? `✓ Brillo detectado: <b>${brillo.code}</b>${iBrilloMax.value ? ` (máx ${iBrilloMax.value})` : ''}`
+          : '⚠ No encontré un DP de brillo; elige a mano uno con "bright".')
+          + `<br>DPs disponibles: ${lista}`;
+      } catch (err) {
+        iResultadoDps.textContent = err.message || 'No se pudo detectar.';
+      } finally {
+        b.disabled = false;
+        b.textContent = orig;
+      }
+    });
+    const campoDetectar = document.createElement('div');
+    campoDetectar.className = 'campo';
+    campoDetectar.append(btnDetectar, iResultadoDps);
     const actualizarModo = () => {
       const esDimmer = sModo.value === 'dimmer';
       campoBrilloCodigo.classList.toggle('oculto', !esDimmer);
       campoBrilloMax.classList.toggle('oculto', !esDimmer);
+      campoDetectar.classList.toggle('oculto', !esDimmer);
     };
     sModo.addEventListener('change', actualizarModo);
     actualizarModo();
@@ -669,6 +706,7 @@ async function iniciar() {
       campo('Duración del pulso (ms)', iPulso),
       campoBrilloCodigo,
       campoBrilloMax,
+      campoDetectar,
     ], acciones);
   }
 
