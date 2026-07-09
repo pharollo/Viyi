@@ -67,12 +67,21 @@ header h1 {
   max-width: 40vw;
 }
 
-.info-usuario-menu {
-  margin-top: auto;
-  padding: 12px 8px 2px;
+#info-usuario {
   font-size: 13px;
   color: var(--texto-suave);
-  border-top: 1px solid var(--sombra-clara);
+  min-width: 0;
+  flex-shrink: 1;
+  text-align: right;
+}
+
+#nombre-usuario {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 42vw;
+  display: inline-block;
+  vertical-align: bottom;
 }
 
 main {

@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=24">
+  <link rel="stylesheet" href="styles.css?v=25">
 </head>
 <body>
   <header>
@@ -26,6 +26,9 @@
           <span id="nombre-condominio" class="subtitulo-marca"></span>
         </div>
       </div>
+    </div>
+    <div id="info-usuario" class="oculto">
+      <span id="nombre-usuario"></span>
     </div>
   </header>
 
@@ -98,14 +101,11 @@
     <button type="button" class="item-menu activa" data-tab="tab-controles">Controles</button>
     <button type="button" class="item-menu solo-admin" data-tab="tab-gestion">Gestión</button>
     <button type="button" class="item-menu solo-admin" data-tab="tab-registro">Registro</button>
-    <div id="info-usuario" class="info-usuario-menu oculto">
-      <span id="nombre-usuario"></span>
-    </div>
     <button id="btn-salir" type="button" class="item-menu item-salir">Salir</button>
   </nav>
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=24"></script>
+  <script type="module" src="app.js?v=25"></script>
 </body>
 </html>
