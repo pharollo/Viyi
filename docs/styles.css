@@ -233,17 +233,74 @@ button:disabled {
   font-size: 14px;
 }
 
-.pestanas {
+.izq {
   display: flex;
+  align-items: center;
   gap: 12px;
-  justify-content: center;
-  margin: 8px 0 14px;
+  min-width: 0;
 }
 
-.pestana {
+.btn-menu {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  color: var(--texto);
+  background: var(--superficie);
+  box-shadow: 4px 4px 10px var(--sombra-oscura), -4px -4px 10px var(--sombra-clara);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-menu:active {
+  box-shadow: inset 4px 4px 8px var(--sombra-oscura), inset -4px -4px 8px var(--sombra-clara);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.menu-lateral {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 250px;
+  max-width: 80vw;
+  z-index: 50;
+  background: var(--fondo);
+  padding: 22px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transform: translateX(-105%);
+  transition: transform 0.28s ease;
+}
+
+.menu-lateral.abierto {
+  transform: translateX(0);
+  box-shadow: 12px 0 28px var(--sombra-oscura);
+}
+
+.titulo-menu {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+  margin: 4px 6px 12px;
+}
+
+.item-menu {
+  text-align: left;
   border-radius: 14px;
-  padding: 11px 20px;
-  font-size: 14px;
+  padding: 14px 18px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--texto-suave);
   background: var(--superficie);
@@ -251,7 +308,7 @@ button:disabled {
   -webkit-tap-highlight-color: transparent;
 }
 
-.pestana.activa {
+.item-menu.activa {
   color: var(--primario);
   box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
 }

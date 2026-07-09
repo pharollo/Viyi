@@ -8,6 +8,11 @@ function mostrarVista(id) {
   // El header con marca + usuario solo tiene sentido dentro del panel;
   // en login/config/sin-acceso la tarjeta central ya lleva el branding.
   document.querySelector('header').classList.toggle('oculto', id !== 'vista-panel');
+  // Fuera del panel, el menú lateral siempre cerrado.
+  if (id !== 'vista-panel') {
+    $('menu-lateral').classList.remove('abierto');
+    $('backdrop').classList.add('oculto');
+  }
 }
 
 document.title = `ViYi · ${NOMBRE_CONDOMINIO}`;
@@ -139,11 +144,11 @@ async function iniciar() {
       renderDispositivos(dispositivos);
 
       if (usuario.rol === 'admin') {
-        $('pestanas').classList.remove('oculto');
+        $('btn-menu').classList.remove('oculto');
         cargarGestion();
         cargarRegistros();
       } else {
-        $('pestanas').classList.add('oculto');
+        $('btn-menu').classList.add('oculto');
       }
       mostrarTab('tab-controles');
       mostrarVista('vista-panel');
@@ -610,12 +615,26 @@ async function iniciar() {
   const PANELES_TAB = ['tab-controles', 'tab-gestion', 'tab-registro'];
   function mostrarTab(id) {
     PANELES_TAB.forEach((t) => $(t).classList.toggle('oculto', t !== id));
-    document.querySelectorAll('.pestana').forEach((p) => {
+    document.querySelectorAll('.item-menu').forEach((p) => {
       p.classList.toggle('activa', p.dataset.tab === id);
     });
   }
-  document.querySelectorAll('.pestana').forEach((p) => {
-    p.addEventListener('click', () => mostrarTab(p.dataset.tab));
+
+  const abrirMenu = () => {
+    $('menu-lateral').classList.add('abierto');
+    $('backdrop').classList.remove('oculto');
+  };
+  const cerrarMenu = () => {
+    $('menu-lateral').classList.remove('abierto');
+    $('backdrop').classList.add('oculto');
+  };
+  $('btn-menu').addEventListener('click', abrirMenu);
+  $('backdrop').addEventListener('click', cerrarMenu);
+  document.querySelectorAll('.item-menu').forEach((p) => {
+    p.addEventListener('click', () => {
+      mostrarTab(p.dataset.tab);
+      cerrarMenu();
+    });
   });
 
   async function cargarRegistros() {

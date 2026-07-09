@@ -11,15 +11,20 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=21">
+  <link rel="stylesheet" href="styles.css?v=22">
 </head>
 <body>
   <header>
-    <div class="marca">
-      <img src="logo.svg?v=2" alt="ViYi" class="logo">
-      <div>
-        <h1>ViYi</h1>
-        <span id="nombre-condominio" class="subtitulo-marca"></span>
+    <div class="izq">
+      <button id="btn-menu" type="button" class="btn-menu oculto" aria-label="Abrir menú">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      </button>
+      <div class="marca">
+        <img src="logo.svg?v=2" alt="ViYi" class="logo">
+        <div>
+          <h1>ViYi</h1>
+          <span id="nombre-condominio" class="subtitulo-marca"></span>
+        </div>
       </div>
     </div>
     <div id="info-usuario" class="oculto">
@@ -65,11 +70,6 @@
     </section>
 
     <section id="vista-panel" class="oculto">
-      <nav id="pestanas" class="pestanas oculto" aria-label="Secciones">
-        <button type="button" class="pestana activa" data-tab="tab-controles">Controles</button>
-        <button type="button" class="pestana" data-tab="tab-gestion">Gestión</button>
-        <button type="button" class="pestana" data-tab="tab-registro">Registro</button>
-      </nav>
       <div id="tab-controles" class="panel-tab">
         <div id="lista-dispositivos"></div>
       </div>
@@ -96,8 +96,16 @@
     </section>
   </main>
 
+  <div id="backdrop" class="backdrop oculto"></div>
+  <nav id="menu-lateral" class="menu-lateral" aria-label="Secciones">
+    <h2 class="titulo-menu">Menú</h2>
+    <button type="button" class="item-menu activa" data-tab="tab-controles">Controles</button>
+    <button type="button" class="item-menu" data-tab="tab-gestion">Gestión</button>
+    <button type="button" class="item-menu" data-tab="tab-registro">Registro</button>
+  </nav>
+
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=21"></script>
+  <script type="module" src="app.js?v=22"></script>
 </body>
 </html>
