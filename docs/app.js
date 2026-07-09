@@ -362,7 +362,6 @@ async function iniciar() {
 
     const pintar = (v, sonar) => {
       valor = Math.max(0, Math.min(100, Math.round(v)));
-      if (valor > 0) ultimoBrillo = valor;
       nivel.setAttribute('stroke-dasharray', `${valor * 0.75} 100`);
       indicador.style.transform = `rotate(${valor * 2.7 - 135}deg)`;
       txt.textContent = valor;
@@ -387,18 +386,34 @@ async function iniciar() {
       return d < 315 ? 100 : 0;
     };
 
-    async function enviarBrillo() {
+    async function enviarBrillo(extra) {
       if (enviando) return;
       enviando = true;
-      perilla.classList.add('perilla-enviando');
+      if (!extra) perilla.classList.add('perilla-enviando'); // el pulso solo en arrastre directo
       try {
-        await ejecutarComando({ dispositivoId: dispositivo.id, accion: 'brillo', valor });
+        await ejecutarComando({ dispositivoId: dispositivo.id, accion: 'brillo', valor, ...(extra || {}) });
       } catch (err) {
         toast(err.message || 'No se pudo enviar el comando.', 'error');
       } finally {
         perilla.classList.remove('perilla-enviando');
         enviando = false;
       }
+    }
+
+    // Anima la UI de la perilla de su valor actual hasta 'destino' (suave).
+    let animId = null;
+    function animarA(destino) {
+      if (animId) cancelAnimationFrame(animId);
+      const inicio = valor;
+      const t0 = performance.now();
+      const dur = 1400;
+      const paso = (t) => {
+        const k = Math.min(1, (t - t0) / dur);
+        const suave = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; // easeInOut
+        pintar(inicio + (destino - inicio) * suave);
+        animId = k < 1 ? requestAnimationFrame(paso) : null;
+      };
+      animId = requestAnimationFrame(paso);
     }
 
     let arrastrando = false;
@@ -416,14 +431,18 @@ async function iniciar() {
       window.removeEventListener('pointermove', alMover);
       window.removeEventListener('pointerup', alSoltar);
       if (cambiado) {
+        if (valor > 0) ultimoBrillo = valor;
         enviarBrillo();
       } else if (empezoCentro) {
-        // Toque en el centro (sin arrastrar): apaga, o enciende al último brillo.
-        pintar(valor > 0 ? 0 : (ultimoBrillo || 100), true);
-        enviarBrillo();
+        // Toque en el centro: apaga (fade out) o enciende al último brillo (fade in).
+        const destino = valor > 0 ? 0 : (ultimoBrillo || 100);
+        const desde = valor;
+        animarA(destino);
+        enviarBrillo({ valor: destino, desde, fade: true });
       }
     };
     perilla.addEventListener('pointerdown', (e) => {
+      if (animId) { cancelAnimationFrame(animId); animId = null; }
       arrastrando = true;
       cambiado = false;
       const v = valorDesde(e);
@@ -437,7 +456,10 @@ async function iniciar() {
     (async () => {
       try {
         const res = await consultarEstado({ dispositivoId: dispositivo.id });
-        if (res.data && typeof res.data.brillo === 'number') pintar(res.data.brillo);
+        if (res.data && typeof res.data.brillo === 'number') {
+          pintar(res.data.brillo);
+          if (res.data.brillo > 0) ultimoBrillo = res.data.brillo;
+        }
       } catch (err) { /* sin estado disponible */ }
     })();
 

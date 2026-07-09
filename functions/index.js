@@ -118,12 +118,36 @@ exports.ejecutarComando = onCall(
         const codigoBrillo = config.codigoBrillo || 'bright_value_v2';
         const brilloMax = Number(config.brilloMax) || 1000;
         const brilloMin = Math.max(1, Math.round(brilloMax * 0.05));
-        const comandos = [{ code: codigo, value: nivelPct > 0 }];
-        if (nivelPct > 0) {
-          const bruto = Math.round(brilloMin + (nivelPct / 100) * (brilloMax - brilloMin));
-          comandos.push({ code: codigoBrillo, value: bruto });
+        const bruto = (pct) => {
+          const p = Math.max(0, Math.min(100, pct));
+          return Math.round(brilloMin + (p / 100) * (brilloMax - brilloMin));
+        };
+        const conFundido = request.data.fade === true;
+        const desde = Math.max(0, Math.min(100, Number(request.data.desde) || 0));
+        if (conFundido && nivelPct !== desde) {
+          const pasos = 6;
+          if (nivelPct > 0) {
+            // Fade in: encender y subir el brillo gradualmente.
+            await tuya().enviarComandos(config.tuyaDeviceId, [{ code: codigo, value: true }]);
+            for (let i = 1; i <= pasos; i++) {
+              const p = desde + (nivelPct - desde) * (i / pasos);
+              await tuya().enviarComandos(config.tuyaDeviceId, [{ code: codigoBrillo, value: bruto(p) }]);
+              if (i < pasos) await dormir(160);
+            }
+          } else {
+            // Fade out: bajar el brillo gradualmente y apagar.
+            for (let i = 1; i <= pasos; i++) {
+              const p = desde * (1 - i / pasos);
+              await tuya().enviarComandos(config.tuyaDeviceId, [{ code: codigoBrillo, value: bruto(Math.max(p, 0.5)) }]);
+              if (i < pasos) await dormir(160);
+            }
+            await tuya().enviarComandos(config.tuyaDeviceId, [{ code: codigo, value: false }]);
+          }
+        } else {
+          const comandos = [{ code: codigo, value: nivelPct > 0 }];
+          if (nivelPct > 0) comandos.push({ code: codigoBrillo, value: bruto(nivelPct) });
+          await tuya().enviarComandos(config.tuyaDeviceId, comandos);
         }
-        await tuya().enviarComandos(config.tuyaDeviceId, comandos);
       } else {
         if (accion !== 'encender' && accion !== 'apagar') {
           throw new HttpsError('invalid-argument', "La acción debe ser 'encender' o 'apagar'.");
