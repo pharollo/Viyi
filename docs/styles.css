@@ -313,6 +313,11 @@ button:disabled {
   box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
 }
 
+.item-salir {
+  margin-top: auto;
+  color: var(--error);
+}
+
 .titulo-grupo {
   font-size: 12px;
   font-weight: 600;

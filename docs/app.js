@@ -143,12 +143,12 @@ async function iniciar() {
       const dispositivos = await cargarDispositivos(usuario);
       renderDispositivos(dispositivos);
 
-      if (usuario.rol === 'admin') {
-        $('btn-menu').classList.remove('oculto');
+      const esAdmin = usuario.rol === 'admin';
+      $('btn-menu').classList.remove('oculto');
+      document.querySelectorAll('.solo-admin').forEach((el) => el.classList.toggle('oculto', !esAdmin));
+      if (esAdmin) {
         cargarGestion();
         cargarRegistros();
-      } else {
-        $('btn-menu').classList.add('oculto');
       }
       mostrarTab('tab-controles');
       mostrarVista('vista-panel');
