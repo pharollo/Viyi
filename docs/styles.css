@@ -401,19 +401,6 @@ button:disabled {
   filter: drop-shadow(0 0 9px rgba(29, 158, 117, 0.8));
 }
 
-.estado-control {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: var(--texto-suave);
-  text-align: center;
-  min-height: 15px;
-}
-
-.estado-control.on {
-  color: var(--primario);
-}
-
 .boton-circular.exito {
   color: var(--primario);
 }

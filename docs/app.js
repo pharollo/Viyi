@@ -254,10 +254,6 @@ async function iniciar() {
     etiqueta.textContent = dispositivo.nombre;
     control.appendChild(etiqueta);
     if (boton && dispositivo.modo !== 'pulso') {
-      const estado = document.createElement('span');
-      estado.className = 'estado-control';
-      estado.textContent = '—';
-      control.appendChild(estado);
       estadoInicial(boton, dispositivo);
     }
     return control;
@@ -267,11 +263,6 @@ async function iniciar() {
   function pintarEstado(boton, encendido) {
     boton.classList.toggle('activo', encendido);
     boton.setAttribute('aria-pressed', encendido ? 'true' : 'false');
-    const estado = boton.closest('.control')?.querySelector('.estado-control');
-    if (estado) {
-      estado.textContent = encendido ? 'Encendido' : 'Apagado';
-      estado.classList.toggle('on', encendido);
-    }
   }
 
   async function pulsar(boton, dispositivo) {
