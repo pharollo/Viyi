@@ -10,6 +10,7 @@
   --texto-suave: #8d9297;
   --primario: #1d9e75;
   --error: #f09595;
+  --fuego: #ff8c3a;
   --sombra-oscura: rgba(0, 0, 0, 0.55);
   --sombra-clara: rgba(255, 255, 255, 0.05);
 }
@@ -389,8 +390,8 @@ button:disabled {
 .boton-circular.enviando .mecha,
 .boton-circular.exito .mecha,
 .boton-circular.activo .mecha {
-  stroke: var(--primario);
-  filter: drop-shadow(0 0 2.5px rgba(29, 158, 117, 0.9));
+  stroke: var(--fuego);
+  filter: drop-shadow(0 0 3px rgba(255, 140, 58, 0.95));
 }
 
 .boton-circular.enviando {
