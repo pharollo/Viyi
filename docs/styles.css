@@ -50,6 +50,12 @@ header h1 {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.marca:active {
+  opacity: 0.6;
 }
 
 .logo {

@@ -868,6 +868,13 @@ async function iniciar() {
     });
   });
 
+  // Clic en el logo "ViYi" -> volver a Controles desde cualquier vista.
+  const irInicio = () => { mostrarTab('tab-controles'); cerrarMenu(); };
+  $('ir-inicio').addEventListener('click', irInicio);
+  $('ir-inicio').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); irInicio(); }
+  });
+
   async function cargarRegistros() {
     const lista = $('lista-registros');
     lista.textContent = '';
