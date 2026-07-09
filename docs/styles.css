@@ -367,6 +367,19 @@ button:disabled {
   color: var(--primario);
 }
 
+/* Ascensor: el icono se mantiene neutro; solo la flecha de subir se
+   enciende (se rellena de verde) cuando el botón está enviando o activo. */
+.icono-ascensor {
+  color: var(--texto-suave);
+}
+
+.boton-circular.enviando .flecha-subir,
+.boton-circular.exito .flecha-subir,
+.boton-circular.activo .flecha-subir {
+  stroke: var(--primario);
+  fill: var(--primario);
+}
+
 .boton-circular.enviando {
   animation: pulso-envio 0.9s ease-in-out infinite;
 }
