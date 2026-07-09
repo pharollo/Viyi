@@ -230,7 +230,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Faltan el nombre o el Device ID de Tuya.');
   }
   let tipoFinal = ['puerta', 'cortina', 'ascensor', 'luz', 'rele', 'otro'].includes(tipo) ? tipo : 'otro';
-  let subFinal = subtipo === 'bunker' ? 'bunker' : '';
+  let subFinal = ['bunker', 'porton'].includes(subtipo) ? subtipo : '';
   if (tipo === 'bunker') { tipoFinal = 'puerta'; subFinal = 'bunker'; } // compat con el tipo viejo
   if (tipoFinal !== 'puerta') subFinal = '';                            // el subtipo solo aplica a puerta
   await db.doc(`dispositivos/${id}`).set({

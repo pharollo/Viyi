@@ -55,19 +55,22 @@ async function iniciar() {
   // Subcategorías por tipo: segundo dropdown en el editor. Búnker es una
   // subcategoría de "puerta" (mismo grupo, pero con icono de bomba).
   const SUBTIPOS = {
-    puerta: [['', 'Normal'], ['bunker', 'Búnker']],
+    puerta: [['', 'Normal'], ['porton', 'Portón'], ['bunker', 'Búnker']],
   };
+
+  // Subtipos que traen su propio icono (cuadrado). Los demás usan el del tipo.
+  const ICONO_SUBTIPO = { bunker: 'bunker', porton: 'porton' };
 
   // Compat: dispositivos viejos guardados con tipo 'bunker' se tratan como
   // puerta + subtipo bunker.
   const normalizar = (d) => (d.tipo === 'bunker' ? { ...d, tipo: 'puerta', subtipo: 'bunker' } : d);
-  const esBunker = (d) => d.subtipo === 'bunker';
 
   const ICONOS = {
     candados: '<svg viewBox="0 0 88 40" width="88" height="40" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="17" width="24" height="19" rx="3.5"/><path d="M13 17v-5.5a7 7 0 0 1 14 0V17"/><circle cx="20" cy="26.5" r="2.3" fill="currentColor" stroke="none"/><line x1="44" y1="7" x2="44" y2="33" stroke-opacity="0.3"/><rect x="56" y="17" width="24" height="19" rx="3.5"/><path d="M61 17v-5.5a7 7 0 0 1 14 0"/><circle cx="68" cy="26.5" r="2.3" fill="currentColor" stroke="none"/></svg>',
     luz: '<svg viewBox="0 0 40 40" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="20" cy="20" r="7"/><path d="M20 4v5M20 31v5M4 20h5M31 20h5M8.7 8.7l3.5 3.5M27.8 27.8l3.5 3.5M31.3 8.7l-3.5 3.5M12.2 27.8l-3.5 3.5"/></svg>',
     ascensor: '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="5" width="24" height="31" rx="3"/><line x1="8" y1="14" x2="32" y2="14"/><line x1="20" y1="14" x2="20" y2="36"/><path d="M13.3 11.5L15.3 9l2 2.5"/><path d="M22.7 9l2 2.5 2-2.5"/></svg>',
     bunker: '<svg viewBox="-4 0.5 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="16" cy="25" r="10.5"/><path d="M12.8 15V12Q12.8 10.7 14.1 10.7H17.9Q19.2 10.7 19.2 12V15"/><path d="M16 10.7C15.5 6.5 22 5.5 23.5 9.2"/><path d="M23.5 9.2L27.2 6.9M23.5 9.2L28.2 10.1M23.5 9.2L25.1 5.5M23.5 9.2L25.5 12.8"/></svg>',
+    porton: '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="10" x2="36" y2="10"/><line x1="7" y1="10" x2="7" y2="28"/><line x1="11" y1="10" x2="11" y2="28"/><line x1="15" y1="10" x2="15" y2="28"/><line x1="6" y1="28" x2="16" y2="28"/><path d="M19 29V26.5Q19 25.8 19.7 25.8H22L24.5 22.3H29.5L31.5 25.8H32.8Q33.5 25.8 33.5 26.5V29"/><line x1="18.5" y1="29" x2="34" y2="29"/><circle cx="22.5" cy="29.3" r="1.9"/><circle cx="30.5" cy="29.3" r="1.9"/></svg>',
     rele: '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M20 5v14"/><path d="M28.8 11a12 12 0 1 1-17.6 0"/></svg>',
     otro: '<svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M20 5v14"/><path d="M28.8 11a12 12 0 1 1-17.6 0"/></svg>',
     arriba: '<svg viewBox="0 0 40 40" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 25l10-11 10 11"/></svg>',
@@ -203,9 +206,10 @@ async function iniciar() {
       anillo.className = 'anillo';
       boton = document.createElement('button');
       boton.type = 'button';
-      const iconoCuadrado = dispositivo.tipo === 'ascensor' || esBunker(dispositivo);
+      const iconoSub = ICONO_SUBTIPO[dispositivo.subtipo];
+      const iconoCuadrado = !!iconoSub || dispositivo.tipo === 'ascensor';
       boton.className = 'boton-circular grande' + (iconoCuadrado ? ' cuadrado' : '');
-      boton.innerHTML = esBunker(dispositivo) ? ICONOS.bunker
+      boton.innerHTML = iconoSub ? ICONOS[iconoSub]
         : (dispositivo.tipo === 'ascensor' ? ICONOS.ascensor : ICONOS.candados);
       boton.setAttribute('aria-label', `${dispositivo.etiquetaBoton || 'Abrir'} ${dispositivo.nombre}`);
       boton.addEventListener('click', () => pulsar(boton, dispositivo));
@@ -233,7 +237,9 @@ async function iniciar() {
       boton = document.createElement('button');
       boton.type = 'button';
       boton.className = 'boton-circular medio';
-      boton.innerHTML = esBunker(dispositivo) ? ICONOS.bunker : (ICONOS[dispositivo.tipo] || ICONOS.otro);
+      boton.innerHTML = ICONO_SUBTIPO[dispositivo.subtipo]
+        ? ICONOS[ICONO_SUBTIPO[dispositivo.subtipo]]
+        : (ICONOS[dispositivo.tipo] || ICONOS.otro);
       boton.setAttribute('aria-label', `Encender o apagar ${dispositivo.nombre}`);
       boton.addEventListener('click', () => alternar(boton, dispositivo));
       control.appendChild(boton);
