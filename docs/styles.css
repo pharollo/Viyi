@@ -271,7 +271,7 @@ button:disabled {
   max-width: 80vw;
   z-index: 50;
   background: var(--fondo);
-  padding: 22px 16px;
+  padding: 34px 16px 22px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -282,15 +282,6 @@ button:disabled {
 .menu-lateral.abierto {
   transform: translateX(0);
   box-shadow: 12px 0 28px var(--sombra-oscura);
-}
-
-.titulo-menu {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--texto-suave);
-  margin: 4px 6px 12px;
 }
 
 .item-menu {
@@ -311,6 +302,7 @@ button:disabled {
 }
 
 .item-salir {
+  margin-top: auto;
   color: var(--error);
 }
 
