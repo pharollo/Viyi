@@ -15,9 +15,7 @@ function mostrarVista(id) {
   }
 }
 
-document.title = `ViYi · ${NOMBRE_CONDOMINIO}`;
-$('nombre-condominio').textContent = NOMBRE_CONDOMINIO;
-$('condominio-login').textContent = NOMBRE_CONDOMINIO;
+document.title = 'ViYi';
 
 if (!firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith('PEGA_')) {
   mostrarVista('vista-config');
