@@ -351,7 +351,7 @@ async function iniciar() {
     perilla.setAttribute('aria-label', `Brillo de ${dispositivo.nombre}`);
     perilla.setAttribute('aria-valuemin', '0');
     perilla.setAttribute('aria-valuemax', '100');
-    perilla.innerHTML = '<svg class="perilla-svg" viewBox="0 0 120 120" aria-hidden="true"><circle class="perilla-track" cx="60" cy="60" r="48" pathLength="100" transform="rotate(135 60 60)"/><circle class="perilla-nivel" cx="60" cy="60" r="48" pathLength="100" stroke-dasharray="0 100" transform="rotate(135 60 60)"/></svg><div class="perilla-centro"><div class="perilla-indicador"></div><span class="perilla-valor">0%</span></div>';
+    perilla.innerHTML = '<svg class="perilla-svg" viewBox="0 0 120 120" aria-hidden="true"><circle class="perilla-track" cx="60" cy="60" r="48" pathLength="100" transform="rotate(135 60 60)"/><circle class="perilla-nivel" cx="60" cy="60" r="48" pathLength="100" stroke-dasharray="0 100" transform="rotate(135 60 60)"/></svg><div class="perilla-centro"><div class="perilla-indicador"></div><span class="perilla-valor">0</span></div>';
     const nivel = perilla.querySelector('.perilla-nivel');
     const txt = perilla.querySelector('.perilla-valor');
     const indicador = perilla.querySelector('.perilla-indicador');
@@ -363,7 +363,7 @@ async function iniciar() {
       valor = Math.max(0, Math.min(100, Math.round(v)));
       nivel.setAttribute('stroke-dasharray', `${valor * 0.75} 100`);
       indicador.style.transform = `rotate(${valor * 2.7 - 135}deg)`;
-      txt.textContent = valor + '%';
+      txt.textContent = valor;
       perilla.classList.toggle('encendido', valor > 0);
       perilla.setAttribute('aria-valuenow', String(valor));
       if (sonar) {
