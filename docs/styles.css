@@ -316,6 +316,71 @@ button:disabled {
   margin: 34px 4px 22px;
 }
 
+/* Perilla giratoria (dimmer) */
+.perilla {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: grab;
+}
+
+.perilla:active {
+  cursor: grabbing;
+}
+
+.perilla-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.perilla-track {
+  fill: none;
+  stroke: #2c2e33;
+  stroke-width: 11;
+  stroke-linecap: round;
+}
+
+.perilla-nivel {
+  fill: none;
+  stroke: var(--primario);
+  stroke-width: 11;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 5px rgba(29, 158, 117, 0.5));
+}
+
+.perilla:not(.encendido) .perilla-nivel {
+  opacity: 0;
+}
+
+.perilla-centro {
+  position: absolute;
+  inset: 22px;
+  border-radius: 50%;
+  background: var(--superficie);
+  box-shadow: 7px 7px 16px var(--sombra-oscura), -7px -7px 16px var(--sombra-clara);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.perilla-valor {
+  font-size: 23px;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.perilla.encendido .perilla-valor {
+  color: var(--primario);
+}
+
+.perilla-enviando {
+  animation: pulso-envio 0.9s ease-in-out infinite;
+}
+
 .grupo-controles {
   display: flex;
   flex-wrap: wrap;

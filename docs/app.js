@@ -238,6 +238,8 @@ async function iniciar() {
         fila.appendChild(b);
       }
       control.appendChild(fila);
+    } else if (dispositivo.modo === 'dimmer') {
+      control.appendChild(perillaDimmer(dispositivo));
     } else {
       boton = document.createElement('button');
       boton.type = 'button';
@@ -315,6 +317,91 @@ async function iniciar() {
     } catch (err) {
       // Sin estado disponible: la etiqueta queda en "—".
     }
+  }
+
+  // Perilla giratoria para dimmers: se arrastra alrededor del aro para fijar
+  // el brillo (0–100%) y al soltar envía el comando.
+  function perillaDimmer(dispositivo) {
+    const perilla = document.createElement('div');
+    perilla.className = 'perilla';
+    perilla.setAttribute('role', 'slider');
+    perilla.setAttribute('aria-label', `Brillo de ${dispositivo.nombre}`);
+    perilla.setAttribute('aria-valuemin', '0');
+    perilla.setAttribute('aria-valuemax', '100');
+    perilla.innerHTML = '<svg class="perilla-svg" viewBox="0 0 120 120" aria-hidden="true"><circle class="perilla-track" cx="60" cy="60" r="48" pathLength="100" transform="rotate(135 60 60)"/><circle class="perilla-nivel" cx="60" cy="60" r="48" pathLength="100" stroke-dasharray="0 100" transform="rotate(135 60 60)"/></svg><div class="perilla-centro"><span class="perilla-valor">0%</span></div>';
+    const nivel = perilla.querySelector('.perilla-nivel');
+    const txt = perilla.querySelector('.perilla-valor');
+    let valor = 0;
+    let enviando = false;
+
+    const pintar = (v) => {
+      valor = Math.max(0, Math.min(100, Math.round(v)));
+      nivel.setAttribute('stroke-dasharray', `${valor * 0.75} 100`);
+      txt.textContent = valor + '%';
+      perilla.classList.toggle('encendido', valor > 0);
+      perilla.setAttribute('aria-valuenow', String(valor));
+    };
+    pintar(0);
+
+    // Ángulo del puntero -> valor 0–100 sobre el arco de 270° (hueco abajo).
+    const valorDesde = (e) => {
+      const r = perilla.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2);
+      const dy = e.clientY - (r.top + r.height / 2);
+      if (Math.hypot(dx, dy) < 34) return null; // zona central: no cambiar
+      const ang = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+      const d = ((ang - 135) % 360 + 360) % 360;
+      if (d <= 270) return (d / 270) * 100;
+      return d < 315 ? 100 : 0;
+    };
+
+    async function enviarBrillo() {
+      if (enviando) return;
+      enviando = true;
+      perilla.classList.add('perilla-enviando');
+      try {
+        await ejecutarComando({ dispositivoId: dispositivo.id, accion: 'brillo', valor });
+      } catch (err) {
+        toast(err.message || 'No se pudo enviar el comando.', 'error');
+      } finally {
+        perilla.classList.remove('perilla-enviando');
+        enviando = false;
+      }
+    }
+
+    let arrastrando = false;
+    let cambiado = false;
+    const alMover = (e) => {
+      if (!arrastrando) return;
+      const v = valorDesde(e);
+      if (v !== null) { pintar(v); cambiado = true; }
+      e.preventDefault();
+    };
+    const alSoltar = () => {
+      if (!arrastrando) return;
+      arrastrando = false;
+      window.removeEventListener('pointermove', alMover);
+      window.removeEventListener('pointerup', alSoltar);
+      if (cambiado) enviarBrillo();
+    };
+    perilla.addEventListener('pointerdown', (e) => {
+      arrastrando = true;
+      cambiado = false;
+      const v = valorDesde(e);
+      if (v !== null) { pintar(v); cambiado = true; }
+      window.addEventListener('pointermove', alMover);
+      window.addEventListener('pointerup', alSoltar);
+      e.preventDefault();
+    });
+
+    (async () => {
+      try {
+        const res = await consultarEstado({ dispositivoId: dispositivo.id });
+        if (res.data && typeof res.data.brillo === 'number') pintar(res.data.brillo);
+      } catch (err) { /* sin estado disponible */ }
+    })();
+
+    return perilla;
   }
 
   // ── Gestión (solo admin) ──────────────────────────────────────────────
@@ -462,7 +549,7 @@ async function iniciar() {
   async function abrirEditorDispositivo(existente) {
     const esNuevo = !existente;
     const d = existente || {};
-    let tuya = { tuyaDeviceId: '', codigo: 'switch_1', pulsoMs: 1000 };
+    let tuya = { tuyaDeviceId: '', codigo: 'switch_1', pulsoMs: 1000, codigoBrillo: 'bright_value_v2', brilloMax: 1000 };
     if (!esNuevo) {
       try {
         const s = await getDoc(doc(db, `dispositivos/${d.id}/privado/tuya`));
@@ -478,12 +565,23 @@ async function iniciar() {
     const actualizarSub = () => campoSub.classList.toggle('oculto', sTipo.value !== 'puerta');
     sTipo.addEventListener('change', actualizarSub);
     actualizarSub();
-    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (abrir / parar / cerrar)']], d.modo || 'pulso');
+    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (abrir / parar / cerrar)'], ['dimmer', 'Dimmer (perilla de brillo)']], d.modo || 'pulso');
     const iOrden = entrada(d.orden != null ? d.orden : 10, '', 'number');
     const cActivo = casilla('Activo', d.activo !== false);
     const iDevice = entrada(tuya.tuyaDeviceId, 'Device ID de Tuya');
     const iCodigo = entrada(tuya.codigo, 'switch_1');
     const iPulso = entrada(tuya.pulsoMs, '', 'number');
+    const iCodigoBrillo = entrada(tuya.codigoBrillo, 'bright_value_v2');
+    const iBrilloMax = entrada(tuya.brilloMax, '', 'number');
+    const campoBrilloCodigo = campo('Código de brillo (Tuya)', iCodigoBrillo);
+    const campoBrilloMax = campo('Brillo máximo (rango Tuya, ej. 1000)', iBrilloMax);
+    const actualizarModo = () => {
+      const esDimmer = sModo.value === 'dimmer';
+      campoBrilloCodigo.classList.toggle('oculto', !esDimmer);
+      campoBrilloMax.classList.toggle('oculto', !esDimmer);
+    };
+    sModo.addEventListener('change', actualizarModo);
+    actualizarModo();
 
     const acciones = [
       botonForm('Guardar', 'btn-primario', async (ev) => {
@@ -501,6 +599,8 @@ async function iniciar() {
             tuyaDeviceId: iDevice.value.trim(),
             codigo: iCodigo.value.trim(),
             pulsoMs: Number(iPulso.value) || 1000,
+            codigoBrillo: iCodigoBrillo.value.trim(),
+            brilloMax: Number(iBrilloMax.value) || 1000,
           });
           toast('Dispositivo guardado ✓', 'ok');
           await trasGuardar();
@@ -538,6 +638,8 @@ async function iniciar() {
       campo('Device ID de Tuya', iDevice),
       campo('Código del interruptor (Debug Device)', iCodigo),
       campo('Duración del pulso (ms)', iPulso),
+      campoBrilloCodigo,
+      campoBrilloMax,
     ], acciones);
   }
 

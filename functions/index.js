@@ -82,7 +82,7 @@ exports.ejecutarComando = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
     }
-    const { dispositivoId, accion } = request.data || {};
+    const { dispositivoId, accion, valor } = request.data || {};
     if (!dispositivoId || typeof dispositivoId !== 'string') {
       throw new HttpsError('invalid-argument', 'Falta el dispositivoId.');
     }
@@ -109,6 +109,21 @@ exports.ejecutarComando = onCall(
         await tuya().enviarComandos(config.tuyaDeviceId, [
           { code: codigoCortina, value: mapa[accion] },
         ]);
+      } else if (dispositivo.modo === 'dimmer') {
+        const nivelPct = Number(valor);
+        if (!Number.isFinite(nivelPct) || nivelPct < 0 || nivelPct > 100) {
+          throw new HttpsError('invalid-argument', 'El brillo debe estar entre 0 y 100.');
+        }
+        accionRegistrada = `brillo ${Math.round(nivelPct)}%`;
+        const codigoBrillo = config.codigoBrillo || 'bright_value_v2';
+        const brilloMax = Number(config.brilloMax) || 1000;
+        const brilloMin = Math.max(1, Math.round(brilloMax * 0.05));
+        const comandos = [{ code: codigo, value: nivelPct > 0 }];
+        if (nivelPct > 0) {
+          const bruto = Math.round(brilloMin + (nivelPct / 100) * (brilloMax - brilloMin));
+          comandos.push({ code: codigoBrillo, value: bruto });
+        }
+        await tuya().enviarComandos(config.tuyaDeviceId, comandos);
       } else {
         if (accion !== 'encender' && accion !== 'apagar') {
           throw new HttpsError('invalid-argument', "La acción debe ser 'encender' o 'apagar'.");
@@ -221,7 +236,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
   await exigirAdmin(request);
   const {
     id, nombre, tipo, subtipo, modo, etiquetaBoton, orden, activo,
-    tuyaDeviceId, codigo, pulsoMs,
+    tuyaDeviceId, codigo, pulsoMs, codigoBrillo, brilloMax,
   } = request.data || {};
   if (!id || !/^[a-z0-9-]{2,40}$/.test(id)) {
     throw new HttpsError('invalid-argument', 'El id debe ser minúsculas, números y guiones (ej: porton-garaje).');
@@ -237,7 +252,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     nombre,
     tipo: tipoFinal,
     subtipo: subFinal,
-    modo: ['interruptor', 'cortina'].includes(modo) ? modo : 'pulso',
+    modo: ['interruptor', 'cortina', 'dimmer'].includes(modo) ? modo : 'pulso',
     etiquetaBoton: etiquetaBoton || '',
     orden: Number(orden) || 99,
     activo: activo !== false,
@@ -246,6 +261,8 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     tuyaDeviceId: String(tuyaDeviceId).trim(),
     codigo: (codigo || 'switch_1').trim(),
     pulsoMs: Number(pulsoMs) || 1000,
+    codigoBrillo: (codigoBrillo || 'bright_value_v2').trim(),
+    brilloMax: Number(brilloMax) || 1000,
   }, { merge: true });
   return { ok: true };
 });
@@ -278,7 +295,17 @@ exports.consultarEstado = onCall(
     try {
       const estados = await tuya().estado(config.tuyaDeviceId);
       const punto = (estados || []).find((e) => e.code === codigo);
-      return { encendido: punto ? Boolean(punto.value) : null };
+      const encendido = punto ? Boolean(punto.value) : null;
+      const codigoBrillo = config.codigoBrillo || 'bright_value_v2';
+      const puntoBrillo = (estados || []).find((e) => e.code === codigoBrillo);
+      let brillo = null;
+      if (puntoBrillo && typeof puntoBrillo.value === 'number') {
+        const brilloMax = Number(config.brilloMax) || 1000;
+        const brilloMin = Math.max(1, Math.round(brilloMax * 0.05));
+        const pct = ((puntoBrillo.value - brilloMin) / (brilloMax - brilloMin)) * 100;
+        brillo = encendido === false ? 0 : Math.max(0, Math.min(100, Math.round(pct)));
+      }
+      return { encendido, brillo };
     } catch (err) {
       throw new HttpsError('internal', 'No se pudo consultar el estado del dispositivo.');
     }
