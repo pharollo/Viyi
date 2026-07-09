@@ -55,7 +55,7 @@ async function iniciar() {
   // Subcategorías por tipo: segundo dropdown en el editor. Búnker es una
   // subcategoría de "puerta" (mismo grupo, pero con icono de bomba).
   const SUBTIPOS = {
-    puerta: [['', 'Normal'], ['porton', 'Portón'], ['bunker', 'Búnker']],
+    puerta: [['', 'Peatones'], ['porton', 'Vehículos'], ['bunker', 'Búnker']],
   };
 
   // Subtipos que traen su propio icono (cuadrado). Los demás usan el del tipo.
@@ -479,7 +479,7 @@ async function iniciar() {
     const iId = entrada(d.id, 'ej: porton-garaje');
     if (!esNuevo) iId.disabled = true;
     const iNombre = entrada(d.nombre, 'ej: Portón del garaje');
-    const sTipo = selector([['puerta', 'Puerta / portón'], ['cortina', 'Cortina / persiana'], ['ascensor', 'Ascensor'], ['luz', 'Luz'], ['rele', 'Relé / equipo'], ['otro', 'Otro']], d.tipo || 'puerta');
+    const sTipo = selector([['puerta', 'Puerta'], ['cortina', 'Cortina / persiana'], ['ascensor', 'Ascensor'], ['luz', 'Luz'], ['rele', 'Relé / equipo'], ['otro', 'Otro']], d.tipo || 'puerta');
     const sSub = selector(SUBTIPOS.puerta, d.subtipo || '');
     const campoSub = campo('Subcategoría', sSub);
     const actualizarSub = () => campoSub.classList.toggle('oculto', sTipo.value !== 'puerta');
