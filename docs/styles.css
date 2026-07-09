@@ -154,8 +154,7 @@ code {
   color: var(--texto-suave);
 }
 
-#form-login label {
-  font-size: 13px;
+#form-login input::placeholder {
   color: var(--texto-suave);
 }
 
