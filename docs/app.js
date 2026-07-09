@@ -44,7 +44,7 @@ async function iniciar() {
   let usuarioActual = null;
 
   const TIPOS = [
-    { clave: 'puerta', titulo: 'Puertas y portones' },
+    { clave: 'puerta', titulo: 'Puertas' },
     { clave: 'cortina', titulo: 'Cortinas y persianas' },
     { clave: 'ascensor', titulo: 'Ascensores' },
     { clave: 'luz', titulo: 'Luces' },
