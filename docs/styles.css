@@ -41,7 +41,6 @@ header h1 {
   letter-spacing: 0;
   line-height: 1.1;
   color: var(--logo);
-  text-shadow: 0 0 8px rgba(165, 255, 46, 0.28);
 }
 
 .logo {
@@ -154,7 +153,6 @@ code {
   letter-spacing: 0;
   margin: 12px 0 2px;
   color: var(--logo);
-  text-shadow: 0 0 10px rgba(165, 255, 46, 0.3);
 }
 
 .logo-login {
