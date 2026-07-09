@@ -11,7 +11,7 @@
   --primario: #1d9e75;
   --error: #f09595;
   --fuego: #ff8c3a;
-  --logo: #b64dff;
+  --logo: #a5ff2e;
   --sombra-oscura: rgba(0, 0, 0, 0.55);
   --sombra-clara: rgba(255, 255, 255, 0.05);
 }
@@ -41,7 +41,7 @@ header h1 {
   letter-spacing: 0;
   line-height: 1.1;
   color: var(--logo);
-  text-shadow: 0 0 14px rgba(182, 77, 255, 0.45);
+  text-shadow: 0 0 8px rgba(165, 255, 46, 0.28);
 }
 
 .logo {
@@ -154,7 +154,7 @@ code {
   letter-spacing: 0;
   margin: 12px 0 2px;
   color: var(--logo);
-  text-shadow: 0 0 18px rgba(182, 77, 255, 0.5);
+  text-shadow: 0 0 10px rgba(165, 255, 46, 0.3);
 }
 
 .logo-login {
