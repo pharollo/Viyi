@@ -44,7 +44,6 @@ async function iniciar() {
   let usuarioActual = null;
 
   const TIPOS = [
-    { clave: 'bunker', titulo: 'Búnker' },
     { clave: 'puerta', titulo: 'Puertas y portones' },
     { clave: 'cortina', titulo: 'Cortinas y persianas' },
     { clave: 'ascensor', titulo: 'Ascensores' },
@@ -52,6 +51,17 @@ async function iniciar() {
     { clave: 'rele', titulo: 'Relés y equipos' },
     { clave: 'otro', titulo: 'Otros' },
   ];
+
+  // Subcategorías por tipo: segundo dropdown en el editor. Búnker es una
+  // subcategoría de "puerta" (mismo grupo, pero con icono de bomba).
+  const SUBTIPOS = {
+    puerta: [['', 'Normal'], ['bunker', 'Búnker']],
+  };
+
+  // Compat: dispositivos viejos guardados con tipo 'bunker' se tratan como
+  // puerta + subtipo bunker.
+  const normalizar = (d) => (d.tipo === 'bunker' ? { ...d, tipo: 'puerta', subtipo: 'bunker' } : d);
+  const esBunker = (d) => d.subtipo === 'bunker';
 
   const ICONOS = {
     candados: '<svg viewBox="0 0 88 40" width="88" height="40" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="17" width="24" height="19" rx="3.5"/><path d="M13 17v-5.5a7 7 0 0 1 14 0V17"/><circle cx="20" cy="26.5" r="2.3" fill="currentColor" stroke="none"/><line x1="44" y1="7" x2="44" y2="33" stroke-opacity="0.3"/><rect x="56" y="17" width="24" height="19" rx="3.5"/><path d="M61 17v-5.5a7 7 0 0 1 14 0"/><circle cx="68" cy="26.5" r="2.3" fill="currentColor" stroke="none"/></svg>',
@@ -154,7 +164,7 @@ async function iniciar() {
       documentos = lecturas.filter((s) => s.exists() && s.data().activo !== false);
     }
     return documentos
-      .map((s) => ({ id: s.id, ...s.data() }))
+      .map((s) => normalizar({ id: s.id, ...s.data() }))
       .sort((a, b) => (a.orden || 99) - (b.orden || 99));
   }
 
@@ -193,9 +203,10 @@ async function iniciar() {
       anillo.className = 'anillo';
       boton = document.createElement('button');
       boton.type = 'button';
-      const iconoCuadrado = dispositivo.tipo === 'ascensor' || dispositivo.tipo === 'bunker';
+      const iconoCuadrado = dispositivo.tipo === 'ascensor' || esBunker(dispositivo);
       boton.className = 'boton-circular grande' + (iconoCuadrado ? ' cuadrado' : '');
-      boton.innerHTML = iconoCuadrado ? ICONOS[dispositivo.tipo] : ICONOS.candados;
+      boton.innerHTML = esBunker(dispositivo) ? ICONOS.bunker
+        : (dispositivo.tipo === 'ascensor' ? ICONOS.ascensor : ICONOS.candados);
       boton.setAttribute('aria-label', `${dispositivo.etiquetaBoton || 'Abrir'} ${dispositivo.nombre}`);
       boton.addEventListener('click', () => pulsar(boton, dispositivo));
       anillo.appendChild(boton);
@@ -222,7 +233,7 @@ async function iniciar() {
       boton = document.createElement('button');
       boton.type = 'button';
       boton.className = 'boton-circular medio';
-      boton.innerHTML = ICONOS[dispositivo.tipo] || ICONOS.otro;
+      boton.innerHTML = esBunker(dispositivo) ? ICONOS.bunker : (ICONOS[dispositivo.tipo] || ICONOS.otro);
       boton.setAttribute('aria-label', `Encender o apagar ${dispositivo.nombre}`);
       boton.addEventListener('click', () => alternar(boton, dispositivo));
       control.appendChild(boton);
@@ -319,7 +330,7 @@ async function iniciar() {
         getDocs(collection(db, 'usuarios')),
       ]);
       cacheDispositivos = dispSnap.docs
-        .map((s) => ({ id: s.id, ...s.data() }))
+        .map((s) => normalizar({ id: s.id, ...s.data() }))
         .sort((a, b) => (a.orden || 99) - (b.orden || 99));
       cacheUsuarios = usuSnap.docs
         .map((s) => ({ uid: s.id, ...s.data() }))
@@ -462,7 +473,12 @@ async function iniciar() {
     const iId = entrada(d.id, 'ej: porton-garaje');
     if (!esNuevo) iId.disabled = true;
     const iNombre = entrada(d.nombre, 'ej: Portón del garaje');
-    const sTipo = selector([['puerta', 'Puerta / portón'], ['cortina', 'Cortina / persiana'], ['ascensor', 'Ascensor'], ['bunker', 'Búnker'], ['luz', 'Luz'], ['rele', 'Relé / equipo'], ['otro', 'Otro']], d.tipo || 'puerta');
+    const sTipo = selector([['puerta', 'Puerta / portón'], ['cortina', 'Cortina / persiana'], ['ascensor', 'Ascensor'], ['luz', 'Luz'], ['rele', 'Relé / equipo'], ['otro', 'Otro']], d.tipo || 'puerta');
+    const sSub = selector(SUBTIPOS.puerta, d.subtipo || '');
+    const campoSub = campo('Subcategoría', sSub);
+    const actualizarSub = () => campoSub.classList.toggle('oculto', sTipo.value !== 'puerta');
+    sTipo.addEventListener('change', actualizarSub);
+    actualizarSub();
     const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (abrir / parar / cerrar)']], d.modo || 'pulso');
     const iOrden = entrada(d.orden != null ? d.orden : 10, '', 'number');
     const cActivo = casilla('Activo', d.activo !== false);
@@ -479,6 +495,7 @@ async function iniciar() {
             id: (iId.value || '').trim().toLowerCase(),
             nombre: iNombre.value.trim(),
             tipo: sTipo.value,
+            subtipo: sTipo.value === 'puerta' ? sSub.value : '',
             modo: sModo.value,
             orden: Number(iOrden.value) || 99,
             activo: cActivo.c.checked,
@@ -515,6 +532,7 @@ async function iniciar() {
       campo('Identificador (no cambia después)', iId),
       campo('Nombre visible', iNombre),
       campo('Tipo', sTipo),
+      campoSub,
       campo('Modo', sModo),
       campo('Orden (menor = primero)', iOrden),
       cActivo.label,

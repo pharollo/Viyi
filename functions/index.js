@@ -220,7 +220,7 @@ exports.adminActualizarUsuario = onCall(async (request) => {
 exports.adminGuardarDispositivo = onCall(async (request) => {
   await exigirAdmin(request);
   const {
-    id, nombre, tipo, modo, etiquetaBoton, orden, activo,
+    id, nombre, tipo, subtipo, modo, etiquetaBoton, orden, activo,
     tuyaDeviceId, codigo, pulsoMs,
   } = request.data || {};
   if (!id || !/^[a-z0-9-]{2,40}$/.test(id)) {
@@ -229,9 +229,14 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
   if (!nombre || !tuyaDeviceId) {
     throw new HttpsError('invalid-argument', 'Faltan el nombre o el Device ID de Tuya.');
   }
+  let tipoFinal = ['puerta', 'cortina', 'ascensor', 'luz', 'rele', 'otro'].includes(tipo) ? tipo : 'otro';
+  let subFinal = subtipo === 'bunker' ? 'bunker' : '';
+  if (tipo === 'bunker') { tipoFinal = 'puerta'; subFinal = 'bunker'; } // compat con el tipo viejo
+  if (tipoFinal !== 'puerta') subFinal = '';                            // el subtipo solo aplica a puerta
   await db.doc(`dispositivos/${id}`).set({
     nombre,
-    tipo: ['puerta', 'cortina', 'ascensor', 'bunker', 'luz', 'rele', 'otro'].includes(tipo) ? tipo : 'otro',
+    tipo: tipoFinal,
+    subtipo: subFinal,
     modo: ['interruptor', 'cortina'].includes(modo) ? modo : 'pulso',
     etiquetaBoton: etiquetaBoton || '',
     orden: Number(orden) || 99,
