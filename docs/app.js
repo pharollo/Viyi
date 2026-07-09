@@ -358,9 +358,11 @@ async function iniciar() {
     let valor = 0;
     let enviando = false;
     let ultimoDetente = -1;
+    let ultimoBrillo = 100;
 
     const pintar = (v, sonar) => {
       valor = Math.max(0, Math.min(100, Math.round(v)));
+      if (valor > 0) ultimoBrillo = valor;
       nivel.setAttribute('stroke-dasharray', `${valor * 0.75} 100`);
       indicador.style.transform = `rotate(${valor * 2.7 - 135}deg)`;
       txt.textContent = valor;
@@ -401,6 +403,7 @@ async function iniciar() {
 
     let arrastrando = false;
     let cambiado = false;
+    let empezoCentro = false;
     const alMover = (e) => {
       if (!arrastrando) return;
       const v = valorDesde(e);
@@ -412,12 +415,19 @@ async function iniciar() {
       arrastrando = false;
       window.removeEventListener('pointermove', alMover);
       window.removeEventListener('pointerup', alSoltar);
-      if (cambiado) enviarBrillo();
+      if (cambiado) {
+        enviarBrillo();
+      } else if (empezoCentro) {
+        // Toque en el centro (sin arrastrar): apaga, o enciende al último brillo.
+        pintar(valor > 0 ? 0 : (ultimoBrillo || 100), true);
+        enviarBrillo();
+      }
     };
     perilla.addEventListener('pointerdown', (e) => {
       arrastrando = true;
       cambiado = false;
       const v = valorDesde(e);
+      empezoCentro = (v === null);
       if (v !== null) { pintar(v, true); cambiado = true; }
       window.addEventListener('pointermove', alMover);
       window.addEventListener('pointerup', alSoltar);
