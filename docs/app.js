@@ -592,6 +592,9 @@ async function iniciar() {
     const span = document.createElement('span');
     span.textContent = texto;
     label.append(c, span);
+    const sync = () => label.classList.toggle('marcada', c.checked);
+    c.addEventListener('change', sync);
+    sync();
     return { label, c };
   }
 

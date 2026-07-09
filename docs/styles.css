@@ -701,6 +701,11 @@ button:disabled {
   height: 17px;
 }
 
+.casilla.marcada {
+  color: var(--primario);
+  box-shadow: inset 3px 3px 6px var(--sombra-oscura), inset -3px -3px 6px var(--sombra-clara), inset 0 0 0 1.5px var(--primario);
+}
+
 .barra-editor {
   display: flex;
   gap: 12px;
