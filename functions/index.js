@@ -165,6 +165,11 @@ exports.ejecutarComando = onCall(
         accion: accionRegistrada,
         exito: true,
       });
+      // Contador de uso por vecino, para ordenar "más usado primero".
+      await db.doc(`usuarios/${uid}`).set(
+        { usos: { [dispositivoId]: admin.firestore.FieldValue.increment(1) } },
+        { merge: true },
+      ).catch(() => {});
       return { ok: true };
     } catch (err) {
       await registrar({

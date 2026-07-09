@@ -223,20 +223,48 @@ async function iniciar() {
       contenedor.appendChild(aviso);
       return;
     }
+    const usosDe = (id) => (usuarioActual && usuarioActual.usos && usuarioActual.usos[id]) || 0;
     for (const tipo of TIPOS) {
-      const grupo = dispositivos.filter((d) => (d.tipo || 'otro') === tipo.clave);
+      const grupo = dispositivos
+        .filter((d) => (d.tipo || 'otro') === tipo.clave)
+        .sort((a, b) => usosDe(b.id) - usosDe(a.id) || (a.orden || 99) - (b.orden || 99));
       if (!grupo.length) continue;
       const titulo = document.createElement('h2');
       titulo.className = 'titulo-grupo';
       titulo.textContent = tipo.titulo;
       contenedor.appendChild(titulo);
       const fila = document.createElement('div');
-      fila.className = 'grupo-controles';
+      fila.className = 'grupo-controles carrusel';
       for (const dispositivo of grupo) {
         fila.appendChild(tarjetaDispositivo(dispositivo));
       }
       contenedor.appendChild(fila);
+      activarCarrusel(fila);
     }
+  }
+
+  // Marca en foco el control cuyo centro está más cerca del centro del carrusel.
+  function activarCarrusel(cont) {
+    const items = [...cont.children];
+    if (items.length <= 1) { items.forEach((i) => i.classList.add('enfoque')); return; }
+    const actualizar = () => {
+      const rc = cont.getBoundingClientRect();
+      const centro = rc.left + rc.width / 2;
+      let mejor = null;
+      let mejorD = Infinity;
+      for (const it of items) {
+        const r = it.getBoundingClientRect();
+        const d = Math.abs(r.left + r.width / 2 - centro);
+        if (d < mejorD) { mejorD = d; mejor = it; }
+      }
+      items.forEach((i) => i.classList.toggle('enfoque', i === mejor));
+    };
+    let raf = null;
+    cont.addEventListener('scroll', () => {
+      if (!raf) raf = requestAnimationFrame(() => { raf = null; actualizar(); });
+    }, { passive: true });
+    actualizar();
+    setTimeout(actualizar, 80);
   }
 
   function tarjetaDispositivo(dispositivo) {

@@ -472,6 +472,36 @@ button:disabled {
   align-items: flex-start;
 }
 
+/* Carrusel horizontal por categoría: el control centrado queda en foco. */
+.grupo-controles.carrusel {
+  flex-wrap: nowrap;
+  gap: 0;
+  justify-content: flex-start;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  padding: 8px max(10px, calc(50% - 110px));
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.grupo-controles.carrusel::-webkit-scrollbar {
+  display: none;
+}
+
+.grupo-controles.carrusel > .control {
+  flex: 0 0 220px;
+  scroll-snap-align: center;
+  transform: scale(0.82);
+  opacity: 0.5;
+  transition: transform 0.28s ease, opacity 0.28s ease;
+}
+
+.grupo-controles.carrusel > .control.enfoque {
+  transform: scale(1);
+  opacity: 1;
+}
+
 .control {
   display: flex;
   flex-direction: column;
