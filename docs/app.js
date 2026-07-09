@@ -28,7 +28,7 @@ if (!firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith('PEGA_')) {
 async function iniciar() {
   const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
   const {
-    getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
+    getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail,
   } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
   const {
     getFirestore, doc, getDoc, collection, query, where, orderBy, limit, getDocs,
@@ -114,6 +114,44 @@ async function iniciar() {
     } finally {
       boton.disabled = false;
       boton.textContent = 'Entrar';
+    }
+  });
+
+  // Mostrar / ocultar la clave.
+  const OJO = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const OJO_OFF = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/><line x1="3" y1="3" x2="21" y2="21"/></svg>';
+  $('btn-ver-clave').addEventListener('click', () => {
+    const campo = $('campo-password');
+    const ver = campo.type === 'password';
+    campo.type = ver ? 'text' : 'password';
+    const btn = $('btn-ver-clave');
+    btn.classList.toggle('viendo', ver);
+    btn.setAttribute('aria-label', ver ? 'Ocultar clave' : 'Mostrar clave');
+    btn.innerHTML = ver ? OJO_OFF : OJO;
+  });
+
+  // ¿Olvidaste tu clave? -> correo de restablecimiento.
+  $('btn-olvide').addEventListener('click', async (ev) => {
+    const email = $('campo-email').value.trim();
+    if (!email) {
+      toast('Primero escribe tu email arriba.', 'error');
+      $('campo-email').focus();
+      return;
+    }
+    const b = ev.currentTarget;
+    b.disabled = true;
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast('Listo: revisa tu correo para restablecer la clave (mira también spam).', 'ok');
+    } catch (err) {
+      const mensajes = {
+        'auth/invalid-email': 'El email no es válido.',
+        'auth/user-not-found': 'No encontramos ese email. Revísalo o contacta al administrador.',
+        'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos.',
+      };
+      toast(mensajes[err.code] || 'No se pudo enviar el correo. Intenta de nuevo.', 'error');
+    } finally {
+      b.disabled = false;
     }
   });
 

@@ -158,6 +158,45 @@ code {
   color: var(--texto-suave);
 }
 
+.campo-clave {
+  position: relative;
+}
+
+.campo-clave input {
+  padding-right: 50px;
+}
+
+.btn-ver-clave {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 8px;
+  width: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--texto-suave);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-ver-clave.viendo {
+  color: var(--primario);
+}
+
+.enlace-clave {
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 13px;
+  padding: 6px;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.enlace-clave:active {
+  color: var(--primario);
+}
+
 #form-login input,
 .campo input,
 .campo select {
