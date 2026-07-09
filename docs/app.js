@@ -267,6 +267,15 @@ async function iniciar() {
     setTimeout(actualizar, 80);
   }
 
+  // Coloca el nombre dentro del botón, debajo del icono.
+  function nombreEnBoton(boton, nombre) {
+    const s = document.createElement('span');
+    s.className = 'nombre-boton';
+    s.textContent = nombre;
+    boton.appendChild(s);
+    boton.classList.add('con-nombre');
+  }
+
   function tarjetaDispositivo(dispositivo) {
     const control = document.createElement('div');
     control.className = 'control';
@@ -283,6 +292,7 @@ async function iniciar() {
         : (dispositivo.tipo === 'ascensor' ? ICONOS.ascensor : ICONOS.candados);
       boton.setAttribute('aria-label', `${dispositivo.etiquetaBoton || 'Abrir'} ${dispositivo.nombre}`);
       boton.addEventListener('click', () => pulsar(boton, dispositivo));
+      nombreEnBoton(boton, dispositivo.nombre);
       anillo.appendChild(boton);
       control.appendChild(anillo);
     } else if (dispositivo.modo === 'cortina') {
@@ -314,12 +324,16 @@ async function iniciar() {
         : (ICONOS[dispositivo.tipo] || ICONOS.otro);
       boton.setAttribute('aria-label', `Encender o apagar ${dispositivo.nombre}`);
       boton.addEventListener('click', () => alternar(boton, dispositivo));
+      nombreEnBoton(boton, dispositivo.nombre);
       control.appendChild(boton);
     }
-    const etiqueta = document.createElement('span');
-    etiqueta.className = 'etiqueta-control';
-    etiqueta.textContent = dispositivo.nombre;
-    control.appendChild(etiqueta);
+    // Cortina y dimmer llevan el nombre debajo; pulso/interruptor lo llevan dentro.
+    if (dispositivo.modo === 'cortina' || dispositivo.modo === 'dimmer') {
+      const etiqueta = document.createElement('span');
+      etiqueta.className = 'etiqueta-control';
+      etiqueta.textContent = dispositivo.nombre;
+      control.appendChild(etiqueta);
+    }
     if (boton && dispositivo.modo !== 'pulso') {
       estadoInicial(boton, dispositivo);
     }

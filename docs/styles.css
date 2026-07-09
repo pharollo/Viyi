@@ -532,6 +532,32 @@ button:disabled {
   box-shadow: inset 7px 7px 14px var(--sombra-oscura), inset -7px -7px 14px var(--sombra-clara);
 }
 
+.boton-circular.con-nombre {
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nombre-boton {
+  font-size: 13px;
+  color: var(--texto-suave);
+  text-align: center;
+  line-height: 1.15;
+  max-width: 82%;
+  padding: 0 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.boton-circular.medio.con-nombre {
+  gap: 5px;
+}
+
+.boton-circular.medio.con-nombre .nombre-boton {
+  font-size: 10.5px;
+}
+
 .anillo {
   border-radius: 50%;
   padding: 26px;
