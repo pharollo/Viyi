@@ -480,7 +480,7 @@ button:disabled {
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
-  padding: 8px max(10px, calc(50% - 110px));
+  padding: 8px 0;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
@@ -490,10 +490,10 @@ button:disabled {
 }
 
 .grupo-controles.carrusel > .control {
-  flex: 0 0 220px;
+  flex: 0 0 100%;
   scroll-snap-align: center;
-  transform: scale(0.82);
-  opacity: 0.5;
+  transform: scale(0.9);
+  opacity: 0.45;
   transition: transform 0.28s ease, opacity 0.28s ease;
 }
 
