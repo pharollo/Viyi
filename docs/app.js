@@ -335,7 +335,7 @@ async function iniciar() {
       : `Tu acceso vence en ${restanteTexto(rem)}`;
   }
   function avisoPase(dispositivos) {
-    if (!usuarioActual || usuarioActual.invitado !== true) return null;
+    if (!usuarioActual) return null;
     const ahora = Date.now();
     const visibles = new Set(dispositivos.map((d) => d.id));
     const limiteIndef = ahora + 100 * 365 * 24 * 3600 * 1000; // >100 años = indefinido
@@ -1161,10 +1161,7 @@ async function iniciar() {
   document.querySelectorAll('.item-menu').forEach((p) => {
     p.addEventListener('click', () => {
       mostrarTab(p.dataset.tab);
-      if (p.dataset.tab === 'tab-pases') {
-        if (usuarioActual && usuarioActual.invitado === true) mostrarAccesoInvitado();
-        else cargarMisPases();
-      }
+      if (p.dataset.tab === 'tab-pases') prepararGeneradorPases();
       cerrarMenu();
     });
   });
@@ -1191,17 +1188,24 @@ async function iniciar() {
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   $('btn-refrescar-pases').addEventListener('click', cargarMisPases);
 
-  // Vista Pases para invitados: muestra el tiempo restante de su acceso y
-  // oculta el generador y "Mis pases" (que no aplican a un invitado).
-  function mostrarAccesoInvitado() {
-    const esInvitado = !!(usuarioActual && usuarioActual.invitado === true);
-    $('pase-generador').classList.toggle('oculto', esInvitado);
-    $('pase-mis').classList.toggle('oculto', esInvitado);
+  // Dispositivos propios que el usuario puede compartir (admin: todos).
+  function dispositivosCompartibles() {
+    if (!usuarioActual) return [];
+    return usuarioActual.rol === 'admin'
+      ? misDispositivos
+      : misDispositivos.filter((d) => (usuarioActual.dispositivos || []).includes(d.id));
+  }
+
+  // Tarjeta "Tu acceso temporal": aparece si el usuario recibió un pase con
+  // vencimiento (independiente de si además tiene dispositivos propios).
+  function refrescarAccesoInvitado() {
     const card = $('pase-invitado');
-    card.classList.toggle('oculto', !esInvitado);
     clearInterval(avisoTimer);
     avisoTimer = null;
-    if (!esInvitado) return;
+    const conAcceso = misDispositivos
+      .filter((d) => usuarioActual.accesos && usuarioActual.accesos[d.id]);
+    if (!conAcceso.length) { card.classList.add('oculto'); card.textContent = ''; return; }
+    card.classList.remove('oculto');
     card.textContent = '';
     const h = document.createElement('h2');
     h.textContent = 'Tu acceso temporal';
@@ -1220,7 +1224,7 @@ async function iniciar() {
       p.textContent = 'Tu acceso no tiene fecha de vencimiento.';
       card.appendChild(p);
     }
-    const nombres = (misDispositivos || []).map((d) => d.nombre).filter(Boolean);
+    const nombres = conAcceso.map((d) => d.nombre).filter(Boolean);
     if (nombres.length) {
       const p = document.createElement('p');
       p.className = 'ayuda-pase';
@@ -1229,27 +1233,22 @@ async function iniciar() {
     }
   }
 
-  // Construye la lista de dispositivos compartibles (los propios del usuario).
+  // Prepara la vista Pases: tarjeta de acceso (si recibió un pase) y el
+  // generador + "Mis pases" (solo si tiene dispositivos propios para compartir).
   function prepararGeneradorPases() {
-    mostrarAccesoInvitado();
-    if (usuarioActual && usuarioActual.invitado === true) return;
+    refrescarAccesoInvitado();
+    const compartibles = dispositivosCompartibles();
+    const puedeCompartir = compartibles.length > 0;
+    $('pase-generador').classList.toggle('oculto', !puedeCompartir);
+    $('pase-mis').classList.toggle('oculto', !puedeCompartir);
+    if (!puedeCompartir) return;
     const cont = $('pase-dispositivos');
     cont.textContent = '';
-    const compartibles = usuarioActual.rol === 'admin'
-      ? misDispositivos
-      : misDispositivos.filter((d) => (usuarioActual.dispositivos || []).includes(d.id));
-    if (!compartibles.length) {
-      const p = document.createElement('p');
-      p.className = 'ayuda-pase';
-      p.textContent = 'No tienes dispositivos propios para compartir.';
-      cont.appendChild(p);
-    } else {
-      for (const d of compartibles) {
-        const lab = document.createElement('label');
-        lab.className = 'pase-casilla';
-        lab.innerHTML = `<input type="checkbox" value="${escapar(d.id)}"><span>${escapar(d.nombre)}</span>`;
-        cont.appendChild(lab);
-      }
+    for (const d of compartibles) {
+      const lab = document.createElement('label');
+      lab.className = 'pase-casilla';
+      lab.innerHTML = `<input type="checkbox" value="${escapar(d.id)}"><span>${escapar(d.nombre)}</span>`;
+      cont.appendChild(lab);
     }
     $('pase-resultado').classList.add('oculto');
     cargarMisPases();
