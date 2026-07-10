@@ -653,6 +653,7 @@ button:disabled {
   animation-duration: 1.6s;
   animation-timing-function: ease-in-out;
   animation-fill-mode: both;
+  animation-iteration-count: 3;
 }
 .boton-circular.exito .icono-porton .persianas line:nth-of-type(4) { animation-name: porton-persiana-4; }
 .boton-circular.exito .icono-porton .persianas line:nth-of-type(3) { animation-name: porton-persiana-3; }
