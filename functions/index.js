@@ -115,15 +115,27 @@ exports.ejecutarComando = onCall(
         await dormir(config.pulsoMs || 1000);
         await tuya().enviarComandos(config.tuyaDeviceId, [{ code: codigo, value: false }]);
       } else if (dispositivo.modo === 'cortina') {
-        const mapa = { abrir: 'open', detener: 'stop', cerrar: 'close' };
-        if (!mapa[accion]) {
-          throw new HttpsError('invalid-argument', "La acción debe ser 'abrir', 'detener' o 'cerrar'.");
+        const codigoControl = codigo === 'switch_1' ? 'control' : codigo;
+        if (accion === 'posicion') {
+          // Fijar la apertura por porcentaje (percent_control).
+          const pct = Number(valor);
+          if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+            throw new HttpsError('invalid-argument', 'La apertura debe estar entre 0 y 100.');
+          }
+          const codigoPos = config.codigoPosicion || 'percent_control';
+          const objetivo = config.posicionInvertida ? 100 - Math.round(pct) : Math.round(pct);
+          accionRegistrada = `apertura ${Math.round(pct)}%`;
+          await tuya().enviarComandos(config.tuyaDeviceId, [{ code: codigoPos, value: objetivo }]);
+        } else {
+          const mapa = { abrir: 'open', detener: 'stop', pausar: 'stop', cerrar: 'close' };
+          if (!mapa[accion]) {
+            throw new HttpsError('invalid-argument', 'Acción de cortina no válida.');
+          }
+          accionRegistrada = accion;
+          await tuya().enviarComandos(config.tuyaDeviceId, [
+            { code: codigoControl, value: mapa[accion] },
+          ]);
         }
-        accionRegistrada = accion;
-        const codigoCortina = codigo === 'switch_1' ? 'control' : codigo;
-        await tuya().enviarComandos(config.tuyaDeviceId, [
-          { code: codigoCortina, value: mapa[accion] },
-        ]);
       } else if (dispositivo.modo === 'dimmer') {
         const nivelPct = Number(valor);
         if (!Number.isFinite(nivelPct) || nivelPct < 0 || nivelPct > 100) {
@@ -281,6 +293,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
   const {
     id, nombre, tipo, subtipo, modo, etiquetaBoton, orden, activo,
     tuyaDeviceId, codigo, pulsoMs, codigoBrillo, brilloMax,
+    codigoPosicion, codigoPosicionEstado, posicionInvertida,
   } = request.data || {};
   if (!id || !/^[a-z0-9-]{2,40}$/.test(id)) {
     throw new HttpsError('invalid-argument', 'El id debe ser minúsculas, números y guiones (ej: porton-garaje).');
@@ -301,13 +314,19 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     orden: Number(orden) || 99,
     activo: activo !== false,
   }, { merge: true });
-  await db.doc(`dispositivos/${id}/privado/tuya`).set({
+  const privado = {
     tuyaDeviceId: String(tuyaDeviceId).trim(),
     codigo: (codigo || 'switch_1').trim(),
     pulsoMs: Number(pulsoMs) || 1000,
     codigoBrillo: (codigoBrillo || 'bright_value_v2').trim(),
     brilloMax: Number(brilloMax) || 1000,
-  }, { merge: true });
+  };
+  // Cortina: código de posición e inversión (opcionales; por defecto
+  // percent_control / percent_state). Solo se guardan si se envían.
+  if (codigoPosicion) privado.codigoPosicion = String(codigoPosicion).trim();
+  if (codigoPosicionEstado) privado.codigoPosicionEstado = String(codigoPosicionEstado).trim();
+  if (typeof posicionInvertida === 'boolean') privado.posicionInvertida = posicionInvertida;
+  await db.doc(`dispositivos/${id}/privado/tuya`).set(privado, { merge: true });
   return { ok: true };
 });
 
@@ -517,11 +536,22 @@ exports.consultarEstado = onCall(
       throw new HttpsError('invalid-argument', 'Falta el dispositivoId.');
     }
 
-    const { config } = await autorizar(request.auth.uid, dispositivoId);
+    const { dispositivo, config } = await autorizar(request.auth.uid, dispositivoId);
     const codigo = config.codigo || 'switch_1';
 
     try {
       const estados = await tuya().estado(config.tuyaDeviceId);
+      if (dispositivo.modo === 'cortina') {
+        // Posición actual de la persiana (percent_state), para recordarla.
+        const codigoPosEstado = config.codigoPosicionEstado || 'percent_state';
+        const puntoPos = (estados || []).find((e) => e.code === codigoPosEstado);
+        let posicion = null;
+        if (puntoPos && typeof puntoPos.value === 'number') {
+          posicion = Math.max(0, Math.min(100, Math.round(puntoPos.value)));
+          if (config.posicionInvertida) posicion = 100 - posicion;
+        }
+        return { posicion };
+      }
       const punto = (estados || []).find((e) => e.code === codigo);
       const encendido = punto ? Boolean(punto.value) : null;
       const codigoBrillo = config.codigoBrillo || 'bright_value_v2';

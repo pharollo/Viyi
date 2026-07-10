@@ -463,6 +463,17 @@ button:disabled {
   color: var(--primario);
 }
 
+.perilla-accion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--texto-suave);
+}
+
+.perilla.encendido .perilla-accion {
+  color: var(--primario);
+}
+
 .perilla-enviando {
   animation: pulso-envio 0.9s ease-in-out infinite;
 }

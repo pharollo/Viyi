@@ -402,23 +402,7 @@ async function iniciar() {
       anillo.appendChild(boton);
       control.appendChild(anillo);
     } else if (dispositivo.modo === 'cortina') {
-      const fila = document.createElement('div');
-      fila.className = 'fila-cortina';
-      const acciones = [
-        ['abrir', ICONOS.arriba, 'Abrir'],
-        ['detener', ICONOS.stop, 'Detener'],
-        ['cerrar', ICONOS.abajo, 'Cerrar'],
-      ];
-      for (const [accion, icono, texto] of acciones) {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'boton-circular chico';
-        b.innerHTML = icono;
-        b.setAttribute('aria-label', `${texto} ${dispositivo.nombre}`);
-        b.addEventListener('click', () => accionCortina(b, dispositivo, accion, texto));
-        fila.appendChild(b);
-      }
-      control.appendChild(fila);
+      control.appendChild(perillaCortina(dispositivo));
     } else if (dispositivo.modo === 'dimmer') {
       control.appendChild(perillaDimmer(dispositivo));
     } else {
@@ -461,18 +445,6 @@ async function iniciar() {
       // El portón anima la apertura (luz que sube ×3); necesita más tiempo.
       const duracionExito = dispositivo.subtipo === 'porton' ? 5000 : 1500;
       setTimeout(() => boton.classList.remove('exito'), duracionExito);
-    } catch (err) {
-      toast(err.message || 'No se pudo enviar el comando.', 'error');
-    } finally {
-      boton.classList.remove('enviando');
-    }
-  }
-
-  async function accionCortina(boton, dispositivo, accion, texto) {
-    if (boton.classList.contains('enviando')) return;
-    boton.classList.add('enviando');
-    try {
-      await ejecutarComando({ dispositivoId: dispositivo.id, accion });
     } catch (err) {
       toast(err.message || 'No se pudo enviar el comando.', 'error');
     } finally {
@@ -652,6 +624,128 @@ async function iniciar() {
     return perilla;
   }
 
+  // Perilla para cortinas/persianas: se arrastra para fijar la apertura
+  // (0–100%, sin mostrar el número). Al soltar, la persiana se mueve hasta ahí;
+  // el centro pausa/reanuda y la posición se recuerda.
+  const ICONO_PAUSA = '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><rect x="6.5" y="5" width="4.2" height="14" rx="1.3"/><rect x="13.3" y="5" width="4.2" height="14" rx="1.3"/></svg>';
+  const ICONO_PLAY = '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M8 5.2v13.6l11-6.8z"/></svg>';
+
+  function perillaCortina(dispositivo) {
+    const perilla = document.createElement('div');
+    perilla.className = 'perilla perilla-cortina';
+    perilla.setAttribute('role', 'slider');
+    perilla.setAttribute('aria-label', `Apertura de ${dispositivo.nombre}`);
+    perilla.setAttribute('aria-valuemin', '0');
+    perilla.setAttribute('aria-valuemax', '100');
+    perilla.innerHTML = '<svg class="perilla-svg" viewBox="0 0 120 120" aria-hidden="true"><circle class="perilla-track" cx="60" cy="60" r="48" pathLength="100" transform="rotate(135 60 60)"/><circle class="perilla-nivel" cx="60" cy="60" r="48" pathLength="100" stroke-dasharray="0 100" transform="rotate(135 60 60)"/></svg><div class="perilla-centro"><div class="perilla-indicador"></div><span class="perilla-accion"></span></div>';
+    const nivel = perilla.querySelector('.perilla-nivel');
+    const indicador = perilla.querySelector('.perilla-indicador');
+    const acc = perilla.querySelector('.perilla-accion');
+    let valor = 0;
+    let enviando = false;
+    let ultimoDetente = -1;
+    let enMarcha = false;
+    let marchaTimer = null;
+
+    const pintarAccion = () => { acc.innerHTML = enMarcha ? ICONO_PAUSA : ICONO_PLAY; };
+    const marcarMarcha = (v) => {
+      enMarcha = v;
+      pintarAccion();
+      clearTimeout(marchaTimer);
+      // Tras el recorrido estimado, la persiana ya llegó: pasa a "reanudar".
+      if (v) marchaTimer = setTimeout(() => { enMarcha = false; pintarAccion(); }, 22000);
+    };
+
+    const pintar = (v, sonar) => {
+      valor = Math.max(0, Math.min(100, Math.round(v)));
+      nivel.setAttribute('stroke-dasharray', `${valor * 0.75} 100`);
+      indicador.style.transform = `rotate(${valor * 2.7 - 135}deg)`;
+      perilla.classList.toggle('encendido', valor > 0);
+      perilla.setAttribute('aria-valuenow', String(valor));
+      if (sonar) {
+        const detente = Math.round(valor / 3);
+        if (detente !== ultimoDetente) { tic(); ultimoDetente = detente; }
+      }
+    };
+    pintar(0);
+    pintarAccion();
+
+    // Ángulo del puntero -> valor 0–100 sobre el arco de 270° (hueco abajo).
+    const valorDesde = (e) => {
+      const r = perilla.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2);
+      const dy = e.clientY - (r.top + r.height / 2);
+      if (Math.hypot(dx, dy) < 34) return null; // zona central: no cambiar
+      const ang = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+      const d = ((ang - 135) % 360 + 360) % 360;
+      if (d <= 270) return (d / 270) * 100;
+      return d < 315 ? 100 : 0;
+    };
+
+    async function enviar(data) {
+      if (enviando) return;
+      enviando = true;
+      perilla.classList.add('perilla-enviando');
+      try {
+        await ejecutarComando({ dispositivoId: dispositivo.id, ...data });
+      } catch (err) {
+        toast(err.message || 'No se pudo enviar el comando.', 'error');
+      } finally {
+        perilla.classList.remove('perilla-enviando');
+        enviando = false;
+      }
+    }
+
+    let arrastrando = false;
+    let cambiado = false;
+    let empezoCentro = false;
+    const alMover = (e) => {
+      if (!arrastrando) return;
+      const v = valorDesde(e);
+      if (v !== null) { pintar(v, true); cambiado = true; }
+      e.preventDefault();
+    };
+    const alSoltar = () => {
+      if (!arrastrando) return;
+      arrastrando = false;
+      window.removeEventListener('pointermove', alMover);
+      window.removeEventListener('pointerup', alSoltar);
+      if (cambiado) {
+        // Fijar apertura: la persiana se mueve hasta 'valor'.
+        marcarMarcha(true);
+        enviar({ accion: 'posicion', valor });
+      } else if (empezoCentro) {
+        // Toque en el centro: pausa (si va en marcha) o reanuda hacia el objetivo.
+        if (enMarcha) {
+          marcarMarcha(false);
+          enviar({ accion: 'detener' });
+        } else {
+          marcarMarcha(true);
+          enviar({ accion: 'posicion', valor });
+        }
+      }
+    };
+    perilla.addEventListener('pointerdown', (e) => {
+      arrastrando = true;
+      cambiado = false;
+      const v = valorDesde(e);
+      empezoCentro = (v === null);
+      if (v !== null) { pintar(v, true); cambiado = true; }
+      window.addEventListener('pointermove', alMover);
+      window.addEventListener('pointerup', alSoltar);
+      e.preventDefault();
+    });
+
+    (async () => {
+      try {
+        const res = await consultarEstado({ dispositivoId: dispositivo.id });
+        if (res.data && typeof res.data.posicion === 'number') pintar(res.data.posicion);
+      } catch (err) { /* sin estado disponible */ }
+    })();
+
+    return perilla;
+  }
+
   // ── Gestión (solo admin) ──────────────────────────────────────────────
 
   let cacheDispositivos = [];
@@ -816,7 +910,7 @@ async function iniciar() {
     const actualizarSub = () => campoSub.classList.toggle('oculto', sTipo.value !== 'puerta');
     sTipo.addEventListener('change', actualizarSub);
     actualizarSub();
-    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (abrir / parar / cerrar)'], ['dimmer', 'Dimmer (perilla de brillo)']], d.modo || 'pulso');
+    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (perilla de apertura)'], ['dimmer', 'Dimmer (perilla de brillo)']], d.modo || 'pulso');
     const iOrden = entrada(d.orden != null ? d.orden : 10, '', 'number');
     const cActivo = casilla('Activo', d.activo !== false);
     const iDevice = entrada(tuya.tuyaDeviceId, 'Device ID de Tuya');
