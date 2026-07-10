@@ -636,9 +636,9 @@ button:disabled {
   filter: drop-shadow(0 0 3px rgba(255, 140, 58, 0.95));
 }
 
-/* Portón: el garaje y el carro se mantienen neutros. Al abrir (éxito) las
-   persianas se encienden una por una, de abajo hacia arriba, como si la
-   puerta se estuviera abriendo. */
+/* Portón: el garaje y el carro se mantienen neutros. Al abrir (éxito) una
+   sola luz recorre las persianas de abajo hacia arriba, apagándose cada una
+   al encender la siguiente, como si la puerta se estuviera abriendo. */
 .icono-porton {
   color: var(--texto-suave);
 }
@@ -647,10 +647,10 @@ button:disabled {
   transition: stroke 0.3s ease;
 }
 
-/* Al abrir (éxito): las persianas se encienden en secuencia de abajo hacia
-   arriba y luego se apagan en secuencia de arriba hacia abajo (más lento). */
+/* Al abrir (éxito): una sola luz recorre las persianas de abajo hacia arriba
+   — cada persiana se apaga justo cuando enciende la siguiente. */
 .boton-circular.exito .icono-porton .persianas line {
-  animation-duration: 2s;
+  animation-duration: 1.6s;
   animation-timing-function: ease-in-out;
   animation-fill-mode: both;
 }
@@ -659,29 +659,32 @@ button:disabled {
 .boton-circular.exito .icono-porton .persianas line:nth-of-type(2) { animation-name: porton-persiana-2; }
 .boton-circular.exito .icono-porton .persianas line:nth-of-type(1) { animation-name: porton-persiana-1; }
 
-@keyframes porton-persiana-4 { /* abajo: 1ª en encender, última en apagar */
+@keyframes porton-persiana-4 { /* abajo: 1ª en encender */
   0%   { stroke: var(--texto-suave); filter: none; }
-  9%   { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
-  90%  { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  6%   { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  22%  { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  28%  { stroke: var(--texto-suave); filter: none; }
   100% { stroke: var(--texto-suave); filter: none; }
 }
 @keyframes porton-persiana-3 {
-  0%, 12% { stroke: var(--texto-suave); filter: none; }
-  21%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
-  80%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
-  89%     { stroke: var(--texto-suave); filter: none; }
+  0%, 22% { stroke: var(--texto-suave); filter: none; }
+  28%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  47%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  53%     { stroke: var(--texto-suave); filter: none; }
+  100%    { stroke: var(--texto-suave); filter: none; }
 }
 @keyframes porton-persiana-2 {
-  0%, 24% { stroke: var(--texto-suave); filter: none; }
-  33%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
-  70%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
-  79%     { stroke: var(--texto-suave); filter: none; }
+  0%, 47% { stroke: var(--texto-suave); filter: none; }
+  53%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  72%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  78%     { stroke: var(--texto-suave); filter: none; }
+  100%    { stroke: var(--texto-suave); filter: none; }
 }
-@keyframes porton-persiana-1 { /* arriba: última en encender, 1ª en apagar */
-  0%, 36% { stroke: var(--texto-suave); filter: none; }
-  45%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
-  60%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
-  69%     { stroke: var(--texto-suave); filter: none; }
+@keyframes porton-persiana-1 { /* arriba: última en encender, luego se apaga */
+  0%, 72% { stroke: var(--texto-suave); filter: none; }
+  78%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  94%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  100%    { stroke: var(--texto-suave); filter: none; }
 }
 
 .boton-circular.enviando {
