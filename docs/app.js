@@ -45,6 +45,7 @@ async function iniciar() {
   const adminGuardarDispositivo = httpsCallable(functions, 'adminGuardarDispositivo');
   const adminEliminarDispositivo = httpsCallable(functions, 'adminEliminarDispositivo');
   const adminInspeccionarDispositivo = httpsCallable(functions, 'adminInspeccionarDispositivo');
+  const adminListarAccesoriosHomebridge = httpsCallable(functions, 'adminListarAccesoriosHomebridge');
   const crearPase = httpsCallable(functions, 'crearPase');
   const canjearPase = httpsCallable(functions, 'canjearPase');
   const revocarPase = httpsCallable(functions, 'revocarPase');
@@ -922,7 +923,7 @@ async function iniciar() {
   async function abrirEditorDispositivo(existente) {
     const esNuevo = !existente;
     const d = existente || {};
-    let tuya = { tuyaDeviceId: '', codigo: 'switch_1', pulsoMs: 1000, codigoBrillo: 'bright_value_v2', brilloMax: 1000, posicionInvertida: false };
+    let tuya = { tuyaDeviceId: '', codigo: 'switch_1', pulsoMs: 1000, codigoBrillo: 'bright_value_v2', brilloMax: 1000, posicionInvertida: false, accesorioId: '', caracteristica: '' };
     if (!esNuevo) {
       try {
         const s = await getDoc(doc(db, `dispositivos/${d.id}/privado/tuya`));
@@ -949,6 +950,53 @@ async function iniciar() {
     const campoBrilloCodigo = campo('Código de brillo (Tuya)', iCodigoBrillo);
     const campoBrilloMax = campo('Brillo máximo (rango Tuya, ej. 1000)', iBrilloMax);
     const cInvertir = casilla('Invertir apertura (marca si la persiana abre al revés)', tuya.posicionInvertida === true);
+
+    // Proveedor: Tuya (nube) o Homebridge (API de UI-X vía túnel).
+    const sProveedor = selector([['tuya', 'Tuya'], ['homebridge', 'Homebridge']], d.proveedor || 'tuya');
+    const campoDevice = campo('Device ID de Tuya', iDevice);
+    const campoCodigo = campo('Código del interruptor (Debug Device)', iCodigo);
+    // Homebridge: elegir el accesorio de la lista de UI-X.
+    const selAcc = document.createElement('select');
+    if (tuya.accesorioId) {
+      const o = document.createElement('option');
+      o.value = tuya.accesorioId;
+      o.textContent = tuya.accesorioId + ' (actual)';
+      selAcc.appendChild(o);
+    }
+    const iCaracteristica = entrada(tuya.caracteristica, 'On (por defecto)');
+    const campoCaracteristica = campo('Característica HomeKit (avanzado, ej. On, TargetDoorState)', iCaracteristica);
+    const estadoAcc = document.createElement('div');
+    estadoAcc.className = 'dps-detectados';
+    const btnAcc = botonForm('Traer accesorios de Homebridge', 'btn-secundario', async (ev) => {
+      const b = ev.currentTarget;
+      b.disabled = true;
+      const orig = b.textContent;
+      b.textContent = 'Consultando…';
+      estadoAcc.textContent = '';
+      try {
+        const res = await adminListarAccesoriosHomebridge({});
+        const lista = (res.data && res.data.accesorios) || [];
+        selAcc.textContent = '';
+        for (const a of lista) {
+          const o = document.createElement('option');
+          o.value = a.uniqueId;
+          o.textContent = `${a.nombre}${a.tipo ? ' — ' + a.tipo : ''}`;
+          selAcc.appendChild(o);
+        }
+        if (tuya.accesorioId) selAcc.value = tuya.accesorioId;
+        estadoAcc.textContent = lista.length ? `${lista.length} accesorios cargados.` : 'No se encontraron accesorios.';
+      } catch (err) {
+        estadoAcc.textContent = err.message || 'No se pudo consultar Homebridge.';
+      } finally {
+        b.disabled = false;
+        b.textContent = orig;
+      }
+    });
+    const campoAccesorio = document.createElement('div');
+    campoAccesorio.className = 'campo';
+    const spanAcc = document.createElement('span');
+    spanAcc.textContent = 'Accesorio de Homebridge';
+    campoAccesorio.append(spanAcc, selAcc, btnAcc, estadoAcc);
     const iResultadoDps = document.createElement('div');
     iResultadoDps.className = 'dps-detectados';
     const btnDetectar = botonForm('Detectar DPs del dispositivo', 'btn-secundario', async (ev) => {
@@ -984,15 +1032,21 @@ async function iniciar() {
     const campoDetectar = document.createElement('div');
     campoDetectar.className = 'campo';
     campoDetectar.append(btnDetectar, iResultadoDps);
-    const actualizarModo = () => {
+    const actualizarCampos = () => {
+      const esHb = sProveedor.value === 'homebridge';
       const esDimmer = sModo.value === 'dimmer';
-      campoBrilloCodigo.classList.toggle('oculto', !esDimmer);
-      campoBrilloMax.classList.toggle('oculto', !esDimmer);
-      campoDetectar.classList.toggle('oculto', !esDimmer);
+      campoDevice.classList.toggle('oculto', esHb);
+      campoCodigo.classList.toggle('oculto', esHb);
+      campoBrilloCodigo.classList.toggle('oculto', esHb || !esDimmer);
+      campoBrilloMax.classList.toggle('oculto', esHb || !esDimmer);
+      campoDetectar.classList.toggle('oculto', esHb || !esDimmer);
+      campoAccesorio.classList.toggle('oculto', !esHb);
+      campoCaracteristica.classList.toggle('oculto', !esHb);
       cInvertir.label.classList.toggle('oculto', sModo.value !== 'cortina');
     };
-    sModo.addEventListener('change', actualizarModo);
-    actualizarModo();
+    sProveedor.addEventListener('change', actualizarCampos);
+    sModo.addEventListener('change', actualizarCampos);
+    actualizarCampos();
 
     const acciones = [
       botonForm('Guardar', 'btn-primario', async (ev) => {
@@ -1005,6 +1059,7 @@ async function iniciar() {
             tipo: sTipo.value,
             subtipo: sTipo.value === 'puerta' ? sSub.value : '',
             modo: sModo.value,
+            proveedor: sProveedor.value,
             orden: Number(iOrden.value) || 99,
             activo: cActivo.c.checked,
             tuyaDeviceId: iDevice.value.trim(),
@@ -1013,6 +1068,8 @@ async function iniciar() {
             codigoBrillo: iCodigoBrillo.value.trim(),
             brilloMax: Number(iBrilloMax.value) || 1000,
             posicionInvertida: cInvertir.c.checked,
+            accesorioId: sProveedor.value === 'homebridge' ? selAcc.value : '',
+            caracteristica: iCaracteristica.value.trim(),
           });
           toast('Dispositivo guardado ✓', 'ok');
           await trasGuardar();
@@ -1045,10 +1102,13 @@ async function iniciar() {
       campo('Tipo', sTipo),
       campoSub,
       campo('Modo', sModo),
+      campo('Proveedor', sProveedor),
       campo('Orden (menor = primero)', iOrden),
       cActivo.label,
-      campo('Device ID de Tuya', iDevice),
-      campo('Código del interruptor (Debug Device)', iCodigo),
+      campoDevice,
+      campoCodigo,
+      campoAccesorio,
+      campoCaracteristica,
       campo('Duración del pulso (ms)', iPulso),
       campoBrilloCodigo,
       campoBrilloMax,

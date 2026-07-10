@@ -4,6 +4,7 @@ const { defineSecret, defineString } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
 const { TuyaClient } = require('./tuya');
+const { HomebridgeClient } = require('./homebridge');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -13,6 +14,11 @@ const TUYA_CLIENT_SECRET = defineSecret('TUYA_CLIENT_SECRET');
 const TUYA_BASE_URL = defineString('TUYA_BASE_URL', {
   default: 'https://openapi.tuyaus.com',
 });
+// Homebridge (homebridge-config-ui-x) vía túnel HTTPS.
+const HOMEBRIDGE_URL = defineSecret('HOMEBRIDGE_URL');
+const HOMEBRIDGE_USER = defineSecret('HOMEBRIDGE_USER');
+const HOMEBRIDGE_PASS = defineSecret('HOMEBRIDGE_PASS');
+const SECRETS_HB = [HOMEBRIDGE_URL, HOMEBRIDGE_USER, HOMEBRIDGE_PASS];
 
 setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
 
@@ -26,6 +32,77 @@ function tuya() {
     });
   }
   return clienteTuya;
+}
+
+let clienteHb = null;
+function homebridge() {
+  if (!clienteHb) {
+    clienteHb = new HomebridgeClient({
+      baseUrl: HOMEBRIDGE_URL.value(),
+      username: HOMEBRIDGE_USER.value(),
+      password: HOMEBRIDGE_PASS.value(),
+    });
+  }
+  return clienteHb;
+}
+
+// Ejecuta un comando en un accesorio de Homebridge según el modo del dispositivo.
+// Devuelve el texto de la acción para el registro.
+async function ejecutarHomebridge(dispositivo, config, { accion, valor, data }) {
+  const id = config.accesorioId;
+  if (!id) {
+    throw new HttpsError('failed-precondition', 'El accesorio de Homebridge no está configurado.');
+  }
+  const hb = homebridge();
+  const invert = config.posicionInvertida === true;
+  const carac = config.caracteristica || 'On';
+
+  if (dispositivo.modo === 'pulso') {
+    if (carac === 'TargetDoorState') {
+      await hb.setCaracteristica(id, 'TargetDoorState', 0); // 0 = abrir
+    } else {
+      await hb.setCaracteristica(id, carac, true);
+      await dormir(config.pulsoMs || 1000);
+      await hb.setCaracteristica(id, carac, false);
+    }
+    return 'pulso';
+  }
+
+  if (dispositivo.modo === 'cortina') {
+    if (accion === 'posicion') {
+      const pct = Number(valor);
+      if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+        throw new HttpsError('invalid-argument', 'La apertura debe estar entre 0 y 100.');
+      }
+      const objetivo = invert ? 100 - Math.round(pct) : Math.round(pct);
+      await hb.setCaracteristica(id, 'TargetPosition', objetivo);
+      return `apertura ${Math.round(pct)}%`;
+    }
+    if (accion === 'detener' || accion === 'pausar') {
+      await hb.setCaracteristica(id, 'HoldPosition', true);
+      return 'detener';
+    }
+    if (accion === 'abrir') { await hb.setCaracteristica(id, 'TargetPosition', invert ? 0 : 100); return 'abrir'; }
+    if (accion === 'cerrar') { await hb.setCaracteristica(id, 'TargetPosition', invert ? 100 : 0); return 'cerrar'; }
+    throw new HttpsError('invalid-argument', 'Acción de cortina no válida.');
+  }
+
+  if (dispositivo.modo === 'dimmer') {
+    const pct = Number(valor);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+      throw new HttpsError('invalid-argument', 'El brillo debe estar entre 0 y 100.');
+    }
+    await hb.setCaracteristica(id, 'On', pct > 0);
+    if (pct > 0) await hb.setCaracteristica(id, 'Brightness', Math.round(pct));
+    return `brillo ${Math.round(pct)}%`;
+  }
+
+  // interruptor
+  if (accion !== 'encender' && accion !== 'apagar') {
+    throw new HttpsError('invalid-argument', "La acción debe ser 'encender' o 'apagar'.");
+  }
+  await hb.setCaracteristica(id, carac, accion === 'encender');
+  return accion;
 }
 
 const dormir = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -86,13 +163,13 @@ async function autorizar(uid, dispositivoId) {
   }
   const privadoSnap = await db.doc(`dispositivos/${dispositivoId}/privado/tuya`).get();
   if (!privadoSnap.exists) {
-    throw new HttpsError('failed-precondition', 'El dispositivo no tiene configuración Tuya cargada.');
+    throw new HttpsError('failed-precondition', 'El dispositivo no tiene configuración cargada.');
   }
   return { usuario, dispositivo: dispSnap.data(), config: privadoSnap.data() };
 }
 
 exports.ejecutarComando = onCall(
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
@@ -106,10 +183,13 @@ exports.ejecutarComando = onCall(
     const { usuario, dispositivo, config } = await autorizar(uid, dispositivoId);
     const codigo = config.codigo || 'switch_1';
     const dispositivoNombre = dispositivo.nombre;
+    const proveedor = dispositivo.proveedor || 'tuya';
 
     try {
       let accionRegistrada;
-      if (dispositivo.modo === 'pulso') {
+      if (proveedor === 'homebridge') {
+        accionRegistrada = await ejecutarHomebridge(dispositivo, config, { accion, valor, data: request.data });
+      } else if (dispositivo.modo === 'pulso') {
         accionRegistrada = 'pulso';
         await tuya().enviarComandos(config.tuyaDeviceId, [{ code: codigo, value: true }]);
         await dormir(config.pulsoMs || 1000);
@@ -292,14 +372,21 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
   await exigirAdmin(request);
   const {
     id, nombre, tipo, subtipo, modo, etiquetaBoton, orden, activo,
-    tuyaDeviceId, codigo, pulsoMs, codigoBrillo, brilloMax,
+    proveedor, tuyaDeviceId, codigo, pulsoMs, codigoBrillo, brilloMax,
     codigoPosicion, codigoPosicionEstado, posicionInvertida,
+    accesorioId, caracteristica,
   } = request.data || {};
   if (!id || !/^[a-z0-9-]{2,40}$/.test(id)) {
     throw new HttpsError('invalid-argument', 'El id debe ser minúsculas, números y guiones (ej: porton-garaje).');
   }
-  if (!nombre || !tuyaDeviceId) {
-    throw new HttpsError('invalid-argument', 'Faltan el nombre o el Device ID de Tuya.');
+  const provFinal = proveedor === 'homebridge' ? 'homebridge' : 'tuya';
+  if (!nombre) {
+    throw new HttpsError('invalid-argument', 'Falta el nombre del dispositivo.');
+  }
+  if (provFinal === 'homebridge' ? !accesorioId : !tuyaDeviceId) {
+    throw new HttpsError('invalid-argument', provFinal === 'homebridge'
+      ? 'Falta el accesorio de Homebridge.'
+      : 'Falta el Device ID de Tuya.');
   }
   let tipoFinal = ['puerta', 'cortina', 'ascensor', 'luz', 'rele', 'otro'].includes(tipo) ? tipo : 'otro';
   let subFinal = ['bunker', 'porton'].includes(subtipo) ? subtipo : '';
@@ -310,17 +397,21 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     tipo: tipoFinal,
     subtipo: subFinal,
     modo: ['interruptor', 'cortina', 'dimmer'].includes(modo) ? modo : 'pulso',
+    proveedor: provFinal,
     etiquetaBoton: etiquetaBoton || '',
     orden: Number(orden) || 99,
     activo: activo !== false,
   }, { merge: true });
   const privado = {
-    tuyaDeviceId: String(tuyaDeviceId).trim(),
+    tuyaDeviceId: String(tuyaDeviceId || '').trim(),
     codigo: (codigo || 'switch_1').trim(),
     pulsoMs: Number(pulsoMs) || 1000,
     codigoBrillo: (codigoBrillo || 'bright_value_v2').trim(),
     brilloMax: Number(brilloMax) || 1000,
   };
+  // Homebridge: id del accesorio y característica (opcional; por defecto On).
+  if (accesorioId) privado.accesorioId = String(accesorioId).trim();
+  if (caracteristica) privado.caracteristica = String(caracteristica).trim();
   // Cortina: código de posición e inversión (opcionales; por defecto
   // percent_control / percent_state). Solo se guardan si se envían.
   if (codigoPosicion) privado.codigoPosicion = String(codigoPosicion).trim();
@@ -329,6 +420,23 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
   await db.doc(`dispositivos/${id}/privado/tuya`).set(privado, { merge: true });
   return { ok: true };
 });
+
+// Lista los accesorios de Homebridge (para elegirlos en el editor).
+exports.adminListarAccesoriosHomebridge = onCall(
+  { secrets: SECRETS_HB },
+  async (request) => {
+    await exigirAdmin(request);
+    const accesorios = await homebridge().listarAccesorios();
+    return {
+      accesorios: (accesorios || []).map((a) => ({
+        uniqueId: a.uniqueId,
+        nombre: a.serviceName || (a.values && a.values.Name) || a.uniqueId,
+        tipo: a.type || '',
+        caracteristicas: Object.keys((a && a.values) || {}),
+      })),
+    };
+  }
+);
 
 exports.adminInspeccionarDispositivo = onCall(
   { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
@@ -526,7 +634,7 @@ exports.revocarPase = onCall(async (request) => {
 });
 
 exports.consultarEstado = onCall(
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
@@ -540,6 +648,22 @@ exports.consultarEstado = onCall(
     const codigo = config.codigo || 'switch_1';
 
     try {
+      if ((dispositivo.proveedor || 'tuya') === 'homebridge') {
+        const acc = await homebridge().accesorio(config.accesorioId);
+        const vals = (acc && acc.values) || {};
+        if (dispositivo.modo === 'cortina') {
+          let posicion = null;
+          if (typeof vals.CurrentPosition === 'number') {
+            posicion = Math.max(0, Math.min(100, Math.round(vals.CurrentPosition)));
+            if (config.posicionInvertida) posicion = 100 - posicion;
+          }
+          return { posicion };
+        }
+        const enc = typeof vals.On === 'boolean' ? vals.On : null;
+        let bri = null;
+        if (typeof vals.Brightness === 'number') bri = enc === false ? 0 : Math.round(vals.Brightness);
+        return { encendido: enc, brillo: bri };
+      }
       const estados = await tuya().estado(config.tuyaDeviceId);
       if (dispositivo.modo === 'cortina') {
         // Posición actual de la persiana (percent_state), para recordarla.
