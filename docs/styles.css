@@ -647,19 +647,41 @@ button:disabled {
   transition: stroke 0.3s ease;
 }
 
+/* Al abrir (éxito): las persianas se encienden en secuencia de abajo hacia
+   arriba y luego se apagan en secuencia de arriba hacia abajo (más lento). */
 .boton-circular.exito .icono-porton .persianas line {
-  animation: abrir-porton 0.55s ease-in-out both;
+  animation-duration: 2s;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
 }
+.boton-circular.exito .icono-porton .persianas line:nth-of-type(4) { animation-name: porton-persiana-4; }
+.boton-circular.exito .icono-porton .persianas line:nth-of-type(3) { animation-name: porton-persiana-3; }
+.boton-circular.exito .icono-porton .persianas line:nth-of-type(2) { animation-name: porton-persiana-2; }
+.boton-circular.exito .icono-porton .persianas line:nth-of-type(1) { animation-name: porton-persiana-1; }
 
-.boton-circular.exito .icono-porton .persianas line:nth-of-type(4) { animation-delay: 0s; }
-.boton-circular.exito .icono-porton .persianas line:nth-of-type(3) { animation-delay: 0.16s; }
-.boton-circular.exito .icono-porton .persianas line:nth-of-type(2) { animation-delay: 0.32s; }
-.boton-circular.exito .icono-porton .persianas line:nth-of-type(1) { animation-delay: 0.48s; }
-
-@keyframes abrir-porton {
-  from { stroke: var(--texto-suave); filter: none; }
-  60%  { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
-  to   { stroke: var(--primario); filter: drop-shadow(0 0 2px rgba(165, 255, 46, 0.75)); }
+@keyframes porton-persiana-4 { /* abajo: 1ª en encender, última en apagar */
+  0%   { stroke: var(--texto-suave); filter: none; }
+  9%   { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  90%  { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  100% { stroke: var(--texto-suave); filter: none; }
+}
+@keyframes porton-persiana-3 {
+  0%, 12% { stroke: var(--texto-suave); filter: none; }
+  21%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  80%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  89%     { stroke: var(--texto-suave); filter: none; }
+}
+@keyframes porton-persiana-2 {
+  0%, 24% { stroke: var(--texto-suave); filter: none; }
+  33%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  70%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  79%     { stroke: var(--texto-suave); filter: none; }
+}
+@keyframes porton-persiana-1 { /* arriba: última en encender, 1ª en apagar */
+  0%, 36% { stroke: var(--texto-suave); filter: none; }
+  45%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  60%     { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  69%     { stroke: var(--texto-suave); filter: none; }
 }
 
 .boton-circular.enviando {

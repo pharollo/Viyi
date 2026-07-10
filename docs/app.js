@@ -365,7 +365,9 @@ async function iniciar() {
     try {
       await ejecutarComando({ dispositivoId: dispositivo.id });
       boton.classList.add('exito');
-      setTimeout(() => boton.classList.remove('exito'), 1500);
+      // El portón anima la apertura/cierre de las persianas; necesita más tiempo.
+      const duracionExito = dispositivo.subtipo === 'porton' ? 2200 : 1500;
+      setTimeout(() => boton.classList.remove('exito'), duracionExito);
     } catch (err) {
       toast(err.message || 'No se pudo enviar el comando.', 'error');
     } finally {
