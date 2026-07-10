@@ -629,11 +629,20 @@ button:disabled {
   color: var(--texto-suave);
 }
 
-.boton-circular.enviando .mecha,
-.boton-circular.exito .mecha,
-.boton-circular.activo .mecha {
+.boton-circular.enviando .mecha {
   stroke: var(--fuego);
   filter: drop-shadow(0 0 3px rgba(255, 140, 58, 0.95));
+}
+
+/* Al encenderse (éxito/activo) la mecha titila 3 veces, como una chispa. */
+.boton-circular.exito .mecha,
+.boton-circular.activo .mecha {
+  animation: titilar-mecha 0.35s ease-in-out 3 both;
+}
+
+@keyframes titilar-mecha {
+  0%, 100% { stroke: var(--fuego); opacity: 1; filter: drop-shadow(0 0 4px rgba(255, 140, 58, 0.95)); }
+  50%      { stroke: var(--texto-suave); opacity: 0.2; filter: none; }
 }
 
 /* Portón: el garaje y el carro se mantienen neutros. Al abrir (éxito) una
