@@ -8,7 +8,7 @@
   --superficie: #212225;
   --texto: #e8eaec;
   --texto-suave: #8d9297;
-  --primario: #1d9e75;
+  --primario: #a5ff2e;
   --error: #f09595;
   --fuego: #ff8c3a;
   --logo: #a5ff2e;
@@ -407,7 +407,7 @@ button:disabled {
   stroke: var(--primario);
   stroke-width: 11;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 5px rgba(29, 158, 117, 0.5));
+  filter: drop-shadow(0 0 5px rgba(165, 255, 46, 0.5));
 }
 
 .perilla:not(.encendido) .perilla-nivel {
@@ -447,7 +447,7 @@ button:disabled {
 
 .perilla.encendido .perilla-indicador::before {
   background: var(--primario);
-  box-shadow: 0 0 6px rgba(29, 158, 117, 0.7);
+  box-shadow: 0 0 6px rgba(165, 255, 46, 0.7);
 }
 
 .perilla-valor {
@@ -594,11 +594,11 @@ button:disabled {
 .boton-circular.activo {
   color: var(--primario);
   box-shadow: inset 6px 6px 13px var(--sombra-oscura), inset -6px -6px 13px var(--sombra-clara),
-              inset 0 0 0 2px rgba(29, 158, 117, 0.55);
+              inset 0 0 0 2px rgba(165, 255, 46, 0.55);
 }
 
 .boton-circular.activo svg {
-  filter: drop-shadow(0 0 9px rgba(29, 158, 117, 0.8));
+  filter: drop-shadow(0 0 9px rgba(165, 255, 46, 0.8));
 }
 
 .boton-circular.exito {
