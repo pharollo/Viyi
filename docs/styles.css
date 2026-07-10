@@ -377,35 +377,48 @@ button:disabled {
   margin: 34px 4px 22px;
 }
 
-/* Aviso de tiempo restante del pase (invitados). */
-.aviso-pase {
+/* Acceso del invitado: una fila por dispositivo con su tiempo restante. */
+.acceso-fila {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  max-width: 340px;
-  margin: 4px auto 6px;
-  padding: 9px 16px;
-  border-radius: 13px;
-  background: rgba(165, 255, 46, 0.1);
-  color: var(--primario);
-  font-size: 13.5px;
-  font-weight: 500;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.aviso-pase svg {
-  width: 17px;
-  height: 17px;
+.acceso-fila:last-child {
+  border-bottom: none;
+}
+
+.acceso-nombre {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--texto);
+}
+
+.acceso-reloj {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--primario);
+  white-space: nowrap;
+}
+
+.acceso-reloj svg {
+  width: 15px;
+  height: 15px;
   flex: 0 0 auto;
 }
 
-.aviso-pase.urgente {
-  background: rgba(255, 140, 58, 0.13);
+.acceso-reloj.urgente {
   color: var(--fuego);
 }
 
-.aviso-pase.vencido {
-  background: rgba(240, 149, 149, 0.13);
+.acceso-reloj.vencido {
   color: var(--error);
 }
 

@@ -322,37 +322,16 @@ async function iniciar() {
     return hr ? `${d} día${d > 1 ? 's' : ''} ${hr} h` : `${d} día${d > 1 ? 's' : ''}`;
   }
 
-  // Banner de tiempo restante para invitados con pase temporal.
+  // Reloj con el tiempo restante de un acceso (dataset.expira en ms; 0 = sin límite).
   const ICONO_RELOJ = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v4.7l3 1.8"/></svg>';
-  function pintarAvisoPase(el) {
-    const exp = Number(el.dataset.expira);
+  function pintarRelojAcceso(el) {
+    const exp = Number(el.dataset.expira || 0);
+    const txt = el.querySelector('.acceso-tiempo');
+    if (!exp) { el.classList.remove('urgente', 'vencido'); txt.textContent = 'sin límite'; return; }
     const rem = exp - Date.now();
-    const txt = el.querySelector('.aviso-pase-texto');
     el.classList.toggle('urgente', rem > 0 && rem < 3600000);
     el.classList.toggle('vencido', rem <= 0);
-    txt.textContent = rem <= 0
-      ? 'Tu acceso venció'
-      : `Tu acceso vence en ${restanteTexto(rem)}`;
-  }
-  function avisoPase(dispositivos) {
-    if (!usuarioActual) return null;
-    const ahora = Date.now();
-    const visibles = new Set(dispositivos.map((d) => d.id));
-    const limiteIndef = ahora + 100 * 365 * 24 * 3600 * 1000; // >100 años = indefinido
-    let min = Infinity;
-    for (const [id, info] of Object.entries(usuarioActual.accesos || {})) {
-      if (!visibles.has(id)) continue;
-      const ms = msExpira(info && info.expira);
-      if (ms > ahora && ms < limiteIndef && ms < min) min = ms;
-    }
-    if (!isFinite(min)) return null; // sin vencimiento (indefinido) o sin accesos
-    const el = document.createElement('div');
-    el.className = 'aviso-pase';
-    el.id = 'aviso-pase';
-    el.dataset.expira = String(min);
-    el.innerHTML = `${ICONO_RELOJ}<span class="aviso-pase-texto"></span>`;
-    pintarAvisoPase(el);
-    return el;
+    txt.textContent = rem <= 0 ? 'venció' : restanteTexto(rem);
   }
 
   function renderDispositivos(dispositivos) {
@@ -1207,30 +1186,27 @@ async function iniciar() {
     if (!conAcceso.length) { card.classList.add('oculto'); card.textContent = ''; return; }
     card.classList.remove('oculto');
     card.textContent = '';
-    const h = document.createElement('h2');
-    h.textContent = 'Tu acceso temporal';
-    card.appendChild(h);
-    const pill = avisoPase(misDispositivos);
-    if (pill) {
-      card.appendChild(pill);
-      avisoTimer = setInterval(() => {
-        const el = document.getElementById('aviso-pase');
-        if (!el) { clearInterval(avisoTimer); avisoTimer = null; return; }
-        pintarAvisoPase(el);
-      }, 30000);
-    } else {
-      const p = document.createElement('p');
-      p.className = 'ayuda-pase';
-      p.textContent = 'Tu acceso no tiene fecha de vencimiento.';
-      card.appendChild(p);
+    const limiteIndef = Date.now() + 100 * 365 * 24 * 3600 * 1000; // >100 años = indefinido
+    for (const d of conAcceso) {
+      const ms = msExpira(usuarioActual.accesos[d.id] && usuarioActual.accesos[d.id].expira);
+      const fila = document.createElement('div');
+      fila.className = 'acceso-fila';
+      const nombre = document.createElement('span');
+      nombre.className = 'acceso-nombre';
+      nombre.textContent = d.nombre;
+      const reloj = document.createElement('span');
+      reloj.className = 'acceso-reloj';
+      reloj.dataset.expira = (ms && ms < limiteIndef) ? String(ms) : '0';
+      reloj.innerHTML = `${ICONO_RELOJ}<span class="acceso-tiempo"></span>`;
+      pintarRelojAcceso(reloj);
+      fila.append(nombre, reloj);
+      card.appendChild(fila);
     }
-    const nombres = conAcceso.map((d) => d.nombre).filter(Boolean);
-    if (nombres.length) {
-      const p = document.createElement('p');
-      p.className = 'ayuda-pase';
-      p.textContent = 'Puedes usar: ' + nombres.join(', ') + '.';
-      card.appendChild(p);
-    }
+    avisoTimer = setInterval(() => {
+      const relojes = card.querySelectorAll('.acceso-reloj');
+      if (!relojes.length) { clearInterval(avisoTimer); avisoTimer = null; return; }
+      relojes.forEach(pintarRelojAcceso);
+    }, 30000);
   }
 
   // Prepara la vista Pases: tarjeta de acceso (si recibió un pase) y el
