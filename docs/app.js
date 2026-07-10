@@ -358,23 +358,12 @@ async function iniciar() {
   function renderDispositivos(dispositivos) {
     const contenedor = $('lista-dispositivos');
     contenedor.textContent = '';
-    clearInterval(avisoTimer);
-    avisoTimer = null;
     if (!dispositivos.length) {
       const aviso = document.createElement('p');
       aviso.className = 'centrado';
       aviso.textContent = 'No tienes dispositivos asignados. Contacta al administrador.';
       contenedor.appendChild(aviso);
       return;
-    }
-    const aviso = avisoPase(dispositivos);
-    if (aviso) {
-      contenedor.appendChild(aviso);
-      avisoTimer = setInterval(() => {
-        const el = document.getElementById('aviso-pase');
-        if (!el) { clearInterval(avisoTimer); avisoTimer = null; return; }
-        pintarAvisoPase(el);
-      }, 30000);
     }
     const usosDe = (id) => (usuarioActual && usuarioActual.usos && usuarioActual.usos[id]) || 0;
     for (const tipo of TIPOS) {
@@ -1172,7 +1161,10 @@ async function iniciar() {
   document.querySelectorAll('.item-menu').forEach((p) => {
     p.addEventListener('click', () => {
       mostrarTab(p.dataset.tab);
-      if (p.dataset.tab === 'tab-pases') cargarMisPases();
+      if (p.dataset.tab === 'tab-pases') {
+        if (usuarioActual && usuarioActual.invitado === true) mostrarAccesoInvitado();
+        else cargarMisPases();
+      }
       cerrarMenu();
     });
   });
@@ -1199,8 +1191,48 @@ async function iniciar() {
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   $('btn-refrescar-pases').addEventListener('click', cargarMisPases);
 
+  // Vista Pases para invitados: muestra el tiempo restante de su acceso y
+  // oculta el generador y "Mis pases" (que no aplican a un invitado).
+  function mostrarAccesoInvitado() {
+    const esInvitado = !!(usuarioActual && usuarioActual.invitado === true);
+    $('pase-generador').classList.toggle('oculto', esInvitado);
+    $('pase-mis').classList.toggle('oculto', esInvitado);
+    const card = $('pase-invitado');
+    card.classList.toggle('oculto', !esInvitado);
+    clearInterval(avisoTimer);
+    avisoTimer = null;
+    if (!esInvitado) return;
+    card.textContent = '';
+    const h = document.createElement('h2');
+    h.textContent = 'Tu acceso temporal';
+    card.appendChild(h);
+    const pill = avisoPase(misDispositivos);
+    if (pill) {
+      card.appendChild(pill);
+      avisoTimer = setInterval(() => {
+        const el = document.getElementById('aviso-pase');
+        if (!el) { clearInterval(avisoTimer); avisoTimer = null; return; }
+        pintarAvisoPase(el);
+      }, 30000);
+    } else {
+      const p = document.createElement('p');
+      p.className = 'ayuda-pase';
+      p.textContent = 'Tu acceso no tiene fecha de vencimiento.';
+      card.appendChild(p);
+    }
+    const nombres = (misDispositivos || []).map((d) => d.nombre).filter(Boolean);
+    if (nombres.length) {
+      const p = document.createElement('p');
+      p.className = 'ayuda-pase';
+      p.textContent = 'Puedes usar: ' + nombres.join(', ') + '.';
+      card.appendChild(p);
+    }
+  }
+
   // Construye la lista de dispositivos compartibles (los propios del usuario).
   function prepararGeneradorPases() {
+    mostrarAccesoInvitado();
+    if (usuarioActual && usuarioActual.invitado === true) return;
     const cont = $('pase-dispositivos');
     cont.textContent = '';
     const compartibles = usuarioActual.rol === 'admin'

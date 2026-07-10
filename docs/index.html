@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=65">
+  <link rel="stylesheet" href="styles.css?v=66">
 </head>
 <body>
   <header>
@@ -91,7 +91,8 @@
         <div id="lista-dispositivos"></div>
       </div>
       <div id="tab-pases" class="panel-tab oculto">
-        <div class="tarjeta">
+        <div id="pase-invitado" class="tarjeta oculto"></div>
+        <div class="tarjeta" id="pase-generador">
           <h2>Compartir acceso</h2>
           <p class="ayuda-pase">Genera un enlace para dar acceso temporal a tus dispositivos. Quien lo reciba se registra y podrá usarlos hasta que venza el plazo.</p>
           <div id="pase-dispositivos" class="pase-disp"></div>
@@ -105,11 +106,13 @@
           <button id="btn-generar-pase" type="button" class="btn-primario">Generar enlace</button>
           <div id="pase-resultado" class="pase-resultado oculto"></div>
         </div>
-        <div class="encabezado-admin">
-          <h2>Mis pases</h2>
-          <button id="btn-refrescar-pases" type="button" class="btn-secundario">Actualizar</button>
+        <div id="pase-mis">
+          <div class="encabezado-admin">
+            <h2>Mis pases</h2>
+            <button id="btn-refrescar-pases" type="button" class="btn-secundario">Actualizar</button>
+          </div>
+          <ul id="lista-pases" class="lista-gestion"></ul>
         </div>
-        <ul id="lista-pases" class="lista-gestion"></ul>
       </div>
       <div id="tab-gestion" class="panel-tab oculto">
         <div class="encabezado-admin">
@@ -145,6 +148,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=65"></script>
+  <script type="module" src="app.js?v=66"></script>
 </body>
 </html>
