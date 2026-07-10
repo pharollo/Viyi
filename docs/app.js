@@ -51,6 +51,7 @@ async function iniciar() {
 
   let usuarioActual = null;
   let misDispositivos = [];
+  let avisoTimer = null;
 
   // Enlace de pase entrante (?pase=TOKEN): se canjea al iniciar sesión.
   const paramsUrl = new URLSearchParams(location.search);
@@ -306,15 +307,74 @@ async function iniciar() {
       .sort((a, b) => (a.orden || 99) - (b.orden || 99));
   }
 
+  // Texto legible del tiempo restante (min / h / días).
+  function restanteTexto(ms) {
+    const min = Math.floor(ms / 60000);
+    if (min < 1) return 'menos de 1 minuto';
+    if (min < 60) return `${min} min`;
+    const h = Math.floor(min / 60);
+    if (h < 24) {
+      const m = min % 60;
+      return m ? `${h} h ${m} min` : `${h} h`;
+    }
+    const d = Math.floor(h / 24);
+    const hr = h % 24;
+    return hr ? `${d} día${d > 1 ? 's' : ''} ${hr} h` : `${d} día${d > 1 ? 's' : ''}`;
+  }
+
+  // Banner de tiempo restante para invitados con pase temporal.
+  const ICONO_RELOJ = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v4.7l3 1.8"/></svg>';
+  function pintarAvisoPase(el) {
+    const exp = Number(el.dataset.expira);
+    const rem = exp - Date.now();
+    const txt = el.querySelector('.aviso-pase-texto');
+    el.classList.toggle('urgente', rem > 0 && rem < 3600000);
+    el.classList.toggle('vencido', rem <= 0);
+    txt.textContent = rem <= 0
+      ? 'Tu acceso venció'
+      : `Tu acceso vence en ${restanteTexto(rem)}`;
+  }
+  function avisoPase(dispositivos) {
+    if (!usuarioActual || usuarioActual.invitado !== true) return null;
+    const ahora = Date.now();
+    const visibles = new Set(dispositivos.map((d) => d.id));
+    const limiteIndef = ahora + 100 * 365 * 24 * 3600 * 1000; // >100 años = indefinido
+    let min = Infinity;
+    for (const [id, info] of Object.entries(usuarioActual.accesos || {})) {
+      if (!visibles.has(id)) continue;
+      const ms = msExpira(info && info.expira);
+      if (ms > ahora && ms < limiteIndef && ms < min) min = ms;
+    }
+    if (!isFinite(min)) return null; // sin vencimiento (indefinido) o sin accesos
+    const el = document.createElement('div');
+    el.className = 'aviso-pase';
+    el.id = 'aviso-pase';
+    el.dataset.expira = String(min);
+    el.innerHTML = `${ICONO_RELOJ}<span class="aviso-pase-texto"></span>`;
+    pintarAvisoPase(el);
+    return el;
+  }
+
   function renderDispositivos(dispositivos) {
     const contenedor = $('lista-dispositivos');
     contenedor.textContent = '';
+    clearInterval(avisoTimer);
+    avisoTimer = null;
     if (!dispositivos.length) {
       const aviso = document.createElement('p');
       aviso.className = 'centrado';
       aviso.textContent = 'No tienes dispositivos asignados. Contacta al administrador.';
       contenedor.appendChild(aviso);
       return;
+    }
+    const aviso = avisoPase(dispositivos);
+    if (aviso) {
+      contenedor.appendChild(aviso);
+      avisoTimer = setInterval(() => {
+        const el = document.getElementById('aviso-pase');
+        if (!el) { clearInterval(avisoTimer); avisoTimer = null; return; }
+        pintarAvisoPase(el);
+      }, 30000);
     }
     const usosDe = (id) => (usuarioActual && usuarioActual.usos && usuarioActual.usos[id]) || 0;
     for (const tipo of TIPOS) {
