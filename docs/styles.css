@@ -571,6 +571,11 @@ button:disabled {
   height: auto;
 }
 
+.boton-circular.grande svg.icono-candado {
+  width: auto;
+  height: 66px;
+}
+
 .boton-circular.grande.cuadrado svg {
   width: 82px;
   height: 82px;
