@@ -636,6 +636,32 @@ button:disabled {
   filter: drop-shadow(0 0 3px rgba(255, 140, 58, 0.95));
 }
 
+/* Portón: el garaje y el carro se mantienen neutros. Al abrir (éxito) las
+   persianas se encienden una por una, de abajo hacia arriba, como si la
+   puerta se estuviera abriendo. */
+.icono-porton {
+  color: var(--texto-suave);
+}
+
+.icono-porton .persianas line {
+  transition: stroke 0.3s ease;
+}
+
+.boton-circular.exito .icono-porton .persianas line {
+  animation: abrir-porton 0.55s ease-in-out both;
+}
+
+.boton-circular.exito .icono-porton .persianas line:nth-of-type(4) { animation-delay: 0s; }
+.boton-circular.exito .icono-porton .persianas line:nth-of-type(3) { animation-delay: 0.16s; }
+.boton-circular.exito .icono-porton .persianas line:nth-of-type(2) { animation-delay: 0.32s; }
+.boton-circular.exito .icono-porton .persianas line:nth-of-type(1) { animation-delay: 0.48s; }
+
+@keyframes abrir-porton {
+  from { stroke: var(--texto-suave); filter: none; }
+  60%  { stroke: var(--primario); filter: drop-shadow(0 0 2.5px rgba(165, 255, 46, 0.9)); }
+  to   { stroke: var(--primario); filter: drop-shadow(0 0 2px rgba(165, 255, 46, 0.75)); }
+}
+
 .boton-circular.enviando {
   animation: pulso-envio 0.9s ease-in-out infinite;
 }
