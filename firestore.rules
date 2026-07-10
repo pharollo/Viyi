@@ -15,18 +15,26 @@ service cloud.firestore {
       return autenticado() && miUsuario().rol == 'admin';
     }
 
+    // Acceso a un dispositivo: propio (permanente) o por un pase no vencido.
+    function tieneAcceso(id) {
+      let u = miUsuario();
+      return id in u.get('dispositivos', [])
+        || (id in u.get('accesos', {}) && u.accesos[id].expira > request.time);
+    }
+
     // Cada vecino solo puede leer su propio perfil; el admin puede leer todos.
-    // Nadie escribe desde la app: los usuarios se administran en la consola de Firebase.
+    // Nadie escribe desde la app: los perfiles los administran las Functions
+    // (creación por el admin y canje de pases) o la consola de Firebase.
     match /usuarios/{uid} {
       allow get: if autenticado() && (request.auth.uid == uid || esAdmin());
       allow list: if esAdmin();
       allow write: if false;
     }
 
-    // Un vecino solo puede leer los dispositivos que tiene asignados.
+    // Un vecino solo puede leer los dispositivos que tiene asignados o
+    // compartidos por un pase vigente.
     match /dispositivos/{id} {
-      allow get: if autenticado() &&
-        (esAdmin() || id in miUsuario().get('dispositivos', []));
+      allow get: if autenticado() && (esAdmin() || tieneAcceso(id));
       allow list: if esAdmin();
       allow write: if false;
 
@@ -36,6 +44,13 @@ service cloud.firestore {
         allow read: if esAdmin();
         allow write: if false;
       }
+    }
+
+    // Pases: los crea/canjea/revoca las Functions. El emisor (o el admin)
+    // puede leer los suyos para listarlos y revocarlos.
+    match /pases/{token} {
+      allow read: if autenticado() && (esAdmin() || resource.data.por == request.auth.uid);
+      allow write: if false;
     }
 
     // El log de auditoría lo escriben las Cloud Functions y lo lee solo el admin.

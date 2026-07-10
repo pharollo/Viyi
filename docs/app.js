@@ -1,7 +1,7 @@
 import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js';
 
 const $ = (id) => document.getElementById(id);
-const VISTAS = ['vista-cargando', 'vista-config', 'vista-login', 'vista-sin-acceso', 'vista-panel'];
+const VISTAS = ['vista-cargando', 'vista-config', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
 
 function mostrarVista(id) {
   VISTAS.forEach((v) => $(v).classList.toggle('oculto', v !== id));
@@ -27,6 +27,7 @@ async function iniciar() {
   const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
   const {
     getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail,
+    createUserWithEmailAndPassword, updateProfile,
   } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
   const {
     getFirestore, doc, getDoc, collection, query, where, orderBy, limit, getDocs,
@@ -44,8 +45,28 @@ async function iniciar() {
   const adminGuardarDispositivo = httpsCallable(functions, 'adminGuardarDispositivo');
   const adminEliminarDispositivo = httpsCallable(functions, 'adminEliminarDispositivo');
   const adminInspeccionarDispositivo = httpsCallable(functions, 'adminInspeccionarDispositivo');
+  const crearPase = httpsCallable(functions, 'crearPase');
+  const canjearPase = httpsCallable(functions, 'canjearPase');
+  const revocarPase = httpsCallable(functions, 'revocarPase');
 
   let usuarioActual = null;
+  let misDispositivos = [];
+
+  // Enlace de pase entrante (?pase=TOKEN): se canjea al iniciar sesión.
+  const paramsUrl = new URLSearchParams(location.search);
+  let paseTokenPendiente = paramsUrl.get('pase');
+  let registroNombrePendiente = null;
+  function limpiarUrlPase() {
+    const u = new URL(location.href);
+    u.searchParams.delete('pase');
+    history.replaceState(null, '', u.pathname + u.search + u.hash);
+  }
+  const msExpira = (exp) => {
+    if (!exp) return 0;
+    if (typeof exp.toMillis === 'function') return exp.toMillis();
+    if (typeof exp.seconds === 'number') return exp.seconds * 1000;
+    return 0;
+  };
 
   const TIPOS = [
     { clave: 'puerta', titulo: 'Puertas' },
@@ -160,11 +181,25 @@ async function iniciar() {
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
       $('info-usuario').classList.add('oculto');
-      mostrarVista('vista-login');
+      // Si llegó por un enlace de pase, ofrecer registrarse; si no, login.
+      mostrarVista(paseTokenPendiente ? 'vista-registro' : 'vista-login');
       return;
     }
     mostrarVista('vista-cargando');
     try {
+      // Canjear un pase pendiente antes de cargar el perfil (lo puede crear).
+      if (paseTokenPendiente) {
+        try {
+          await canjearPase({ token: paseTokenPendiente, nombre: registroNombrePendiente });
+          toast('¡Listo! Ya tienes acceso a los dispositivos compartidos.');
+        } catch (err) {
+          toast((err && err.message) || 'No se pudo canjear el enlace.', 'error');
+        }
+        paseTokenPendiente = null;
+        registroNombrePendiente = null;
+        limpiarUrlPase();
+      }
+
       const perfilSnap = await getDoc(doc(db, 'usuarios', user.uid));
       if (!perfilSnap.exists() || perfilSnap.data().activo === false) {
         mostrarVista('vista-sin-acceso');
@@ -178,7 +213,9 @@ async function iniciar() {
       $('info-usuario').classList.remove('oculto');
 
       const dispositivos = await cargarDispositivos(usuario);
+      misDispositivos = dispositivos;
       renderDispositivos(dispositivos);
+      prepararGeneradorPases();
 
       const esAdmin = usuario.rol === 'admin';
       $('btn-menu').classList.remove('oculto');
@@ -196,6 +233,57 @@ async function iniciar() {
     }
   });
 
+  // ---- Registro de invitado (solo al llegar con un enlace de pase) ----
+  $('form-registro').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    const boton = $('btn-registro');
+    const error = $('error-registro');
+    error.classList.add('oculto');
+    const nombre = $('reg-nombre').value.trim();
+    const email = $('reg-email').value.trim();
+    const password = $('reg-password').value;
+    if (nombre.length < 2) {
+      error.textContent = 'Escribe tu nombre.';
+      error.classList.remove('oculto');
+      return;
+    }
+    if (password.length < 6) {
+      error.textContent = 'La clave debe tener al menos 6 caracteres.';
+      error.classList.remove('oculto');
+      return;
+    }
+    boton.disabled = true;
+    boton.textContent = 'Creando…';
+    registroNombrePendiente = nombre;
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(cred.user, { displayName: nombre }).catch(() => {});
+      // onAuthStateChanged canjea el pase y carga el panel.
+    } catch (err) {
+      const mensajes = {
+        'auth/email-already-in-use': 'Ya existe una cuenta con ese correo. Usa "Ya tengo cuenta".',
+        'auth/invalid-email': 'El correo no es válido.',
+        'auth/weak-password': 'La clave es muy débil (mín. 6 caracteres).',
+      };
+      error.textContent = mensajes[err.code] || 'No se pudo crear la cuenta. Intenta de nuevo.';
+      error.classList.remove('oculto');
+      registroNombrePendiente = null;
+      boton.disabled = false;
+      boton.textContent = 'Crear cuenta y entrar';
+    }
+  });
+
+  // "Ya tengo cuenta": ir al login conservando el pase pendiente.
+  $('btn-ir-login').addEventListener('click', () => {
+    mostrarVista('vista-login');
+  });
+
+  // Ojo de la clave en el registro.
+  $('btn-ver-clave-reg').addEventListener('click', () => {
+    const campo = $('reg-password');
+    campo.type = campo.type === 'password' ? 'text' : 'password';
+  });
+
   async function cargarDispositivos(usuario) {
     let documentos = [];
     if (usuario.rol === 'admin') {
@@ -204,8 +292,13 @@ async function iniciar() {
       );
       documentos = resultado.docs;
     } else {
-      const ids = usuario.dispositivos || [];
-      const lecturas = await Promise.all(ids.map((id) => getDoc(doc(db, 'dispositivos', id))));
+      const ids = new Set(usuario.dispositivos || []);
+      // Dispositivos compartidos por pases vigentes (no vencidos).
+      const ahora = Date.now();
+      for (const [id, info] of Object.entries(usuario.accesos || {})) {
+        if (msExpira(info && info.expira) > ahora) ids.add(id);
+      }
+      const lecturas = await Promise.all([...ids].map((id) => getDoc(doc(db, 'dispositivos', id))));
       documentos = lecturas.filter((s) => s.exists() && s.data().activo !== false);
     }
     return documentos
@@ -900,7 +993,7 @@ async function iniciar() {
   $('btn-nuevo-dispositivo').addEventListener('click', () => abrirEditorDispositivo(null));
   $('btn-nuevo-usuario').addEventListener('click', () => abrirEditorUsuario(null));
 
-  const PANELES_TAB = ['tab-controles', 'tab-gestion', 'tab-registro'];
+  const PANELES_TAB = ['tab-controles', 'tab-pases', 'tab-gestion', 'tab-registro'];
   function mostrarTab(id) {
     PANELES_TAB.forEach((t) => $(t).classList.toggle('oculto', t !== id));
     document.querySelectorAll('.item-menu').forEach((p) => {
@@ -921,6 +1014,7 @@ async function iniciar() {
   document.querySelectorAll('.item-menu').forEach((p) => {
     p.addEventListener('click', () => {
       mostrarTab(p.dataset.tab);
+      if (p.dataset.tab === 'tab-pases') cargarMisPases();
       cerrarMenu();
     });
   });
@@ -931,6 +1025,192 @@ async function iniciar() {
   $('ir-inicio').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); irInicio(); }
   });
+
+  // ---- Pases: generar / listar / revocar ----
+  const escapar = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const DUR_TXT = { '1h': '1 hora', '24h': '24 horas', '7d': '1 semana', indef: 'Indefinido' };
+  let paseDuracionSel = '24h';
+
+  $('pase-duracion').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip-dur');
+    if (!b) return;
+    paseDuracionSel = b.dataset.dur;
+    document.querySelectorAll('#pase-duracion .chip-dur').forEach((c) => c.classList.toggle('activa', c === b));
+  });
+  $('btn-generar-pase').addEventListener('click', generarEnlacePase);
+  $('btn-refrescar-pases').addEventListener('click', cargarMisPases);
+
+  // Construye la lista de dispositivos compartibles (los propios del usuario).
+  function prepararGeneradorPases() {
+    const cont = $('pase-dispositivos');
+    cont.textContent = '';
+    const compartibles = usuarioActual.rol === 'admin'
+      ? misDispositivos
+      : misDispositivos.filter((d) => (usuarioActual.dispositivos || []).includes(d.id));
+    if (!compartibles.length) {
+      const p = document.createElement('p');
+      p.className = 'ayuda-pase';
+      p.textContent = 'No tienes dispositivos propios para compartir.';
+      cont.appendChild(p);
+    } else {
+      for (const d of compartibles) {
+        const lab = document.createElement('label');
+        lab.className = 'pase-casilla';
+        lab.innerHTML = `<input type="checkbox" value="${escapar(d.id)}"><span>${escapar(d.nombre)}</span>`;
+        cont.appendChild(lab);
+      }
+    }
+    $('pase-resultado').classList.add('oculto');
+    cargarMisPases();
+  }
+
+  async function generarEnlacePase() {
+    const seleccion = [...document.querySelectorAll('#pase-dispositivos input:checked')].map((i) => i.value);
+    if (!seleccion.length) { toast('Elige al menos un dispositivo.', 'error'); return; }
+    const boton = $('btn-generar-pase');
+    boton.disabled = true;
+    boton.textContent = 'Generando…';
+    try {
+      const multiuso = $('pase-multiuso').checked;
+      const res = await crearPase({ dispositivos: seleccion, duracion: paseDuracionSel, multiuso });
+      const url = `${location.origin}${location.pathname}?pase=${res.data.token}`;
+      mostrarResultadoPase(url);
+      cargarMisPases();
+    } catch (err) {
+      toast((err && err.message) || 'No se pudo generar el enlace.', 'error');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Generar enlace';
+    }
+  }
+
+  function copiarTexto(texto) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(texto).then(() => true).catch(() => false);
+    }
+    return Promise.resolve(false);
+  }
+
+  function mostrarResultadoPase(url) {
+    const cont = $('pase-resultado');
+    cont.classList.remove('oculto');
+    cont.innerHTML = '';
+    const titulo = document.createElement('p');
+    titulo.className = 'pase-ok';
+    titulo.textContent = '¡Enlace listo! Compártelo con tu invitado:';
+    const campo = document.createElement('input');
+    campo.type = 'text';
+    campo.readOnly = true;
+    campo.value = url;
+    campo.className = 'pase-url';
+    campo.addEventListener('focus', () => campo.select());
+    const acciones = document.createElement('div');
+    acciones.className = 'pase-acciones';
+    const bCopiar = document.createElement('button');
+    bCopiar.type = 'button';
+    bCopiar.className = 'btn-secundario';
+    bCopiar.textContent = 'Copiar enlace';
+    bCopiar.addEventListener('click', async () => {
+      const ok = await copiarTexto(url);
+      if (ok) toast('Enlace copiado.');
+      else { campo.select(); toast('Selecciona y copia el enlace.'); }
+    });
+    acciones.appendChild(bCopiar);
+    if (navigator.share) {
+      const bShare = document.createElement('button');
+      bShare.type = 'button';
+      bShare.className = 'btn-secundario';
+      bShare.textContent = 'Compartir';
+      bShare.addEventListener('click', () => {
+        navigator.share({ title: 'Acceso ViYi', text: 'Te comparto acceso en ViYi', url }).catch(() => {});
+      });
+      acciones.appendChild(bShare);
+    }
+    cont.appendChild(titulo);
+    cont.appendChild(campo);
+    cont.appendChild(acciones);
+  }
+
+  async function cargarMisPases() {
+    const lista = $('lista-pases');
+    if (!usuarioActual || !auth.currentUser) return;
+    lista.textContent = '';
+    try {
+      const res = await getDocs(query(collection(db, 'pases'), where('por', '==', auth.currentUser.uid)));
+      if (res.empty) {
+        const li = document.createElement('li');
+        li.className = 'vacio';
+        li.textContent = 'Aún no has generado pases.';
+        lista.appendChild(li);
+        return;
+      }
+      const nombrePorId = Object.fromEntries(misDispositivos.map((d) => [d.id, d.nombre]));
+      const items = res.docs.map((d) => ({ token: d.id, ...d.data() }))
+        .sort((a, b) => msExpira(b.creado) - msExpira(a.creado));
+      for (const p of items) lista.appendChild(filaPase(p, nombrePorId));
+    } catch (err) {
+      const li = document.createElement('li');
+      li.textContent = 'No se pudieron cargar los pases.';
+      lista.appendChild(li);
+    }
+  }
+
+  function filaPase(p, nombrePorId) {
+    const li = document.createElement('li');
+    li.className = 'fila-pase';
+    const nombres = (p.dispositivos || []).map((id) => nombrePorId[id] || id).join(', ');
+    const tipoTxt = p.multiuso ? 'varios usos' : 'un uso';
+    let estado = 'activo';
+    if (p.revocado) estado = 'revocado';
+    else if (!p.multiuso && p.usado) estado = 'usado';
+
+    const info = document.createElement('div');
+    info.className = 'pase-info';
+    info.innerHTML = `<strong>${escapar(nombres)}</strong>`
+      + `<span class="pase-meta">${DUR_TXT[p.duracion] || p.duracion} · ${tipoTxt} · ${p.usos || 0} canje(s)</span>`;
+
+    const acciones = document.createElement('div');
+    acciones.className = 'pase-fila-acciones';
+    const badge = document.createElement('span');
+    badge.className = 'pase-estado estado-' + estado;
+    badge.textContent = estado;
+    acciones.appendChild(badge);
+
+    if (estado === 'activo') {
+      const url = `${location.origin}${location.pathname}?pase=${p.token}`;
+      const bCopiar = document.createElement('button');
+      bCopiar.type = 'button';
+      bCopiar.className = 'btn-mini';
+      bCopiar.textContent = 'Copiar';
+      bCopiar.addEventListener('click', async () => {
+        const ok = await copiarTexto(url);
+        toast(ok ? 'Enlace copiado.' : 'No se pudo copiar.', ok ? undefined : 'error');
+      });
+      acciones.appendChild(bCopiar);
+      const bRev = document.createElement('button');
+      bRev.type = 'button';
+      bRev.className = 'btn-mini btn-mini-peligro';
+      bRev.textContent = 'Revocar';
+      bRev.addEventListener('click', async () => {
+        if (!confirm('¿Revocar este pase? Quien lo haya canjeado perderá el acceso.')) return;
+        bRev.disabled = true;
+        try {
+          await revocarPase({ token: p.token });
+          toast('Pase revocado.');
+          cargarMisPases();
+        } catch (err) {
+          toast((err && err.message) || 'No se pudo revocar.', 'error');
+          bRev.disabled = false;
+        }
+      });
+      acciones.appendChild(bRev);
+    }
+
+    li.appendChild(info);
+    li.appendChild(acciones);
+    return li;
+  }
 
   async function cargarRegistros() {
     const lista = $('lista-registros');

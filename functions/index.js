@@ -2,6 +2,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { defineSecret, defineString } = require('firebase-functions/params');
 const admin = require('firebase-admin');
+const crypto = require('crypto');
 const { TuyaClient } = require('./tuya');
 
 admin.initializeApp();
@@ -29,6 +30,12 @@ function tuya() {
 
 const dormir = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Duraciones de los pases (acceso temporal compartido).
+const DURACIONES_MS = { '1h': 3600000, '24h': 86400000, '7d': 604800000 };
+const msDeDuracion = (d) => (d === 'indef' ? null : DURACIONES_MS[d] || null);
+// Sentinela "sin vencimiento" (fácil de comparar en reglas y backend).
+const FIN_INDEFINIDO = admin.firestore.Timestamp.fromDate(new Date('9999-12-31T00:00:00Z'));
+
 function registrar({ uid, usuario, dispositivoId, dispositivoNombre, accion, exito, detalle }) {
   return db.collection('registros').add({
     uid,
@@ -54,7 +61,15 @@ async function autorizar(uid, dispositivoId) {
   }
   const esAdmin = usuario.rol === 'admin';
   const permitidos = usuario.dispositivos || [];
-  if (!esAdmin && !permitidos.includes(dispositivoId)) {
+  let tienePermiso = esAdmin || permitidos.includes(dispositivoId);
+  // Acceso temporal por un pase compartido: válido si no ha vencido.
+  if (!tienePermiso) {
+    const acceso = (usuario.accesos || {})[dispositivoId];
+    if (acceso && acceso.expira && typeof acceso.expira.toMillis === 'function') {
+      tienePermiso = acceso.expira.toMillis() > Date.now();
+    }
+  }
+  if (!tienePermiso) {
     await registrar({
       uid,
       usuario,
@@ -333,6 +348,154 @@ exports.adminEliminarDispositivo = onCall(async (request) => {
   }
   await db.doc(`dispositivos/${id}/privado/tuya`).delete().catch(() => {});
   await db.doc(`dispositivos/${id}`).delete();
+  return { ok: true };
+});
+
+// ---- Pases: acceso temporal compartido por enlace ----
+
+// Genera un enlace de pase con los dispositivos y la duración elegidos.
+exports.crearPase = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
+  }
+  const uid = request.auth.uid;
+  const { dispositivos, duracion, multiuso } = request.data || {};
+  if (!Array.isArray(dispositivos) || !dispositivos.length) {
+    throw new HttpsError('invalid-argument', 'Elige al menos un dispositivo para compartir.');
+  }
+  if (!['1h', '24h', '7d', 'indef'].includes(duracion)) {
+    throw new HttpsError('invalid-argument', 'La duración no es válida.');
+  }
+  const snap = await db.doc(`usuarios/${uid}`).get();
+  if (!snap.exists || snap.data().activo === false) {
+    throw new HttpsError('permission-denied', 'Tu cuenta no está activa.');
+  }
+  const usuario = snap.data();
+  const esAdmin = usuario.rol === 'admin';
+  const propios = usuario.dispositivos || [];
+  // Solo puede compartir dispositivos a los que tiene acceso permanente.
+  const compartir = [...new Set(dispositivos.filter(
+    (id) => typeof id === 'string' && (esAdmin || propios.includes(id)),
+  ))];
+  if (!compartir.length) {
+    throw new HttpsError('permission-denied', 'No puedes compartir esos dispositivos.');
+  }
+  const token = crypto.randomBytes(16).toString('hex');
+  await db.doc(`pases/${token}`).set({
+    por: uid,
+    porNombre: usuario.nombre || '',
+    dispositivos: compartir,
+    duracion,
+    multiuso: multiuso === true,
+    usado: false,
+    usos: 0,
+    revocado: false,
+    redimidoPor: [],
+    creado: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return { token };
+});
+
+// Canjea un pase: crea (o actualiza) el perfil del invitado y le da acceso
+// temporal a los dispositivos compartidos.
+exports.canjearPase = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
+  }
+  const uid = request.auth.uid;
+  const { token, nombre } = request.data || {};
+  if (!token || typeof token !== 'string') {
+    throw new HttpsError('invalid-argument', 'Falta el enlace del pase.');
+  }
+  const ref = db.doc(`pases/${token}`);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw new HttpsError('not-found', 'El enlace no es válido.');
+  }
+  const pase = snap.data();
+  if (pase.revocado === true) {
+    throw new HttpsError('failed-precondition', 'Este enlace fue revocado.');
+  }
+  if (pase.multiuso !== true && pase.usado === true) {
+    throw new HttpsError('failed-precondition', 'Este enlace ya fue usado.');
+  }
+  if (pase.por === uid) {
+    throw new HttpsError('failed-precondition', 'No puedes canjear tu propio enlace.');
+  }
+
+  const ms = msDeDuracion(pase.duracion);
+  const expira = ms == null
+    ? FIN_INDEFINIDO
+    : admin.firestore.Timestamp.fromMillis(Date.now() + ms);
+  const accesos = {};
+  for (const id of (pase.dispositivos || [])) {
+    accesos[id] = { expira, por: pase.por, token };
+  }
+
+  const userRef = db.doc(`usuarios/${uid}`);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    const nombreFinal = (typeof nombre === 'string' && nombre.trim())
+      || request.auth.token.name
+      || (request.auth.token.email || '').split('@')[0]
+      || 'Invitado';
+    await userRef.set({
+      nombre: nombreFinal,
+      unidad: '',
+      email: request.auth.token.email || '',
+      rol: 'vecino',
+      activo: true,
+      dispositivos: [],
+      accesos,
+      invitado: true,
+    });
+  } else {
+    if (userSnap.data().activo === false) {
+      throw new HttpsError('permission-denied', 'Tu cuenta está desactivada.');
+    }
+    await userRef.set({ accesos }, { merge: true });
+  }
+
+  const cambios = {
+    usos: admin.firestore.FieldValue.increment(1),
+    redimidoPor: admin.firestore.FieldValue.arrayUnion(uid),
+  };
+  if (pase.multiuso !== true) cambios.usado = true;
+  await ref.set(cambios, { merge: true });
+
+  return { ok: true, dispositivos: pase.dispositivos || [] };
+});
+
+// Revoca un pase: invalida el enlace y quita el acceso a quienes lo canjearon.
+exports.revocarPase = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
+  }
+  const uid = request.auth.uid;
+  const { token } = request.data || {};
+  if (!token || typeof token !== 'string') {
+    throw new HttpsError('invalid-argument', 'Falta el enlace del pase.');
+  }
+  const ref = db.doc(`pases/${token}`);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw new HttpsError('not-found', 'El pase no existe.');
+  }
+  const pase = snap.data();
+  if (pase.por !== uid) {
+    throw new HttpsError('permission-denied', 'No puedes revocar este pase.');
+  }
+  await ref.set({ revocado: true }, { merge: true });
+  const disp = pase.dispositivos || [];
+  for (const ruid of (pase.redimidoPor || [])) {
+    const cambios = {};
+    for (const id of disp) {
+      cambios[`accesos.${id}`] = admin.firestore.FieldValue.delete();
+    }
+    if (Object.keys(cambios).length) {
+      await db.doc(`usuarios/${ruid}`).update(cambios).catch(() => {});
+    }
+  }
   return { ok: true };
 });
 

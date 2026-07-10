@@ -166,7 +166,8 @@ code {
   color: var(--texto-suave);
 }
 
-#form-login input::placeholder {
+#form-login input::placeholder,
+#form-registro input::placeholder {
   color: var(--texto-suave);
 }
 
@@ -210,6 +211,7 @@ code {
 }
 
 #form-login input,
+#form-registro input,
 .campo input,
 .campo select {
   padding: 13px 14px;
@@ -227,6 +229,7 @@ code {
 }
 
 #form-login input:focus,
+#form-registro input:focus,
 .campo input:focus,
 .campo select:focus {
   box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara), 0 0 0 1.5px var(--primario);
@@ -861,4 +864,188 @@ button:disabled {
 
 .oculto {
   display: none !important;
+}
+
+/* ---- Pases (acceso compartido por enlace) ---- */
+.ayuda-pase {
+  color: var(--texto-suave);
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 0 0 14px;
+}
+
+.pase-disp {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.pase-casilla {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: var(--fondo);
+  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara);
+  color: var(--texto);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.pase-casilla input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primario);
+  flex: 0 0 auto;
+}
+
+.pase-casilla:has(input:checked) {
+  color: var(--primario);
+  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara), inset 0 0 0 1.5px var(--primario);
+}
+
+.pase-duracion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.chip-dur {
+  flex: 1 1 30%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--superficie);
+  color: var(--texto-suave);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 3px 3px 7px var(--sombra-oscura), -3px -3px 7px var(--sombra-clara);
+}
+
+.chip-dur.activa {
+  color: var(--primario);
+  box-shadow: inset 3px 3px 6px var(--sombra-oscura), inset -3px -3px 6px var(--sombra-clara), inset 0 0 0 1.5px var(--primario);
+}
+
+.pase-multi {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--texto-suave);
+  font-size: 14px;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+
+.pase-multi input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primario);
+  flex: 0 0 auto;
+}
+
+.pase-resultado {
+  margin-top: 18px;
+}
+
+.pase-ok {
+  color: var(--primario);
+  font-size: 14px;
+  margin: 0 0 10px;
+}
+
+.pase-url {
+  width: 100%;
+  padding: 11px 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--fondo);
+  color: var(--texto);
+  font-size: 13px;
+  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara);
+  margin-bottom: 10px;
+}
+
+.pase-acciones {
+  display: flex;
+  gap: 10px;
+}
+
+.pase-acciones .btn-secundario {
+  flex: 1;
+}
+
+.pase-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pase-info strong {
+  color: var(--texto);
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pase-meta {
+  color: var(--texto-suave);
+  font-size: 12.5px;
+}
+
+.pase-fila-acciones {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.pase-estado {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 3px 8px;
+  border-radius: 8px;
+}
+
+.estado-activo { color: var(--primario); background: rgba(165, 255, 46, 0.12); }
+.estado-usado { color: var(--texto-suave); background: rgba(141, 146, 151, 0.16); }
+.estado-revocado { color: var(--error); background: rgba(240, 149, 149, 0.14); }
+
+.btn-mini {
+  border: none;
+  border-radius: 9px;
+  padding: 7px 11px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--superficie);
+  color: var(--texto-suave);
+  box-shadow: 2px 2px 5px var(--sombra-oscura), -2px -2px 5px var(--sombra-clara);
+}
+
+.btn-mini:not(:disabled):active {
+  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara);
+}
+
+.btn-mini-peligro {
+  color: var(--error);
+}
+
+.lista-gestion li.vacio {
+  justify-content: center;
+  color: var(--texto-suave);
+  font-size: 14px;
+  box-shadow: none;
+  background: transparent;
 }
