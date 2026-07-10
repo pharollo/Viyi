@@ -380,12 +380,18 @@ exports.crearPase = onCall(async (request) => {
   if (!compartir.length) {
     throw new HttpsError('permission-denied', 'No puedes compartir esos dispositivos.');
   }
+  // El plazo corre desde que se genera el enlace: vencimiento absoluto.
+  const ms = msDeDuracion(duracion);
+  const expira = ms == null
+    ? FIN_INDEFINIDO
+    : admin.firestore.Timestamp.fromMillis(Date.now() + ms);
   const token = crypto.randomBytes(16).toString('hex');
   await db.doc(`pases/${token}`).set({
     por: uid,
     porNombre: usuario.nombre || '',
     dispositivos: compartir,
     duracion,
+    expira,
     multiuso: multiuso === true,
     usado: false,
     usos: 0,
@@ -423,10 +429,11 @@ exports.canjearPase = onCall(async (request) => {
     throw new HttpsError('failed-precondition', 'No puedes canjear tu propio enlace.');
   }
 
-  const ms = msDeDuracion(pase.duracion);
-  const expira = ms == null
-    ? FIN_INDEFINIDO
-    : admin.firestore.Timestamp.fromMillis(Date.now() + ms);
+  // El plazo cuenta desde que se generó el enlace (vencimiento absoluto).
+  const expira = pase.expira || FIN_INDEFINIDO;
+  if (typeof expira.toMillis === 'function' && expira.toMillis() <= Date.now()) {
+    throw new HttpsError('failed-precondition', 'Este enlace ya venció.');
+  }
   const accesos = {};
   for (const id of (pase.dispositivos || [])) {
     accesos[id] = { expira, por: pase.por, token };

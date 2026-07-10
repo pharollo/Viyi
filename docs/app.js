@@ -1162,8 +1162,10 @@ async function iniciar() {
     const nombres = (p.dispositivos || []).map((id) => nombrePorId[id] || id).join(', ');
     const tipoTxt = p.multiuso ? 'varios usos' : 'un uso';
     let estado = 'activo';
+    const venc = msExpira(p.expira);
     if (p.revocado) estado = 'revocado';
     else if (!p.multiuso && p.usado) estado = 'usado';
+    else if (venc && venc <= Date.now()) estado = 'vencido';
 
     const info = document.createElement('div');
     info.className = 'pase-info';

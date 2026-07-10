@@ -1019,6 +1019,7 @@ button:disabled {
 
 .estado-activo { color: var(--primario); background: rgba(165, 255, 46, 0.12); }
 .estado-usado { color: var(--texto-suave); background: rgba(141, 146, 151, 0.16); }
+.estado-vencido { color: var(--texto-suave); background: rgba(141, 146, 151, 0.16); }
 .estado-revocado { color: var(--error); background: rgba(240, 149, 149, 0.14); }
 
 .btn-mini {
