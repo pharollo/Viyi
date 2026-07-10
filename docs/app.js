@@ -243,18 +243,30 @@ async function iniciar() {
     }
   }
 
-  // Marca en foco el control cuyo centro está más cerca del centro del carrusel.
+  // Escala cada control según su distancia al centro (efecto coverflow):
+  // el que está en foco se ve grande y los vecinos, más pequeños, crecen al acercarse.
+  const MIN_ESCALA = 0.66; // tamaño del vecino más lejano
+  const MIN_OPAC = 0.4;
   function activarCarrusel(cont) {
     const items = [...cont.children];
-    if (items.length <= 1) { items.forEach((i) => i.classList.add('enfoque')); return; }
+    if (items.length <= 1) {
+      items.forEach((i) => { i.classList.add('enfoque'); i.style.transform = 'scale(1)'; i.style.opacity = '1'; });
+      return;
+    }
     const actualizar = () => {
       const rc = cont.getBoundingClientRect();
       const centro = rc.left + rc.width / 2;
+      const paso = items[0].offsetWidth || 1; // ancho de una diapositiva (sin escalar)
       let mejor = null;
       let mejorD = Infinity;
       for (const it of items) {
         const r = it.getBoundingClientRect();
         const d = Math.abs(r.left + r.width / 2 - centro);
+        const t = Math.min(1, d / paso); // 0 en el centro, 1 a una diapositiva de distancia
+        const escala = 1 - (1 - MIN_ESCALA) * t;
+        const opac = 1 - (1 - MIN_OPAC) * t;
+        it.style.transform = `scale(${escala.toFixed(3)})`;
+        it.style.opacity = opac.toFixed(3);
         if (d < mejorD) { mejorD = d; mejor = it; }
       }
       items.forEach((i) => i.classList.toggle('enfoque', i === mejor));
@@ -264,6 +276,7 @@ async function iniciar() {
       if (!raf) raf = requestAnimationFrame(() => { raf = null; actualizar(); });
     }, { passive: true });
     actualizar();
+    requestAnimationFrame(actualizar);
     setTimeout(actualizar, 80);
   }
 

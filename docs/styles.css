@@ -480,7 +480,7 @@ button:disabled {
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
-  padding: 8px max(10px, calc(50% - 124px));
+  padding: 8px max(10px, calc(50% - 112px));
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
@@ -490,16 +490,12 @@ button:disabled {
 }
 
 .grupo-controles.carrusel > .control {
-  flex: 0 0 248px;
+  flex: 0 0 224px;
   scroll-snap-align: center;
-  transform: scale(0.92);
-  opacity: 0.58;
-  transition: transform 0.28s ease, opacity 0.28s ease;
-}
-
-.grupo-controles.carrusel > .control.enfoque {
-  transform: scale(1);
-  opacity: 1;
+  transform-origin: center center;
+  transform: scale(0.66);
+  opacity: 0.4;
+  will-change: transform, opacity;
 }
 
 .control {
