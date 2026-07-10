@@ -894,7 +894,7 @@ async function iniciar() {
   async function abrirEditorDispositivo(existente) {
     const esNuevo = !existente;
     const d = existente || {};
-    let tuya = { tuyaDeviceId: '', codigo: 'switch_1', pulsoMs: 1000, codigoBrillo: 'bright_value_v2', brilloMax: 1000 };
+    let tuya = { tuyaDeviceId: '', codigo: 'switch_1', pulsoMs: 1000, codigoBrillo: 'bright_value_v2', brilloMax: 1000, posicionInvertida: false };
     if (!esNuevo) {
       try {
         const s = await getDoc(doc(db, `dispositivos/${d.id}/privado/tuya`));
@@ -920,6 +920,7 @@ async function iniciar() {
     const iBrilloMax = entrada(tuya.brilloMax, '', 'number');
     const campoBrilloCodigo = campo('Código de brillo (Tuya)', iCodigoBrillo);
     const campoBrilloMax = campo('Brillo máximo (rango Tuya, ej. 1000)', iBrilloMax);
+    const cInvertir = casilla('Invertir apertura (marca si la persiana abre al revés)', tuya.posicionInvertida === true);
     const iResultadoDps = document.createElement('div');
     iResultadoDps.className = 'dps-detectados';
     const btnDetectar = botonForm('Detectar DPs del dispositivo', 'btn-secundario', async (ev) => {
@@ -960,6 +961,7 @@ async function iniciar() {
       campoBrilloCodigo.classList.toggle('oculto', !esDimmer);
       campoBrilloMax.classList.toggle('oculto', !esDimmer);
       campoDetectar.classList.toggle('oculto', !esDimmer);
+      cInvertir.label.classList.toggle('oculto', sModo.value !== 'cortina');
     };
     sModo.addEventListener('change', actualizarModo);
     actualizarModo();
@@ -982,6 +984,7 @@ async function iniciar() {
             pulsoMs: Number(iPulso.value) || 1000,
             codigoBrillo: iCodigoBrillo.value.trim(),
             brilloMax: Number(iBrilloMax.value) || 1000,
+            posicionInvertida: cInvertir.c.checked,
           });
           toast('Dispositivo guardado ✓', 'ok');
           await trasGuardar();
@@ -1021,6 +1024,7 @@ async function iniciar() {
       campo('Duración del pulso (ms)', iPulso),
       campoBrilloCodigo,
       campoBrilloMax,
+      cInvertir.label,
       campoDetectar,
     ], acciones);
   }
