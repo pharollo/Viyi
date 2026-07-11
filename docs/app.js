@@ -1120,14 +1120,15 @@ async function iniciar() {
     sTipo.addEventListener('change', actualizarSub);
     actualizarSub();
     const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (perilla de apertura)'], ['dimmer', 'Dimmer (perilla de brillo)'], ['termostato', 'Termostato (temperatura)']], d.modo || 'pulso');
-    // Un termostato solo tiene el modo termostato: al elegir ese tipo, se
-    // auto-selecciona y se bloquea el modo; al salir del tipo, se restablece.
+    const campoModo = campo('Modo', sModo);
+    // Un termostato solo tiene el modo termostato: al elegir ese tipo se
+    // auto-selecciona el modo y se oculta el campo; al salir, se restablece.
     const sincronizarModoTipo = () => {
       if (sTipo.value === 'termostato') {
         sModo.value = 'termostato';
-        sModo.disabled = true;
+        campoModo.classList.add('oculto');
       } else {
-        sModo.disabled = false;
+        campoModo.classList.remove('oculto');
         if (sModo.value === 'termostato') sModo.value = 'pulso';
       }
       actualizarCampos();
@@ -1295,7 +1296,7 @@ async function iniciar() {
       campo('Identificador (se genera solo, no cambia después)', iId),
       campo('Tipo', sTipo),
       campoSub,
-      campo('Modo', sModo),
+      campoModo,
       campo('Proveedor', sProveedor),
       campo('Orden (menor = primero)', iOrden),
       cActivo.label,
