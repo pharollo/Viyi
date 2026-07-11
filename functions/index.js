@@ -132,8 +132,15 @@ async function ejecutarHomebridge(dispositivo, config, { accion, valor, data }) 
     if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
       throw new HttpsError('invalid-argument', 'El brillo debe estar entre 0 y 100.');
     }
-    await hb.setCaracteristica(id, 'On', pct > 0);
-    if (pct > 0) await hb.setCaracteristica(id, 'Brightness', Math.round(pct));
+    if (pct > 0) {
+      await hb.setCaracteristica(id, 'On', true);
+      await hb.setCaracteristica(id, 'Brightness', Math.round(pct));
+    } else {
+      // Apagar: bajar el brillo a 0 y On=false, para que el accesorio no
+      // siga reportando "encendido" por el brillo previo.
+      await hb.setCaracteristica(id, 'Brightness', 0);
+      await hb.setCaracteristica(id, 'On', false);
+    }
     return `brillo ${Math.round(pct)}%`;
   }
 
