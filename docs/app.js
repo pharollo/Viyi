@@ -930,9 +930,28 @@ async function iniciar() {
         if (s.exists()) tuya = { ...tuya, ...s.data() };
       } catch (err) { /* sin acceso todavía: campos vacíos */ }
     }
-    const iId = entrada(d.id, 'ej: porton-garaje');
+    const iId = entrada(d.id, 'se genera del nombre');
     if (!esNuevo) iId.disabled = true;
-    const iNombre = entrada(d.nombre, 'ej: Portón del garaje');
+    const iNombre = entrada(d.nombre, 'ej: Portón del Garaje');
+    // Cada palabra con mayúscula inicial (sin tocar el resto).
+    const tituloCase = (s) => s.split(' ')
+      .map((w) => (w ? w.charAt(0).toLocaleUpperCase() + w.slice(1) : w))
+      .join(' ');
+    // Identificador = nombre en minúsculas, sin acentos, palabras con guion.
+    const aSlug = (s) => s.toLowerCase()
+      .replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e').replace(/[íìï]/g, 'i')
+      .replace(/[óòö]/g, 'o').replace(/[úùü]/g, 'u').replace(/ñ/g, 'n')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40);
+    let idManual = !esNuevo; // en edición el id ya está fijo; no se regenera
+    iId.addEventListener('input', () => { idManual = true; });
+    iNombre.addEventListener('input', () => {
+      const pos = iNombre.selectionStart;
+      iNombre.value = tituloCase(iNombre.value);
+      try { iNombre.setSelectionRange(pos, pos); } catch (e) { /* ignore */ }
+      if (!idManual) iId.value = aSlug(iNombre.value);
+    });
     const sTipo = selector([['puerta', 'Puerta'], ['cortina', 'Cortina / persiana'], ['ascensor', 'Ascensor'], ['luz', 'Luz'], ['rele', 'Relé / equipo'], ['otro', 'Otro']], d.tipo || 'puerta');
     const sSub = selector(SUBTIPOS.puerta, d.subtipo || '');
     const campoSub = campo('Subcategoría', sSub);
@@ -1097,8 +1116,8 @@ async function iniciar() {
     }
 
     abrirEditor(esNuevo ? 'Nuevo dispositivo' : `Editar: ${d.nombre}`, [
-      campo('Identificador (no cambia después)', iId),
       campo('Nombre visible', iNombre),
+      campo('Identificador (se genera solo, no cambia después)', iId),
       campo('Tipo', sTipo),
       campoSub,
       campo('Modo', sModo),
