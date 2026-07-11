@@ -743,7 +743,8 @@ exports.consultarEstado = onCall(
         }
         const enc = typeof vals.On === 'boolean' ? vals.On : null;
         let bri = null;
-        if (typeof vals.Brightness === 'number') bri = enc === false ? 0 : Math.round(vals.Brightness);
+        // Solo mostramos brillo si está confirmado encendido; si no, 0 (apagado).
+        if (typeof vals.Brightness === 'number') bri = enc === true ? Math.round(vals.Brightness) : 0;
         return { encendido: enc, brillo: bri };
       }
       const estados = await tuya().estado(config.tuyaDeviceId);
@@ -767,7 +768,8 @@ exports.consultarEstado = onCall(
         const brilloMax = Number(config.brilloMax) || 1000;
         const brilloMin = Math.max(1, Math.round(brilloMax * 0.05));
         const pct = ((puntoBrillo.value - brilloMin) / (brilloMax - brilloMin)) * 100;
-        brillo = encendido === false ? 0 : Math.max(0, Math.min(100, Math.round(pct)));
+        // Solo mostramos brillo si está confirmado encendido; si no, 0 (apagado).
+        brillo = encendido === true ? Math.max(0, Math.min(100, Math.round(pct))) : 0;
       }
       return { encendido, brillo };
     } catch (err) {
