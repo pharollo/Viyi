@@ -1,5 +1,5 @@
-// Cliente para la API REST de homebridge-config-ui-x (el plugin de interfaz web
-// de Homebridge). Se expone típicamente por un túnel HTTPS (Cloudflare Tunnel /
+// Cliente para la API REST de homebridge-config-ui-x (el plugin de interfaz
+// web de Homebridge). Se expone por un túnel HTTPS (Cloudflare Tunnel /
 // Tailscale) y se autentica con usuario/clave, devolviendo un JWT temporal.
 class HomebridgeClient {
   constructor({ baseUrl, username, password }) {
