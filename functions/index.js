@@ -14,7 +14,9 @@ const TUYA_CLIENT_SECRET = defineSecret('TUYA_CLIENT_SECRET');
 const TUYA_BASE_URL = defineString('TUYA_BASE_URL', {
   default: 'https://openapi.tuyaus.com',
 });
-// Homebridge (homebridge-config-ui-x) vía túnel HTTPS.
+// Homebridge (homebridge-config-ui-x) vía túnel HTTPS. Requiere estos 3
+// secrets en Secret Manager (firebase functions:secrets:set NOMBRE):
+// HOMEBRIDGE_URL (URL del túnel), HOMEBRIDGE_USER, HOMEBRIDGE_PASS.
 const HOMEBRIDGE_URL = defineSecret('HOMEBRIDGE_URL');
 const HOMEBRIDGE_USER = defineSecret('HOMEBRIDGE_USER');
 const HOMEBRIDGE_PASS = defineSecret('HOMEBRIDGE_PASS');
