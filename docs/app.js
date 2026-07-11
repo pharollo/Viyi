@@ -648,10 +648,11 @@ async function iniciar() {
     (async () => {
       try {
         const res = await consultarEstado({ dispositivoId: dispositivo.id });
-        if (res.data && typeof res.data.brillo === 'number') {
-          pintar(res.data.brillo);
-          if (res.data.brillo > 0) ultimoBrillo = res.data.brillo;
-        }
+        const d = res.data || {};
+        if (typeof d.brillo === 'number') pintar(d.brillo);
+        // Recordar el último brillo aunque esté apagada (para reencender ahí).
+        const mem = typeof d.brilloMemoria === 'number' ? d.brilloMemoria : d.brillo;
+        if (typeof mem === 'number' && mem > 0) ultimoBrillo = mem;
       } catch (err) { /* sin estado disponible */ }
     })();
 

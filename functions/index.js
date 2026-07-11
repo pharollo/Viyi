@@ -132,15 +132,9 @@ async function ejecutarHomebridge(dispositivo, config, { accion, valor, data }) 
     if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
       throw new HttpsError('invalid-argument', 'El brillo debe estar entre 0 y 100.');
     }
-    if (pct > 0) {
-      await hb.setCaracteristica(id, 'On', true);
-      await hb.setCaracteristica(id, 'Brightness', Math.round(pct));
-    } else {
-      // Apagar: bajar el brillo a 0 y On=false, para que el accesorio no
-      // siga reportando "encendido" por el brillo previo.
-      await hb.setCaracteristica(id, 'Brightness', 0);
-      await hb.setCaracteristica(id, 'On', false);
-    }
+    // Apagar solo pone On=false (el accesorio conserva el brillo para recordarlo).
+    await hb.setCaracteristica(id, 'On', pct > 0);
+    if (pct > 0) await hb.setCaracteristica(id, 'Brightness', Math.round(pct));
     return `brillo ${Math.round(pct)}%`;
   }
 
@@ -784,8 +778,12 @@ exports.consultarEstado = onCall(
         else if (typeof vals.On === 'number') enc = vals.On !== 0;
         else if (typeof vals.Brightness === 'number') enc = vals.Brightness > 0;
         let bri = null;
-        if (typeof vals.Brightness === 'number') bri = enc ? Math.round(vals.Brightness) : 0;
-        return { encendido: enc, brillo: bri };
+        let briMem = null;
+        if (typeof vals.Brightness === 'number') {
+          briMem = Math.round(vals.Brightness); // brillo guardado (para recordar)
+          bri = enc ? briMem : 0;
+        }
+        return { encendido: enc, brillo: bri, brilloMemoria: briMem };
       }
       const estados = await tuya().estado(config.tuyaDeviceId);
       if (dispositivo.modo === 'cortina') {
@@ -804,14 +802,16 @@ exports.consultarEstado = onCall(
       const codigoBrillo = config.codigoBrillo || 'bright_value_v2';
       const puntoBrillo = (estados || []).find((e) => e.code === codigoBrillo);
       let brillo = null;
+      let brilloMemoria = null;
       if (puntoBrillo && typeof puntoBrillo.value === 'number') {
         const brilloMax = Number(config.brilloMax) || 1000;
         const brilloMin = Math.max(1, Math.round(brilloMax * 0.05));
         const pct = ((puntoBrillo.value - brilloMin) / (brilloMax - brilloMin)) * 100;
+        brilloMemoria = Math.max(0, Math.min(100, Math.round(pct))); // brillo guardado
         // Solo mostramos brillo si está confirmado encendido; si no, 0 (apagado).
-        brillo = encendido === true ? Math.max(0, Math.min(100, Math.round(pct))) : 0;
+        brillo = encendido === true ? brilloMemoria : 0;
       }
-      return { encendido, brillo };
+      return { encendido, brillo, brilloMemoria };
     } catch (err) {
       throw new HttpsError('internal', 'No se pudo consultar el estado del dispositivo.');
     }
