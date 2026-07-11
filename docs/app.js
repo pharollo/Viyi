@@ -46,6 +46,7 @@ async function iniciar() {
   const adminEliminarDispositivo = httpsCallable(functions, 'adminEliminarDispositivo');
   const adminInspeccionarDispositivo = httpsCallable(functions, 'adminInspeccionarDispositivo');
   const adminListarAccesoriosHomebridge = httpsCallable(functions, 'adminListarAccesoriosHomebridge');
+  const adminAccesorioCrudo = httpsCallable(functions, 'adminAccesorioCrudo');
   const crearPase = httpsCallable(functions, 'crearPase');
   const canjearPase = httpsCallable(functions, 'canjearPase');
   const revocarPase = httpsCallable(functions, 'revocarPase');
@@ -1182,11 +1183,33 @@ async function iniciar() {
         b.textContent = orig;
       }
     });
+    // Diagnóstico: muestra el estado crudo del accesorio (tipo, características, valores).
+    const debugAcc = document.createElement('pre');
+    debugAcc.className = 'dps-detectados';
+    debugAcc.style.whiteSpace = 'pre-wrap';
+    const btnDebug = botonForm('Ver estado del accesorio (debug)', 'btn-secundario', async (ev) => {
+      const idAcc = (selAcc.value || tuya.accesorioId || '').trim();
+      if (!idAcc) { toast('Elige un accesorio primero.', 'error'); return; }
+      const b = ev.currentTarget;
+      b.disabled = true;
+      const orig = b.textContent;
+      b.textContent = 'Consultando…';
+      debugAcc.textContent = '';
+      try {
+        const res = await adminAccesorioCrudo({ accesorioId: idAcc });
+        debugAcc.textContent = JSON.stringify(res.data, null, 2);
+      } catch (err) {
+        debugAcc.textContent = err.message || 'No se pudo consultar.';
+      } finally {
+        b.disabled = false;
+        b.textContent = orig;
+      }
+    });
     const campoAccesorio = document.createElement('div');
     campoAccesorio.className = 'campo';
     const spanAcc = document.createElement('span');
     spanAcc.textContent = 'Accesorio de Homebridge';
-    campoAccesorio.append(spanAcc, selAcc, btnAcc, estadoAcc);
+    campoAccesorio.append(spanAcc, selAcc, btnAcc, estadoAcc, btnDebug, debugAcc);
     const iResultadoDps = document.createElement('div');
     iResultadoDps.className = 'dps-detectados';
     const btnDetectar = botonForm('Detectar DPs del dispositivo', 'btn-secundario', async (ev) => {

@@ -501,6 +501,35 @@ exports.adminListarAccesoriosHomebridge = onCall(
   }
 );
 
+// Diagnóstico: estado crudo de un accesorio de Homebridge (tipo + características + valores).
+exports.adminAccesorioCrudo = onCall(
+  { secrets: SECRETS_HB },
+  async (request) => {
+    await exigirAdmin(request);
+    const { accesorioId } = request.data || {};
+    if (!accesorioId) {
+      throw new HttpsError('invalid-argument', 'Falta el accesorioId.');
+    }
+    let acc;
+    try {
+      acc = await homebridge().accesorio(accesorioId);
+    } catch (err) {
+      throw new HttpsError('unavailable', `No pude leer el accesorio: ${err.message}`);
+    }
+    return {
+      tipo: (acc && acc.type) || '',
+      humanType: (acc && acc.humanType) || '',
+      values: (acc && acc.values) || {},
+      caracteristicas: ((acc && acc.serviceCharacteristics) || []).map((c) => ({
+        type: c.type,
+        value: c.value,
+        canWrite: c.canWrite === true,
+        format: c.format,
+      })),
+    };
+  }
+);
+
 exports.adminInspeccionarDispositivo = onCall(
   { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
   async (request) => {
