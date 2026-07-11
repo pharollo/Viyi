@@ -780,10 +780,9 @@ async function iniciar() {
   }
 
   // Perilla de termostato: se arrastra para fijar la temperatura objetivo,
-  // muestra la temperatura actual y el modo (apagar / calor / frío).
+  // muestra la actual, y tocar el centro enciende (frío) o apaga.
   const TERMO_MIN = 10;
   const TERMO_MAX = 32;
-  const MODOS_HVAC = [['off', 'Apagar'], ['cool', 'Frío']];
   function perillaTermostato(dispositivo) {
     const cont = document.createElement('div');
     cont.className = 'termostato';
@@ -798,7 +797,7 @@ async function iniciar() {
     const indicador = perilla.querySelector('.perilla-indicador');
     const objTxt = perilla.querySelector('.termo-objetivo');
     let objetivo = TERMO_MIN;
-    let modo = 'off';
+    let encendido = false;
     let enviando = false;
     let ultimoDetente = -1;
 
@@ -815,6 +814,10 @@ async function iniciar() {
         const det = Math.round(objetivo * 2);
         if (det !== ultimoDetente) { tic(); ultimoDetente = det; }
       }
+    };
+    const pintarEstado = () => {
+      perilla.classList.remove('modo-off', 'modo-cool');
+      perilla.classList.add(encendido ? 'modo-cool' : 'modo-off');
     };
 
     // Ángulo del puntero -> temperatura sobre el arco de 270° (hueco abajo).
@@ -843,8 +846,17 @@ async function iniciar() {
       }
     }
 
+    async function enviarModo(m) {
+      try {
+        await ejecutarComando({ dispositivoId: dispositivo.id, accion: 'modo', valor: m });
+      } catch (err) {
+        toast(err.message || 'No se pudo enviar el comando.', 'error');
+      }
+    }
+
     let arrastrando = false;
     let cambiado = false;
+    let empezoCentro = false;
     const alMover = (e) => {
       if (!arrastrando) return;
       const v = tempDesde(e);
@@ -856,51 +868,33 @@ async function iniciar() {
       arrastrando = false;
       window.removeEventListener('pointermove', alMover);
       window.removeEventListener('pointerup', alSoltar);
-      if (cambiado) enviarTemp();
+      if (cambiado) {
+        enviarTemp();
+      } else if (empezoCentro) {
+        // Toque en el centro: encender (frío) o apagar.
+        encendido = !encendido;
+        pintarEstado();
+        enviarModo(encendido ? 'cool' : 'off');
+      }
     };
     perilla.addEventListener('pointerdown', (e) => {
       arrastrando = true;
       cambiado = false;
       const v = tempDesde(e);
+      empezoCentro = (v === null);
       if (v !== null) { pintar(v, true); cambiado = true; }
       window.addEventListener('pointermove', alMover);
       window.addEventListener('pointerup', alSoltar);
       e.preventDefault();
     });
 
-    // Temperatura actual y botones de modo.
+    // Temperatura actual (debajo de la perilla).
     const actual = document.createElement('div');
     actual.className = 'termo-actual';
     actual.textContent = 'Actual —°';
-    const filaModos = document.createElement('div');
-    filaModos.className = 'termo-modos';
-    const pintarModo = (m) => {
-      modo = m;
-      perilla.classList.remove('modo-off', 'modo-heat', 'modo-cool');
-      perilla.classList.add('modo-' + m);
-      [...filaModos.children].forEach((b) => b.classList.toggle('activa', b.dataset.modo === m));
-    };
-    for (const [m, txt] of MODOS_HVAC) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'termo-modo';
-      b.dataset.modo = m;
-      b.textContent = txt;
-      b.addEventListener('click', async () => {
-        const antes = modo;
-        pintarModo(m);
-        try {
-          await ejecutarComando({ dispositivoId: dispositivo.id, accion: 'modo', valor: m });
-        } catch (err) {
-          pintarModo(antes);
-          toast(err.message || 'No se pudo enviar el comando.', 'error');
-        }
-      });
-      filaModos.appendChild(b);
-    }
     pintar(TERMO_MIN);
-    pintarModo('off');
-    cont.append(perilla, actual, filaModos);
+    pintarEstado();
+    cont.append(perilla, actual);
 
     (async () => {
       try {
@@ -908,7 +902,8 @@ async function iniciar() {
         const d = res.data || {};
         if (typeof d.temperaturaObjetivo === 'number') pintar(d.temperaturaObjetivo);
         if (typeof d.temperaturaActual === 'number') actual.textContent = `Actual ${fmt(Math.round(d.temperaturaActual * 2) / 2)}°`;
-        if (d.modoHVAC && ['off', 'cool'].includes(d.modoHVAC)) pintarModo(d.modoHVAC);
+        encendido = !!(d.modoHVAC && d.modoHVAC !== 'off');
+        pintarEstado();
       } catch (err) { /* sin estado disponible */ }
     })();
 
