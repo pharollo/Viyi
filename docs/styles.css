@@ -843,6 +843,24 @@ button:disabled {
   text-decoration: line-through;
 }
 
+/* Encabezado de grupo por proveedor en la lista de gestión. */
+.lista-gestion li.grupo-gestion {
+  display: block;
+  background: none;
+  box-shadow: none;
+  padding: 16px 4px 4px;
+  margin-bottom: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.lista-gestion li.grupo-gestion:first-child {
+  padding-top: 2px;
+}
+
 .titulo-editor {
   font-size: 16px;
   font-weight: 600;

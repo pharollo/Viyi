@@ -815,9 +815,23 @@ async function iniciar() {
   function renderGestion() {
     const ld = $('gestion-dispositivos');
     ld.textContent = '';
-    for (const d of cacheDispositivos) {
-      const texto = `${d.nombre} · ${d.modo === 'interruptor' ? 'interruptor' : 'pulso'}`;
-      ld.appendChild(filaGestion(texto, d.activo === false, () => abrirEditorDispositivo(d)));
+    // Agrupados por proveedor: Tuya primero, luego Homebridge.
+    const grupos = [
+      ['Tuya', (d) => (d.proveedor || 'tuya') !== 'homebridge'],
+      ['Homebridge', (d) => d.proveedor === 'homebridge'],
+    ];
+    const MODOS = { pulso: 'pulso', interruptor: 'interruptor', cortina: 'cortina', dimmer: 'dimmer' };
+    for (const [titulo, filtro] of grupos) {
+      const items = cacheDispositivos.filter(filtro);
+      if (!items.length) continue;
+      const cab = document.createElement('li');
+      cab.className = 'grupo-gestion';
+      cab.textContent = titulo;
+      ld.appendChild(cab);
+      for (const d of items) {
+        const texto = `${d.nombre} · ${MODOS[d.modo] || 'pulso'}`;
+        ld.appendChild(filaGestion(texto, d.activo === false, () => abrirEditorDispositivo(d)));
+      }
     }
     const lu = $('gestion-usuarios');
     lu.textContent = '';
