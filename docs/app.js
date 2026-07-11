@@ -825,7 +825,8 @@ async function iniciar() {
       const r = perilla.getBoundingClientRect();
       const dx = e.clientX - (r.left + r.width / 2);
       const dy = e.clientY - (r.top + r.height / 2);
-      if (Math.hypot(dx, dy) < 34) return null; // zona central: no cambiar
+      // Todo el botón central (≈66% del radio) es zona de encender/apagar.
+      if (Math.hypot(dx, dy) < r.width * 0.33) return null;
       const ang = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
       const d = ((ang - 135) % 360 + 360) % 360;
       const frac = d <= 270 ? d / 270 : (d < 315 ? 1 : 0);
