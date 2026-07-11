@@ -933,9 +933,16 @@ async function iniciar() {
     const iId = entrada(d.id, 'se genera del nombre');
     if (!esNuevo) iId.disabled = true;
     const iNombre = entrada(d.nombre, 'ej: Portón del Garaje');
-    // Cada palabra con mayúscula inicial (sin tocar el resto).
+    // Cada palabra con mayúscula inicial, salvo conectores (de, del, la, y…)
+    // que quedan en minúscula (excepto cuando son la primera palabra).
+    const MENORES = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y', 'e', 'o', 'u', 'en', 'a', 'al', 'con', 'por', 'para', 'un', 'una', 'unos', 'unas', 'sin', 'lo']);
     const tituloCase = (s) => s.split(' ')
-      .map((w) => (w ? w.charAt(0).toLocaleUpperCase() + w.slice(1) : w))
+      .map((w, i) => {
+        if (!w) return w;
+        const min = w.toLocaleLowerCase();
+        if (i > 0 && MENORES.has(min)) return min;
+        return w.charAt(0).toLocaleUpperCase() + w.slice(1);
+      })
       .join(' ');
     // Identificador = nombre en minúsculas, sin acentos, palabras con guion.
     const aSlug = (s) => s.toLowerCase()
