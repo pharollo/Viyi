@@ -59,6 +59,26 @@ async function ejecutarHomebridge(dispositivo, config, { accion, valor, data }) 
   const invert = config.posicionInvertida === true;
   const carac = config.caracteristica || 'On';
 
+  if (dispositivo.modo === 'termostato') {
+    if (accion === 'temperatura') {
+      const t = Number(valor);
+      if (!Number.isFinite(t) || t < 4 || t > 38) {
+        throw new HttpsError('invalid-argument', 'Temperatura fuera de rango (4–38°).');
+      }
+      await hb.setCaracteristica(id, 'TargetTemperature', Math.round(t * 2) / 2);
+      return `temp ${t}°`;
+    }
+    if (accion === 'modo') {
+      const mapa = { off: 0, heat: 1, cool: 2, auto: 3 };
+      if (!(valor in mapa)) {
+        throw new HttpsError('invalid-argument', 'Modo de termostato no válido.');
+      }
+      await hb.setCaracteristica(id, 'TargetHeatingCoolingState', mapa[valor]);
+      return `modo ${valor}`;
+    }
+    throw new HttpsError('invalid-argument', 'Acción de termostato no válida.');
+  }
+
   if (dispositivo.modo === 'pulso') {
     if (carac === 'TargetDoorState') {
       await hb.setCaracteristica(id, 'TargetDoorState', 0); // 0 = abrir
@@ -257,6 +277,8 @@ exports.ejecutarComando = onCall(
           if (nivelPct > 0) comandos.push({ code: codigoBrillo, value: bruto(nivelPct) });
           await tuya().enviarComandos(config.tuyaDeviceId, comandos);
         }
+      } else if (dispositivo.modo === 'termostato') {
+        throw new HttpsError('failed-precondition', 'El termostato por ahora solo funciona con Homebridge.');
       } else {
         if (accion !== 'encender' && accion !== 'apagar') {
           throw new HttpsError('invalid-argument', "La acción debe ser 'encender' o 'apagar'.");
@@ -398,7 +420,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     nombre,
     tipo: tipoFinal,
     subtipo: subFinal,
-    modo: ['interruptor', 'cortina', 'dimmer'].includes(modo) ? modo : 'pulso',
+    modo: ['interruptor', 'cortina', 'dimmer', 'termostato'].includes(modo) ? modo : 'pulso',
     proveedor: provFinal,
     etiquetaBoton: etiquetaBoton || '',
     orden: Number(orden) || 99,
@@ -658,6 +680,14 @@ exports.consultarEstado = onCall(
       if ((dispositivo.proveedor || 'tuya') === 'homebridge') {
         const acc = await homebridge().accesorio(config.accesorioId);
         const vals = (acc && acc.values) || {};
+        if (dispositivo.modo === 'termostato') {
+          const modos = { 0: 'off', 1: 'heat', 2: 'cool', 3: 'auto' };
+          return {
+            temperaturaActual: typeof vals.CurrentTemperature === 'number' ? vals.CurrentTemperature : null,
+            temperaturaObjetivo: typeof vals.TargetTemperature === 'number' ? vals.TargetTemperature : null,
+            modoHVAC: modos[vals.TargetHeatingCoolingState] || null,
+          };
+        }
         if (dispositivo.modo === 'cortina') {
           let posicion = null;
           if (typeof vals.CurrentPosition === 'number') {

@@ -523,6 +523,70 @@ button:disabled {
   animation: pulso-envio 0.9s ease-in-out infinite;
 }
 
+/* Termostato: perilla de temperatura + actual + modos. */
+.termostato {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.termo-objetivo {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--primario);
+}
+
+.termo-actual {
+  font-size: 12.5px;
+  color: var(--texto-suave);
+}
+
+.termo-modos {
+  display: flex;
+  gap: 8px;
+}
+
+.termo-modo {
+  border: none;
+  border-radius: 10px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--texto-suave);
+  background: var(--fondo);
+  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara);
+  cursor: pointer;
+}
+
+.termo-modo[data-modo="off"].activa {
+  color: var(--texto);
+  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara), inset 0 0 0 1.5px var(--texto-suave);
+}
+
+.termo-modo[data-modo="heat"].activa {
+  color: var(--fuego);
+  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara), inset 0 0 0 1.5px var(--fuego);
+}
+
+.termo-modo[data-modo="cool"].activa {
+  color: #5ec8ff;
+  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara), inset 0 0 0 1.5px #5ec8ff;
+}
+
+/* El arco, el número y el indicador se tiñen según el modo activo. */
+.perilla-termo.modo-heat .perilla-nivel { stroke: var(--fuego); filter: drop-shadow(0 0 5px rgba(255, 140, 58, 0.5)); }
+.perilla-termo.modo-heat .termo-objetivo { color: var(--fuego); }
+.perilla-termo.modo-heat .perilla-indicador::before { background: var(--fuego); box-shadow: 0 0 6px rgba(255, 140, 58, 0.7); }
+
+.perilla-termo.modo-cool .perilla-nivel { stroke: #5ec8ff; filter: drop-shadow(0 0 5px rgba(94, 200, 255, 0.5)); }
+.perilla-termo.modo-cool .termo-objetivo { color: #5ec8ff; }
+.perilla-termo.modo-cool .perilla-indicador::before { background: #5ec8ff; box-shadow: 0 0 6px rgba(94, 200, 255, 0.7); }
+
+.perilla-termo.modo-off .perilla-nivel { stroke: var(--texto-suave); filter: none; opacity: 0.45; }
+.perilla-termo.modo-off .termo-objetivo { color: var(--texto-suave); }
+.perilla-termo.modo-off .perilla-indicador::before { background: var(--texto-suave); box-shadow: none; }
+
 .grupo-controles {
   display: flex;
   flex-wrap: wrap;

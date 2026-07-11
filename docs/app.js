@@ -436,6 +436,8 @@ async function iniciar() {
       control.appendChild(perillaCortina(dispositivo));
     } else if (dispositivo.modo === 'dimmer') {
       control.appendChild(perillaDimmer(dispositivo));
+    } else if (dispositivo.modo === 'termostato') {
+      control.appendChild(perillaTermostato(dispositivo));
     } else {
       boton = document.createElement('button');
       boton.type = 'button';
@@ -448,8 +450,8 @@ async function iniciar() {
       nombreEnBoton(boton, dispositivo.nombre);
       control.appendChild(boton);
     }
-    // Cortina y dimmer llevan el nombre debajo; pulso/interruptor lo llevan dentro.
-    if (dispositivo.modo === 'cortina' || dispositivo.modo === 'dimmer') {
+    // Cortina, dimmer y termostato llevan el nombre debajo; pulso/interruptor dentro.
+    if (dispositivo.modo === 'cortina' || dispositivo.modo === 'dimmer' || dispositivo.modo === 'termostato') {
       const etiqueta = document.createElement('span');
       etiqueta.className = 'etiqueta-control';
       etiqueta.textContent = dispositivo.nombre;
@@ -777,6 +779,142 @@ async function iniciar() {
     return perilla;
   }
 
+  // Perilla de termostato: se arrastra para fijar la temperatura objetivo,
+  // muestra la temperatura actual y el modo (apagar / calor / frío).
+  const TERMO_MIN = 10;
+  const TERMO_MAX = 32;
+  const MODOS_HVAC = [['off', 'Apagar'], ['heat', 'Calor'], ['cool', 'Frío']];
+  function perillaTermostato(dispositivo) {
+    const cont = document.createElement('div');
+    cont.className = 'termostato';
+    const perilla = document.createElement('div');
+    perilla.className = 'perilla perilla-termo encendido modo-off';
+    perilla.setAttribute('role', 'slider');
+    perilla.setAttribute('aria-label', `Temperatura de ${dispositivo.nombre}`);
+    perilla.setAttribute('aria-valuemin', String(TERMO_MIN));
+    perilla.setAttribute('aria-valuemax', String(TERMO_MAX));
+    perilla.innerHTML = '<svg class="perilla-svg" viewBox="0 0 120 120" aria-hidden="true"><circle class="perilla-track" cx="60" cy="60" r="48" pathLength="100" transform="rotate(135 60 60)"/><circle class="perilla-nivel" cx="60" cy="60" r="48" pathLength="100" stroke-dasharray="0 100" transform="rotate(135 60 60)"/></svg><div class="perilla-centro"><div class="perilla-indicador"></div><span class="termo-objetivo">--°</span></div>';
+    const nivel = perilla.querySelector('.perilla-nivel');
+    const indicador = perilla.querySelector('.perilla-indicador');
+    const objTxt = perilla.querySelector('.termo-objetivo');
+    let objetivo = TERMO_MIN;
+    let modo = 'off';
+    let enviando = false;
+    let ultimoDetente = -1;
+
+    const fmt = (t) => (Number.isInteger(t) ? String(t) : t.toFixed(1));
+    const clamp = (t) => Math.max(TERMO_MIN, Math.min(TERMO_MAX, Math.round(t * 2) / 2));
+    const pintar = (t, sonar) => {
+      objetivo = clamp(t);
+      const frac = (objetivo - TERMO_MIN) / (TERMO_MAX - TERMO_MIN);
+      nivel.setAttribute('stroke-dasharray', `${(frac * 75).toFixed(2)} 100`);
+      indicador.style.transform = `rotate(${(frac * 270 - 135).toFixed(1)}deg)`;
+      objTxt.textContent = fmt(objetivo) + '°';
+      perilla.setAttribute('aria-valuenow', String(objetivo));
+      if (sonar) {
+        const det = Math.round(objetivo * 2);
+        if (det !== ultimoDetente) { tic(); ultimoDetente = det; }
+      }
+    };
+
+    // Ángulo del puntero -> temperatura sobre el arco de 270° (hueco abajo).
+    const tempDesde = (e) => {
+      const r = perilla.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2);
+      const dy = e.clientY - (r.top + r.height / 2);
+      if (Math.hypot(dx, dy) < 34) return null; // zona central: no cambiar
+      const ang = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+      const d = ((ang - 135) % 360 + 360) % 360;
+      const frac = d <= 270 ? d / 270 : (d < 315 ? 1 : 0);
+      return TERMO_MIN + frac * (TERMO_MAX - TERMO_MIN);
+    };
+
+    async function enviarTemp() {
+      if (enviando) return;
+      enviando = true;
+      perilla.classList.add('perilla-enviando');
+      try {
+        await ejecutarComando({ dispositivoId: dispositivo.id, accion: 'temperatura', valor: objetivo });
+      } catch (err) {
+        toast(err.message || 'No se pudo enviar el comando.', 'error');
+      } finally {
+        perilla.classList.remove('perilla-enviando');
+        enviando = false;
+      }
+    }
+
+    let arrastrando = false;
+    let cambiado = false;
+    const alMover = (e) => {
+      if (!arrastrando) return;
+      const v = tempDesde(e);
+      if (v !== null) { pintar(v, true); cambiado = true; }
+      e.preventDefault();
+    };
+    const alSoltar = () => {
+      if (!arrastrando) return;
+      arrastrando = false;
+      window.removeEventListener('pointermove', alMover);
+      window.removeEventListener('pointerup', alSoltar);
+      if (cambiado) enviarTemp();
+    };
+    perilla.addEventListener('pointerdown', (e) => {
+      arrastrando = true;
+      cambiado = false;
+      const v = tempDesde(e);
+      if (v !== null) { pintar(v, true); cambiado = true; }
+      window.addEventListener('pointermove', alMover);
+      window.addEventListener('pointerup', alSoltar);
+      e.preventDefault();
+    });
+
+    // Temperatura actual y botones de modo.
+    const actual = document.createElement('div');
+    actual.className = 'termo-actual';
+    actual.textContent = 'Actual —°';
+    const filaModos = document.createElement('div');
+    filaModos.className = 'termo-modos';
+    const pintarModo = (m) => {
+      modo = m;
+      perilla.classList.remove('modo-off', 'modo-heat', 'modo-cool');
+      perilla.classList.add('modo-' + m);
+      [...filaModos.children].forEach((b) => b.classList.toggle('activa', b.dataset.modo === m));
+    };
+    for (const [m, txt] of MODOS_HVAC) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'termo-modo';
+      b.dataset.modo = m;
+      b.textContent = txt;
+      b.addEventListener('click', async () => {
+        const antes = modo;
+        pintarModo(m);
+        try {
+          await ejecutarComando({ dispositivoId: dispositivo.id, accion: 'modo', valor: m });
+        } catch (err) {
+          pintarModo(antes);
+          toast(err.message || 'No se pudo enviar el comando.', 'error');
+        }
+      });
+      filaModos.appendChild(b);
+    }
+    pintar(TERMO_MIN);
+    pintarModo('off');
+    cont.append(perilla, actual, filaModos);
+
+    (async () => {
+      try {
+        const res = await consultarEstado({ dispositivoId: dispositivo.id });
+        const d = res.data || {};
+        if (typeof d.temperaturaObjetivo === 'number') pintar(d.temperaturaObjetivo);
+        if (typeof d.temperaturaActual === 'number') actual.textContent = `Actual ${fmt(Math.round(d.temperaturaActual * 2) / 2)}°`;
+        if (d.modoHVAC && ['off', 'heat', 'cool'].includes(d.modoHVAC)) pintarModo(d.modoHVAC);
+      } catch (err) { /* sin estado disponible */ }
+    })();
+
+    return cont;
+  }
+
   // ── Gestión (solo admin) ──────────────────────────────────────────────
 
   let cacheDispositivos = [];
@@ -981,7 +1119,20 @@ async function iniciar() {
     const actualizarSub = () => campoSub.classList.toggle('oculto', sTipo.value !== 'puerta');
     sTipo.addEventListener('change', actualizarSub);
     actualizarSub();
-    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (perilla de apertura)'], ['dimmer', 'Dimmer (perilla de brillo)']], d.modo || 'pulso');
+    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (perilla de apertura)'], ['dimmer', 'Dimmer (perilla de brillo)'], ['termostato', 'Termostato (temperatura)']], d.modo || 'pulso');
+    // Un termostato solo tiene el modo termostato: al elegir ese tipo, se
+    // auto-selecciona y se bloquea el modo; al salir del tipo, se restablece.
+    const sincronizarModoTipo = () => {
+      if (sTipo.value === 'termostato') {
+        sModo.value = 'termostato';
+        sModo.disabled = true;
+      } else {
+        sModo.disabled = false;
+        if (sModo.value === 'termostato') sModo.value = 'pulso';
+      }
+      actualizarCampos();
+    };
+    sTipo.addEventListener('change', sincronizarModoTipo);
     const iOrden = entrada(d.orden != null ? d.orden : 10, '', 'number');
     const cActivo = casilla('Activo', d.activo !== false);
     const iDevice = entrada(tuya.tuyaDeviceId, 'Device ID de Tuya');
@@ -1089,6 +1240,7 @@ async function iniciar() {
     sProveedor.addEventListener('change', actualizarCampos);
     sModo.addEventListener('change', actualizarCampos);
     actualizarCampos();
+    sincronizarModoTipo();
 
     const acciones = [
       botonForm('Guardar', 'btn-primario', async (ev) => {
