@@ -60,20 +60,38 @@ async function ejecutarHomebridge(dispositivo, config, { accion, valor, data }) 
   const carac = config.caracteristica || 'On';
 
   if (dispositivo.modo === 'termostato') {
+    // El accesorio puede ser Thermostat (TargetHeatingCoolingState/
+    // TargetTemperature) o HeaterCooler/AC (Active + CoolingThresholdTemperature).
+    const acc = await hb.accesorio(id);
+    const vals = (acc && acc.values) || {};
+    const esAC = ('Active' in vals) || ('TargetHeaterCoolerState' in vals);
     if (accion === 'temperatura') {
       const t = Number(valor);
       if (!Number.isFinite(t) || t < 4 || t > 38) {
         throw new HttpsError('invalid-argument', 'Temperatura fuera de rango (4–38°).');
       }
-      await hb.setCaracteristica(id, 'TargetTemperature', Math.round(t * 2) / 2);
+      const temp = Math.round(t * 2) / 2;
+      await hb.setCaracteristica(id, esAC ? 'CoolingThresholdTemperature' : 'TargetTemperature', temp);
       return `temp ${t}°`;
     }
     if (accion === 'modo') {
-      const mapa = { off: 0, heat: 1, cool: 2, auto: 3 };
-      if (!(valor in mapa)) {
+      if (!['off', 'cool', 'heat', 'auto'].includes(valor)) {
         throw new HttpsError('invalid-argument', 'Modo de termostato no válido.');
       }
-      await hb.setCaracteristica(id, 'TargetHeatingCoolingState', mapa[valor]);
+      if (esAC) {
+        if (valor === 'off') {
+          await hb.setCaracteristica(id, 'Active', 0);
+        } else {
+          await hb.setCaracteristica(id, 'Active', 1);
+          const th = { auto: 0, heat: 1, cool: 2 };
+          if (valor in th && ('TargetHeaterCoolerState' in vals)) {
+            await hb.setCaracteristica(id, 'TargetHeaterCoolerState', th[valor]);
+          }
+        }
+      } else {
+        const mapa = { off: 0, heat: 1, cool: 2, auto: 3 };
+        await hb.setCaracteristica(id, 'TargetHeatingCoolingState', mapa[valor]);
+      }
       return `modo ${valor}`;
     }
     throw new HttpsError('invalid-argument', 'Acción de termostato no válida.');
@@ -690,9 +708,18 @@ exports.consultarEstado = onCall(
         const acc = await homebridge().accesorio(config.accesorioId);
         const vals = (acc && acc.values) || {};
         if (dispositivo.modo === 'termostato') {
-          const modos = { 0: 'off', 1: 'heat', 2: 'cool', 3: 'auto' };
-          let objetivo = typeof vals.TargetTemperature === 'number' ? vals.TargetTemperature : null;
-          let modoHVAC = modos[vals.TargetHeatingCoolingState] || null;
+          const esAC = ('Active' in vals) || ('TargetHeaterCoolerState' in vals);
+          let objetivo = null;
+          let modoHVAC = null;
+          if (esAC) {
+            objetivo = typeof vals.CoolingThresholdTemperature === 'number' ? vals.CoolingThresholdTemperature
+              : (typeof vals.HeatingThresholdTemperature === 'number' ? vals.HeatingThresholdTemperature : null);
+            modoHVAC = (vals.Active === 1 || vals.Active === true) ? 'cool' : 'off';
+          } else {
+            const modos = { 0: 'off', 1: 'heat', 2: 'cool', 3: 'auto' };
+            objetivo = typeof vals.TargetTemperature === 'number' ? vals.TargetTemperature : null;
+            modoHVAC = modos[vals.TargetHeatingCoolingState] || null;
+          }
           // Respaldo con lo último fijado, si el accesorio no lo reporta.
           if (objetivo === null || modoHVAC === null) {
             const snap = await db.doc(`dispositivos/${dispositivoId}/estado/termostato`).get().catch(() => null);
