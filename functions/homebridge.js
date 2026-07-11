@@ -3,7 +3,7 @@
 // Tailscale) y se autentica con usuario/clave, devolviendo un JWT temporal.
 class HomebridgeClient {
   constructor({ baseUrl, username, password }) {
-    this.baseUrl = String(baseUrl || '').replace(/\/$/, '');
+    this.baseUrl = String(baseUrl || '').trim().replace(/\/$/, '');
     this.username = username;
     this.password = password;
     this.token = null;

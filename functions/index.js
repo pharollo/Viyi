@@ -428,7 +428,12 @@ exports.adminListarAccesoriosHomebridge = onCall(
   { secrets: SECRETS_HB },
   async (request) => {
     await exigirAdmin(request);
-    const accesorios = await homebridge().listarAccesorios();
+    let accesorios;
+    try {
+      accesorios = await homebridge().listarAccesorios();
+    } catch (err) {
+      throw new HttpsError('unavailable', `No pude conectar con Homebridge: ${err.message}`);
+    }
     return {
       accesorios: (accesorios || []).map((a) => ({
         uniqueId: a.uniqueId,
