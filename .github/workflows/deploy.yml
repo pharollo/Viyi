@@ -51,5 +51,19 @@ jobs:
       - name: Configurar parámetros de las functions
         run: echo "TUYA_BASE_URL=${{ vars.TUYA_BASE_URL || 'https://openapi.tuyaus.com' }}" > functions/.env
 
+      # Cloud Functions v2 a veces falla al actualizar un subconjunto de
+      # funciones por flakiness de Cloud Run. Reintentamos: las ya desplegadas
+      # se saltan y solo se reintentan las que quedaron pendientes.
       - name: Desplegar functions y Firestore
-        run: firebase deploy --only functions,firestore --project viyi-25a09 --non-interactive
+        run: |
+          for intento in 1 2 3; do
+            echo "== Intento $intento de deploy =="
+            if firebase deploy --only functions,firestore --project viyi-25a09 --non-interactive; then
+              echo "Deploy OK en el intento $intento"
+              exit 0
+            fi
+            echo "El intento $intento falló; reintentando en 25s…"
+            sleep 25
+          done
+          echo "El deploy falló tras 3 intentos."
+          exit 1
