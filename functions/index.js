@@ -288,6 +288,15 @@ exports.ejecutarComando = onCall(
           { code: codigo, value: accion === 'encender' },
         ]);
       }
+      // Termostato: recordamos lo fijado por si el accesorio no lo devuelve al leer.
+      if (dispositivo.modo === 'termostato') {
+        const estado = {};
+        if (accion === 'temperatura') estado.temperaturaObjetivo = Math.round(Number(valor) * 2) / 2;
+        if (accion === 'modo') estado.modoHVAC = valor;
+        if (Object.keys(estado).length) {
+          await db.doc(`dispositivos/${dispositivoId}/estado/termostato`).set(estado, { merge: true }).catch(() => {});
+        }
+      }
       await registrar({
         uid,
         usuario,
@@ -682,10 +691,19 @@ exports.consultarEstado = onCall(
         const vals = (acc && acc.values) || {};
         if (dispositivo.modo === 'termostato') {
           const modos = { 0: 'off', 1: 'heat', 2: 'cool', 3: 'auto' };
+          let objetivo = typeof vals.TargetTemperature === 'number' ? vals.TargetTemperature : null;
+          let modoHVAC = modos[vals.TargetHeatingCoolingState] || null;
+          // Respaldo con lo último fijado, si el accesorio no lo reporta.
+          if (objetivo === null || modoHVAC === null) {
+            const snap = await db.doc(`dispositivos/${dispositivoId}/estado/termostato`).get().catch(() => null);
+            const e = (snap && snap.exists) ? snap.data() : {};
+            if (objetivo === null && typeof e.temperaturaObjetivo === 'number') objetivo = e.temperaturaObjetivo;
+            if (modoHVAC === null && e.modoHVAC) modoHVAC = e.modoHVAC;
+          }
           return {
             temperaturaActual: typeof vals.CurrentTemperature === 'number' ? vals.CurrentTemperature : null,
-            temperaturaObjetivo: typeof vals.TargetTemperature === 'number' ? vals.TargetTemperature : null,
-            modoHVAC: modos[vals.TargetHeatingCoolingState] || null,
+            temperaturaObjetivo: objetivo,
+            modoHVAC,
           };
         }
         if (dispositivo.modo === 'cortina') {

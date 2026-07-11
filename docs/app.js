@@ -783,7 +783,7 @@ async function iniciar() {
   // muestra la temperatura actual y el modo (apagar / calor / frío).
   const TERMO_MIN = 10;
   const TERMO_MAX = 32;
-  const MODOS_HVAC = [['off', 'Apagar'], ['heat', 'Calor'], ['cool', 'Frío']];
+  const MODOS_HVAC = [['off', 'Apagar'], ['cool', 'Frío']];
   function perillaTermostato(dispositivo) {
     const cont = document.createElement('div');
     cont.className = 'termostato';
@@ -908,7 +908,7 @@ async function iniciar() {
         const d = res.data || {};
         if (typeof d.temperaturaObjetivo === 'number') pintar(d.temperaturaObjetivo);
         if (typeof d.temperaturaActual === 'number') actual.textContent = `Actual ${fmt(Math.round(d.temperaturaActual * 2) / 2)}°`;
-        if (d.modoHVAC && ['off', 'heat', 'cool'].includes(d.modoHVAC)) pintarModo(d.modoHVAC);
+        if (d.modoHVAC && ['off', 'cool'].includes(d.modoHVAC)) pintarModo(d.modoHVAC);
       } catch (err) { /* sin estado disponible */ }
     })();
 
@@ -960,7 +960,7 @@ async function iniciar() {
       ['Tuya', (d) => (d.proveedor || 'tuya') !== 'homebridge'],
       ['Homebridge', (d) => d.proveedor === 'homebridge'],
     ];
-    const MODOS = { pulso: 'pulso', interruptor: 'interruptor', cortina: 'cortina', dimmer: 'dimmer' };
+    const MODOS = { pulso: 'pulso', interruptor: 'interruptor', cortina: 'cortina', dimmer: 'dimmer', termostato: 'termostato' };
     for (const [titulo, filtro] of grupos) {
       const items = cacheDispositivos.filter(filtro);
       if (!items.length) continue;
