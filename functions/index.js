@@ -390,7 +390,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
       ? 'Falta el accesorio de Homebridge.'
       : 'Falta el Device ID de Tuya.');
   }
-  let tipoFinal = ['puerta', 'cortina', 'ascensor', 'luz', 'rele', 'otro'].includes(tipo) ? tipo : 'otro';
+  let tipoFinal = ['puerta', 'cortina', 'ascensor', 'luz', 'termostato', 'rele', 'otro'].includes(tipo) ? tipo : 'otro';
   let subFinal = ['bunker', 'porton'].includes(subtipo) ? subtipo : '';
   if (tipo === 'bunker') { tipoFinal = 'puerta'; subFinal = 'bunker'; } // compat con el tipo viejo
   if (tipoFinal !== 'puerta') subFinal = '';                            // el subtipo solo aplica a puerta
