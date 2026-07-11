@@ -748,10 +748,14 @@ exports.consultarEstado = onCall(
           }
           return { posicion };
         }
-        const enc = typeof vals.On === 'boolean' ? vals.On : null;
+        // On puede venir como boolean o como número (0/1); si falta, se infiere
+        // del brillo (>0 = encendido).
+        let enc = null;
+        if (typeof vals.On === 'boolean') enc = vals.On;
+        else if (typeof vals.On === 'number') enc = vals.On !== 0;
+        else if (typeof vals.Brightness === 'number') enc = vals.Brightness > 0;
         let bri = null;
-        // Solo mostramos brillo si está confirmado encendido; si no, 0 (apagado).
-        if (typeof vals.Brightness === 'number') bri = enc === true ? Math.round(vals.Brightness) : 0;
+        if (typeof vals.Brightness === 'number') bri = enc ? Math.round(vals.Brightness) : 0;
         return { encendido: enc, brillo: bri };
       }
       const estados = await tuya().estado(config.tuyaDeviceId);
