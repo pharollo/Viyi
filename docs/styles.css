@@ -427,7 +427,9 @@ button:disabled {
   position: relative;
   width: 132px;
   height: 132px;
-  touch-action: none;
+  /* pan-x deja que el swipe horizontal deslice el carrusel; el resto del gesto
+     (vertical/rotatorio) y los toques operan el dial. */
+  touch-action: pan-x;
   -webkit-tap-highlight-color: transparent;
   cursor: grab;
 }

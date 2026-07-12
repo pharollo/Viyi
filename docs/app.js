@@ -534,6 +534,50 @@ async function iniciar() {
     } catch (e) { /* audio no disponible */ }
   }
 
+  // Conecta el arrastre de una perilla dejando pasar el swipe horizontal al
+  // carrusel (con touch-action: pan-x el navegador desliza el carrusel en un
+  // swipe horizontal y manda pointercancel; los gestos verticales/rotatorios y
+  // los toques operan el dial). cb: { desde(e)->valor|null, pintar(v), enviar(),
+  // centro(), inicio()? }.
+  function conectarDial(perilla, cb) {
+    let inicio = null;
+    let cambiado = false;
+    let activo = false;
+    const alMover = (e) => {
+      if (!activo) return;
+      const v = cb.desde(e);
+      if (v !== null) { cb.pintar(v); cambiado = true; }
+      e.preventDefault();
+    };
+    const fin = (e, cancelado) => {
+      if (!activo) return;
+      activo = false;
+      window.removeEventListener('pointermove', alMover);
+      window.removeEventListener('pointerup', alSoltar);
+      window.removeEventListener('pointercancel', alCancelar);
+      if (cancelado) return; // el navegador se llevó el gesto (swipe del carrusel)
+      if (cambiado) { cb.enviar(); return; }
+      // Fue un toque sin arrastre.
+      const v = cb.desde(e || inicio);
+      if (v === null) cb.centro();
+      else { cb.pintar(v); cb.enviar(); }
+    };
+    const alSoltar = (e) => fin(e, false);
+    const alCancelar = (e) => fin(e, true);
+    perilla.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button > 0) return;
+      if (cb.inicio) cb.inicio();
+      inicio = e;
+      cambiado = false;
+      activo = true;
+      window.addEventListener('pointermove', alMover);
+      window.addEventListener('pointerup', alSoltar);
+      window.addEventListener('pointercancel', alCancelar);
+      // Sin preventDefault ni cambio de valor aquí: dejamos que el navegador
+      // decida si es swipe horizontal (scroll) o gesto sobre el dial.
+    });
+  }
+
   // Perilla giratoria para dimmers: se arrastra alrededor del aro para fijar
   // el brillo (0–100%) y al soltar envía el comando.
   function perillaDimmer(dispositivo) {
@@ -608,41 +652,18 @@ async function iniciar() {
       animId = requestAnimationFrame(paso);
     }
 
-    let arrastrando = false;
-    let cambiado = false;
-    let empezoCentro = false;
-    const alMover = (e) => {
-      if (!arrastrando) return;
-      const v = valorDesde(e);
-      if (v !== null) { pintar(v, true); cambiado = true; }
-      e.preventDefault();
-    };
-    const alSoltar = () => {
-      if (!arrastrando) return;
-      arrastrando = false;
-      window.removeEventListener('pointermove', alMover);
-      window.removeEventListener('pointerup', alSoltar);
-      if (cambiado) {
-        if (valor > 0) ultimoBrillo = valor;
-        enviarBrillo();
-      } else if (empezoCentro) {
+    conectarDial(perilla, {
+      desde: valorDesde,
+      pintar: (v) => pintar(v, true),
+      enviar: () => { if (valor > 0) ultimoBrillo = valor; enviarBrillo(); },
+      centro: () => {
         // Toque en el centro: apaga (fade out) o enciende al último brillo (fade in).
         const destino = valor > 0 ? 0 : (ultimoBrillo || 100);
         const desde = valor;
         animarA(destino);
         enviarBrillo({ valor: destino, desde, fade: true });
-      }
-    };
-    perilla.addEventListener('pointerdown', (e) => {
-      if (animId) { cancelAnimationFrame(animId); animId = null; }
-      arrastrando = true;
-      cambiado = false;
-      const v = valorDesde(e);
-      empezoCentro = (v === null);
-      if (v !== null) { pintar(v, true); cambiado = true; }
-      window.addEventListener('pointermove', alMover);
-      window.addEventListener('pointerup', alSoltar);
-      e.preventDefault();
+      },
+      inicio: () => { if (animId) { cancelAnimationFrame(animId); animId = null; } },
     });
 
     (async () => {
@@ -731,44 +752,15 @@ async function iniciar() {
       }
     }
 
-    let arrastrando = false;
-    let cambiado = false;
-    let empezoCentro = false;
-    const alMover = (e) => {
-      if (!arrastrando) return;
-      const v = valorDesde(e);
-      if (v !== null) { pintar(v, true); cambiado = true; }
-      e.preventDefault();
-    };
-    const alSoltar = () => {
-      if (!arrastrando) return;
-      arrastrando = false;
-      window.removeEventListener('pointermove', alMover);
-      window.removeEventListener('pointerup', alSoltar);
-      if (cambiado) {
-        // Fijar apertura: la persiana se mueve hasta 'valor'.
-        marcarMarcha(true);
-        enviar({ accion: 'posicion', valor });
-      } else if (empezoCentro) {
+    conectarDial(perilla, {
+      desde: valorDesde,
+      pintar: (v) => pintar(v, true),
+      enviar: () => { marcarMarcha(true); enviar({ accion: 'posicion', valor }); },
+      centro: () => {
         // Toque en el centro: pausa (si va en marcha) o reanuda hacia el objetivo.
-        if (enMarcha) {
-          marcarMarcha(false);
-          enviar({ accion: 'detener' });
-        } else {
-          marcarMarcha(true);
-          enviar({ accion: 'posicion', valor });
-        }
-      }
-    };
-    perilla.addEventListener('pointerdown', (e) => {
-      arrastrando = true;
-      cambiado = false;
-      const v = valorDesde(e);
-      empezoCentro = (v === null);
-      if (v !== null) { pintar(v, true); cambiado = true; }
-      window.addEventListener('pointermove', alMover);
-      window.addEventListener('pointerup', alSoltar);
-      e.preventDefault();
+        if (enMarcha) { marcarMarcha(false); enviar({ accion: 'detener' }); }
+        else { marcarMarcha(true); enviar({ accion: 'posicion', valor }); }
+      },
     });
 
     (async () => {
@@ -857,38 +849,16 @@ async function iniciar() {
       }
     }
 
-    let arrastrando = false;
-    let cambiado = false;
-    let empezoCentro = false;
-    const alMover = (e) => {
-      if (!arrastrando) return;
-      const v = tempDesde(e);
-      if (v !== null) { pintar(v, true); cambiado = true; }
-      e.preventDefault();
-    };
-    const alSoltar = () => {
-      if (!arrastrando) return;
-      arrastrando = false;
-      window.removeEventListener('pointermove', alMover);
-      window.removeEventListener('pointerup', alSoltar);
-      if (cambiado) {
-        enviarTemp();
-      } else if (empezoCentro) {
+    conectarDial(perilla, {
+      desde: tempDesde,
+      pintar: (v) => pintar(v, true),
+      enviar: enviarTemp,
+      centro: () => {
         // Toque en el centro: encender (frío) o apagar.
         encendido = !encendido;
         pintarEstado();
         enviarModo(encendido ? 'cool' : 'off');
-      }
-    };
-    perilla.addEventListener('pointerdown', (e) => {
-      arrastrando = true;
-      cambiado = false;
-      const v = tempDesde(e);
-      empezoCentro = (v === null);
-      if (v !== null) { pintar(v, true); cambiado = true; }
-      window.addEventListener('pointermove', alMover);
-      window.addEventListener('pointerup', alSoltar);
-      e.preventDefault();
+      },
     });
 
     // Temperatura actual (debajo de la perilla).
