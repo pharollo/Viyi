@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=84">
+  <link rel="stylesheet" href="styles.css?v=85">
 </head>
 <body>
   <header>
@@ -94,7 +94,6 @@
         <div id="pase-invitado" class="tarjeta oculto"></div>
         <div class="tarjeta" id="pase-generador">
           <h2>Compartir acceso</h2>
-          <p class="ayuda-pase">Genera un enlace para dar acceso temporal a tus dispositivos. Quien lo reciba se registra y podrá usarlos hasta que venza el plazo.</p>
           <div id="pase-dispositivos" class="pase-disp"></div>
           <div class="pase-duracion" id="pase-duracion">
             <button type="button" class="chip-dur" data-dur="1h">1 hora</button>
@@ -102,7 +101,7 @@
             <button type="button" class="chip-dur" data-dur="7d">1 semana</button>
             <button type="button" class="chip-dur" data-dur="indef">Indefinido</button>
           </div>
-          <label class="pase-multi"><input type="checkbox" id="pase-multiuso"> Permitir que varias personas usen el mismo enlace</label>
+          <label class="pase-multi"><input type="checkbox" id="pase-multiuso"> Enlace multiuso</label>
           <button id="btn-generar-pase" type="button" class="btn-primario">Generar enlace</button>
           <div id="pase-resultado" class="pase-resultado oculto"></div>
         </div>
@@ -148,6 +147,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=84"></script>
+  <script type="module" src="app.js?v=85"></script>
 </body>
 </html>
