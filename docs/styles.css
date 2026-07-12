@@ -1151,6 +1151,10 @@ button:disabled {
   font-size: 12.5px;
 }
 
+/* Estado del vencimiento: activo (verde) / vencido (rojo). */
+.vence-ok { color: var(--primario); font-weight: 500; }
+.vence-mal { color: var(--error); font-weight: 500; }
+
 .pase-fila-acciones {
   display: flex;
   align-items: center;

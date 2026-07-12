@@ -1600,16 +1600,21 @@ async function iniciar() {
     }
     if (p.multiuso) invitadoTxt += ' · multiuso';
 
-    // Cuándo se emitió y cuándo vence/venció.
-    const fechasTxt = p.duracion === 'indef'
-      ? `Emitido ${fmtFecha(p.creado)} · sin vencimiento`
-      : `Emitido ${fmtFecha(p.creado)} · ${(venc && venc <= Date.now()) ? 'Venció' : 'Vence'} ${fmtFecha(p.expira)}`;
+    // Cuándo se emitió y cuándo vence/venció (Vence en verde, Venció en rojo).
+    const esIndef = p.duracion === 'indef';
+    const vencido = !esIndef && venc && venc <= Date.now();
+    const vencLabel = esIndef
+      ? '<span class="vence-ok">sin vencimiento</span>'
+      : `<span class="${vencido ? 'vence-mal' : 'vence-ok'}">${vencido ? 'Venció' : 'Vence'}</span>`;
+    const fechasHtml = esIndef
+      ? `Emitido ${fmtFecha(p.creado)} · ${vencLabel}`
+      : `Emitido ${fmtFecha(p.creado)} · ${vencLabel} ${fmtFecha(p.expira)}`;
 
     const info = document.createElement('div');
     info.className = 'pase-info';
     info.innerHTML = `<strong>${escapar(nombres)}</strong>`
       + `<span class="pase-meta">${escapar(invitadoTxt)}</span>`
-      + `<span class="pase-meta">${escapar(fechasTxt)}</span>`;
+      + `<span class="pase-meta">${fechasHtml}</span>`;
 
     const acciones = document.createElement('div');
     acciones.className = 'pase-fila-acciones';
