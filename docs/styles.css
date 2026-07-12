@@ -278,6 +278,15 @@ button:disabled {
   box-shadow: inset 4px 4px 8px var(--sombra-oscura), inset -4px -4px 8px var(--sombra-clara);
 }
 
+/* Botón solo-icono (p. ej. refrescar): cuadrado, sin texto. */
+.btn-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  line-height: 0;
+}
+
 .mensaje-error {
   color: var(--error);
   font-size: 14px;

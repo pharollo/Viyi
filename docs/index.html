@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=85">
+  <link rel="stylesheet" href="styles.css?v=86">
 </head>
 <body>
   <header>
@@ -63,7 +63,7 @@
         <div class="cabecera-login">
           <h2>ViYi</h2>
         </div>
-        <p class="ayuda-pase" id="registro-intro">Te compartieron acceso. Crea tu cuenta para usarlo.</p>
+        <p class="ayuda-pase" id="registro-intro">Crea tu cuenta para usar tu acceso.</p>
         <input type="text" id="reg-nombre" required autocomplete="name" placeholder="Nombre" aria-label="Nombre">
         <input type="email" id="reg-email" required autocomplete="email" inputmode="email" placeholder="Email" aria-label="Email">
         <div class="campo-clave">
@@ -96,10 +96,10 @@
           <h2>Compartir acceso</h2>
           <div id="pase-dispositivos" class="pase-disp"></div>
           <div class="pase-duracion" id="pase-duracion">
-            <button type="button" class="chip-dur" data-dur="1h">1 hora</button>
-            <button type="button" class="chip-dur activa" data-dur="24h">24 horas</button>
-            <button type="button" class="chip-dur" data-dur="7d">1 semana</button>
-            <button type="button" class="chip-dur" data-dur="indef">Indefinido</button>
+            <button type="button" class="chip-dur" data-dur="1h">1 h</button>
+            <button type="button" class="chip-dur activa" data-dur="24h">24 h</button>
+            <button type="button" class="chip-dur" data-dur="7d">7 d</button>
+            <button type="button" class="chip-dur" data-dur="indef" aria-label="Indefinido">∞</button>
           </div>
           <label class="pase-multi"><input type="checkbox" id="pase-multiuso"> Enlace multiuso</label>
           <button id="btn-generar-pase" type="button" class="btn-primario">Generar enlace</button>
@@ -108,7 +108,9 @@
         <div id="pase-mis">
           <div class="encabezado-admin">
             <h2>Mis pases</h2>
-            <button id="btn-refrescar-pases" type="button" class="btn-secundario">Actualizar</button>
+            <button id="btn-refrescar-pases" type="button" class="btn-secundario btn-icono" aria-label="Actualizar">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </button>
           </div>
           <ul id="lista-pases" class="lista-gestion"></ul>
         </div>
@@ -128,8 +130,10 @@
       </div>
       <div id="tab-registro" class="panel-tab oculto">
         <div class="encabezado-admin">
-          <h2>Registro de actividad</h2>
-          <button id="btn-refrescar" type="button" class="btn-secundario">Actualizar</button>
+          <h2>Actividad</h2>
+          <button id="btn-refrescar" type="button" class="btn-secundario btn-icono" aria-label="Actualizar">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
         </div>
         <ul id="lista-registros"></ul>
       </div>
@@ -147,6 +151,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=85"></script>
+  <script type="module" src="app.js?v=86"></script>
 </body>
 </html>
