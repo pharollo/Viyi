@@ -451,8 +451,9 @@ async function iniciar() {
       nombreEnBoton(boton, dispositivo.nombre);
       control.appendChild(boton);
     }
-    // Cortina, dimmer y termostato llevan el nombre debajo; pulso/interruptor dentro.
-    if (dispositivo.modo === 'cortina' || dispositivo.modo === 'dimmer' || dispositivo.modo === 'termostato') {
+    // Cortina y dimmer llevan el nombre debajo; el termostato lo pinta su propia
+    // perilla (nombre + temperatura al lado); pulso/interruptor dentro.
+    if (dispositivo.modo === 'cortina' || dispositivo.modo === 'dimmer') {
       const etiqueta = document.createElement('span');
       etiqueta.className = 'etiqueta-control';
       etiqueta.textContent = dispositivo.nombre;
@@ -861,20 +862,23 @@ async function iniciar() {
       },
     });
 
-    // Temperatura actual (debajo de la perilla).
-    const actual = document.createElement('div');
-    actual.className = 'termo-actual';
-    actual.textContent = 'Actual —°';
+    // Nombre + temperatura actual al lado.
+    const etiqueta = document.createElement('span');
+    etiqueta.className = 'etiqueta-control';
+    etiqueta.textContent = dispositivo.nombre;
+    const temp = document.createElement('span');
+    temp.className = 'termo-temp';
+    etiqueta.appendChild(temp);
     pintar(TERMO_MIN);
     pintarEstado();
-    cont.append(perilla, actual);
+    cont.append(perilla, etiqueta);
 
     (async () => {
       try {
         const res = await consultarEstado({ dispositivoId: dispositivo.id });
         const d = res.data || {};
         if (typeof d.temperaturaObjetivo === 'number') pintar(d.temperaturaObjetivo);
-        if (typeof d.temperaturaActual === 'number') actual.textContent = `Actual ${fmt(Math.round(d.temperaturaActual * 2) / 2)}°`;
+        if (typeof d.temperaturaActual === 'number') temp.textContent = ` · ${fmt(Math.round(d.temperaturaActual * 2) / 2)}°`;
         encendido = !!(d.modoHVAC && d.modoHVAC !== 'off');
         pintarEstado();
       } catch (err) { /* sin estado disponible */ }

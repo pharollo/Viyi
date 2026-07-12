@@ -539,9 +539,10 @@ button:disabled {
   color: var(--primario);
 }
 
-.termo-actual {
-  font-size: 12.5px;
+/* Temperatura actual al lado del nombre del termostato. */
+.termo-temp {
   color: var(--texto-suave);
+  font-weight: 400;
 }
 
 .termo-modos {
