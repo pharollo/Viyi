@@ -654,15 +654,17 @@ exports.canjearPase = onCall(async (request) => {
 
   const userRef = db.doc(`usuarios/${uid}`);
   const userSnap = await userRef.get();
+  const emailInvitado = request.auth.token.email || '';
+  const nombreInvitado = (userSnap.exists && userSnap.data().nombre)
+    || (typeof nombre === 'string' && nombre.trim())
+    || request.auth.token.name
+    || emailInvitado.split('@')[0]
+    || 'Invitado';
   if (!userSnap.exists) {
-    const nombreFinal = (typeof nombre === 'string' && nombre.trim())
-      || request.auth.token.name
-      || (request.auth.token.email || '').split('@')[0]
-      || 'Invitado';
     await userRef.set({
-      nombre: nombreFinal,
+      nombre: nombreInvitado,
       unidad: '',
-      email: request.auth.token.email || '',
+      email: emailInvitado,
       rol: 'vecino',
       activo: true,
       dispositivos: [],
@@ -679,6 +681,14 @@ exports.canjearPase = onCall(async (request) => {
   const cambios = {
     usos: admin.firestore.FieldValue.increment(1),
     redimidoPor: admin.firestore.FieldValue.arrayUnion(uid),
+    // Quién canjeó el pase (para mostrarlo en "Mis pases"). Timestamp.now()
+    // porque serverTimestamp() no se permite dentro de un array.
+    invitados: admin.firestore.FieldValue.arrayUnion({
+      uid,
+      nombre: nombreInvitado,
+      email: emailInvitado,
+      cuando: admin.firestore.Timestamp.now(),
+    }),
   };
   if (pase.multiuso !== true) cambios.usado = true;
   await ref.set(cambios, { merge: true });

@@ -71,6 +71,13 @@ async function iniciar() {
     return 0;
   };
 
+  // Timestamp de Firestore → fecha corta legible ("12/07/26 14:30").
+  const fmtFecha = (t) => {
+    const ms = msExpira(t);
+    if (!ms) return '—';
+    return new Date(ms).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' });
+  };
+
   const TIPOS = [
     { clave: 'puerta', titulo: 'Puertas' },
     { clave: 'cortina', titulo: 'Cortinas y persianas' },
@@ -1404,7 +1411,6 @@ async function iniciar() {
   // ---- Pases: generar / listar / revocar ----
   const escapar = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const DUR_TXT = { '1h': '1 hora', '24h': '24 horas', '7d': '1 semana', indef: 'Indefinido' };
   let paseDuracionSel = '24h';
 
   $('pase-duracion').addEventListener('click', (e) => {
@@ -1574,17 +1580,36 @@ async function iniciar() {
     const li = document.createElement('li');
     li.className = 'fila-pase';
     const nombres = (p.dispositivos || []).map((id) => nombrePorId[id] || id).join(', ');
-    const tipoTxt = p.multiuso ? 'varios usos' : 'un uso';
     let estado = 'activo';
     const venc = msExpira(p.expira);
     if (p.revocado) estado = 'revocado';
     else if (!p.multiuso && p.usado) estado = 'usado';
     else if (venc && venc <= Date.now()) estado = 'vencido';
 
+    // A quién se le hizo el pase (nombres de quienes lo canjearon).
+    const nombresInv = (Array.isArray(p.invitados) ? p.invitados : [])
+      .map((x) => x && x.nombre).filter(Boolean);
+    let invitadoTxt;
+    if (nombresInv.length) {
+      invitadoTxt = 'Para ' + nombresInv.slice(0, 3).join(', ');
+      if (nombresInv.length > 3) invitadoTxt += ` +${nombresInv.length - 3}`;
+    } else if (p.usos > 0) {
+      invitadoTxt = 'Canjeado'; // pase viejo, sin nombre registrado
+    } else {
+      invitadoTxt = 'Sin canjear aún';
+    }
+    if (p.multiuso) invitadoTxt += ' · multiuso';
+
+    // Cuándo se emitió y cuándo vence/venció.
+    const fechasTxt = p.duracion === 'indef'
+      ? `Emitido ${fmtFecha(p.creado)} · sin vencimiento`
+      : `Emitido ${fmtFecha(p.creado)} · ${(venc && venc <= Date.now()) ? 'Venció' : 'Vence'} ${fmtFecha(p.expira)}`;
+
     const info = document.createElement('div');
     info.className = 'pase-info';
     info.innerHTML = `<strong>${escapar(nombres)}</strong>`
-      + `<span class="pase-meta">${DUR_TXT[p.duracion] || p.duracion} · ${tipoTxt} · ${p.usos || 0} canje(s)</span>`;
+      + `<span class="pase-meta">${escapar(invitadoTxt)}</span>`
+      + `<span class="pase-meta">${escapar(fechasTxt)}</span>`;
 
     const acciones = document.createElement('div');
     acciones.className = 'pase-fila-acciones';
