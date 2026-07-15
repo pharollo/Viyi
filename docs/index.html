@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=97">
+  <link rel="stylesheet" href="styles.css?v=98">
 </head>
 <body>
   <header>
@@ -61,10 +61,10 @@
     <section id="vista-registro" class="oculto">
       <form id="form-registro" class="tarjeta">
         <div class="cabecera-login">
-          <h2>ViYi</h2>
+          <img src="logo.svg?v=4" alt="ViYi" class="logo-login" width="68" height="68">
         </div>
-        <p class="ayuda-pase" id="registro-intro">Crea tu cuenta para usar tu acceso.</p>
-        <input type="text" id="reg-nombre" required autocomplete="name" placeholder="Nombre" aria-label="Nombre">
+        <input type="text" id="reg-nombre" required autocomplete="given-name" placeholder="Nombre" aria-label="Nombre">
+        <input type="text" id="reg-apellido" required autocomplete="family-name" placeholder="Apellido" aria-label="Apellido">
         <input type="email" id="reg-email" required autocomplete="email" inputmode="email" placeholder="Email" aria-label="Email">
         <div class="campo-clave">
           <input type="password" id="reg-password" required autocomplete="new-password" placeholder="Clave (mín. 6)" aria-label="Clave">
@@ -72,7 +72,7 @@
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
         </div>
-        <button type="submit" id="btn-registro" class="btn-primario">Crear cuenta y entrar</button>
+        <button type="submit" id="btn-registro" class="btn-primario">Entrar</button>
         <button type="button" id="btn-ir-login" class="enlace-clave">Ya tengo cuenta</button>
         <p id="error-registro" class="mensaje-error oculto"></p>
       </form>
@@ -194,6 +194,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=97"></script>
+  <script type="module" src="app.js?v=98"></script>
 </body>
 </html>

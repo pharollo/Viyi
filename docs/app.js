@@ -63,6 +63,7 @@ async function iniciar() {
   const paramsUrl = new URLSearchParams(location.search);
   let paseTokenPendiente = paramsUrl.get('pase');
   let registroNombrePendiente = null;
+  let registroApellidoPendiente = null;
   function limpiarUrlPase() {
     const u = new URL(location.href);
     u.searchParams.delete('pase');
@@ -217,13 +218,14 @@ async function iniciar() {
       // Canjear un pase pendiente antes de cargar el perfil (lo puede crear).
       if (paseTokenPendiente) {
         try {
-          await canjearPase({ token: paseTokenPendiente, nombre: registroNombrePendiente });
+          await canjearPase({ token: paseTokenPendiente, nombre: registroNombrePendiente, apellido: registroApellidoPendiente });
           toast('¡Listo! Ya tienes acceso a los dispositivos compartidos.');
         } catch (err) {
           toast((err && err.message) || 'No se pudo canjear el enlace.', 'error');
         }
         paseTokenPendiente = null;
         registroNombrePendiente = null;
+        registroApellidoPendiente = null;
         limpiarUrlPase();
       }
 
@@ -265,10 +267,16 @@ async function iniciar() {
     const error = $('error-registro');
     error.classList.add('oculto');
     const nombre = $('reg-nombre').value.trim();
+    const apellido = $('reg-apellido').value.trim();
     const email = $('reg-email').value.trim();
     const password = $('reg-password').value;
     if (nombre.length < 2) {
       error.textContent = 'Escribe tu nombre.';
+      error.classList.remove('oculto');
+      return;
+    }
+    if (apellido.length < 2) {
+      error.textContent = 'Escribe tu apellido.';
       error.classList.remove('oculto');
       return;
     }
@@ -280,9 +288,10 @@ async function iniciar() {
     boton.disabled = true;
     boton.textContent = 'Creando…';
     registroNombrePendiente = nombre;
+    registroApellidoPendiente = apellido;
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(cred.user, { displayName: nombre }).catch(() => {});
+      await updateProfile(cred.user, { displayName: [nombre, apellido].filter(Boolean).join(' ') }).catch(() => {});
       // onAuthStateChanged canjea el pase y carga el panel.
     } catch (err) {
       const mensajes = {
@@ -293,8 +302,9 @@ async function iniciar() {
       error.textContent = mensajes[err.code] || 'No se pudo crear la cuenta. Intenta de nuevo.';
       error.classList.remove('oculto');
       registroNombrePendiente = null;
+      registroApellidoPendiente = null;
       boton.disabled = false;
-      boton.textContent = 'Crear cuenta y entrar';
+      boton.textContent = 'Entrar';
     }
   });
 

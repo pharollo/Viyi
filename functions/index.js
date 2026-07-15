@@ -737,7 +737,7 @@ exports.canjearPase = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
   }
   const uid = request.auth.uid;
-  const { token, nombre } = request.data || {};
+  const { token, nombre, apellido } = request.data || {};
   if (!token || typeof token !== 'string') {
     throw new HttpsError('invalid-argument', 'Falta el enlace del pase.');
   }
@@ -778,6 +778,7 @@ exports.canjearPase = onCall(async (request) => {
   if (!userSnap.exists) {
     await userRef.set({
       nombre: nombreInvitado,
+      apellido: typeof apellido === 'string' ? apellido.trim().slice(0, 60) : '',
       unidad: '',
       email: emailInvitado,
       rol: 'vecino',
