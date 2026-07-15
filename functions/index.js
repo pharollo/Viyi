@@ -424,7 +424,7 @@ exports.adminActualizarUsuario = onCall(async (request) => {
 });
 
 // Catálogo de inmuebles del condominio: los crea y asigna el admin.
-const TIPOS_INMUEBLE = ['conjunto', 'edificio', 'casa'];
+const TIPOS_INMUEBLE = ['conjunto', 'residencias', 'edificio', 'quinta', 'casa', 'local', 'restaurant'];
 // Normaliza la lista de inmuebles asignados a un usuario (id + snapshot del
 // nombre/tipo para poder mostrarlo sin leer todo el catálogo).
 function limpiarInmuebles(inmuebles) {

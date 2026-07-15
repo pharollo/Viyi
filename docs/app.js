@@ -83,7 +83,15 @@ async function iniciar() {
   };
 
   const nombreCompleto = (u) => [u && u.nombre, u && u.apellido].filter(Boolean).join(' ');
-  const TIPO_INMUEBLE_TXT = { conjunto: 'Conjunto residencial', edificio: 'Edificio', casa: 'Casa' };
+  const TIPO_INMUEBLE_TXT = {
+    conjunto: 'Conjunto Residencial',
+    residencias: 'Residencias',
+    edificio: 'Edificio',
+    quinta: 'Quinta',
+    casa: 'Casa',
+    local: 'Local',
+    restaurant: 'Restaurant',
+  };
 
   const TIPOS = [
     { clave: 'puerta', titulo: 'Puertas' },
@@ -1364,10 +1372,7 @@ async function iniciar() {
   function abrirEditorInmueble(existente) {
     const esNuevo = !existente;
     const inm = existente || {};
-    const sTipo = selector(
-      [['conjunto', 'Conjunto residencial'], ['edificio', 'Edificio'], ['casa', 'Casa']],
-      inm.tipo || 'edificio',
-    );
+    const sTipo = selector(Object.entries(TIPO_INMUEBLE_TXT), inm.tipo || 'edificio');
     const iNombre = entrada(inm.nombre, 'ej: Torre A, Casa 12');
     const filas = [campo('Tipo', sTipo), campo('Nombre', iNombre)];
     const acciones = [
