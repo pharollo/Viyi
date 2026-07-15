@@ -800,6 +800,9 @@ exports.canjearPase = onCall(async (request) => {
     || request.auth.token.name
     || emailInvitado.split('@')[0]
     || 'Invitado';
+  const apellidoInvitado = (userSnap.exists && userSnap.data().apellido)
+    || (typeof apellido === 'string' && apellido.trim())
+    || '';
   if (!userSnap.exists) {
     await userRef.set({
       nombre: nombreInvitado,
@@ -827,6 +830,7 @@ exports.canjearPase = onCall(async (request) => {
     invitados: admin.firestore.FieldValue.arrayUnion({
       uid,
       nombre: nombreInvitado,
+      apellido: apellidoInvitado,
       email: emailInvitado,
       cuando: admin.firestore.Timestamp.now(),
     }),

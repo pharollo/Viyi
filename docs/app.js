@@ -1934,7 +1934,7 @@ async function iniciar() {
       for (const x of inv) {
         const item = document.createElement('div');
         item.className = 'pase-detalle-item';
-        item.innerHTML = `<span>${escapar(x.nombre || x.email || 'Invitado')}</span>`
+        item.innerHTML = `<span>${escapar(nombreCompleto(x) || x.email || 'Invitado')}</span>`
           + `<span class="pase-meta">${fmtFecha(x.cuando)}</span>`;
         detalle.appendChild(item);
       }
