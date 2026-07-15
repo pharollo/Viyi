@@ -681,6 +681,30 @@ exports.adminEliminarDispositivo = onCall(async (request) => {
 
 // ---- Pases: acceso temporal compartido por enlace ----
 
+// Flujo de invitación email-first: dado un pase válido y un correo, dice si ese
+// correo ya tiene cuenta (para mostrar login) o no (para mostrar crear cuenta).
+// Gated por un token de pase existente para limitar la enumeración de correos.
+exports.verificarEmail = onCall(async (request) => {
+  const { token, email } = request.data || {};
+  if (!token || typeof token !== 'string') {
+    throw new HttpsError('invalid-argument', 'Falta el enlace del pase.');
+  }
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    throw new HttpsError('invalid-argument', 'Escribe un correo válido.');
+  }
+  const paseSnap = await db.doc(`pases/${token}`).get();
+  if (!paseSnap.exists) {
+    throw new HttpsError('not-found', 'El enlace no es válido.');
+  }
+  try {
+    await admin.auth().getUserByEmail(email.trim());
+    return { existe: true };
+  } catch (err) {
+    if (err.code === 'auth/user-not-found') return { existe: false };
+    throw new HttpsError('internal', 'No se pudo verificar el correo.');
+  }
+});
+
 // Genera un enlace de pase con los dispositivos y la duración elegidos.
 exports.crearPase = onCall(async (request) => {
   if (!request.auth) {

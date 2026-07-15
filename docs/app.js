@@ -1,7 +1,7 @@
 import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js';
 
 const $ = (id) => document.getElementById(id);
-const VISTAS = ['vista-cargando', 'vista-config', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
+const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
 
 function mostrarVista(id) {
   VISTAS.forEach((v) => $(v).classList.toggle('oculto', v !== id));
@@ -52,6 +52,7 @@ async function iniciar() {
   const adminAccesorioCrudo = httpsCallable(functions, 'adminAccesorioCrudo');
   const crearPase = httpsCallable(functions, 'crearPase');
   const canjearPase = httpsCallable(functions, 'canjearPase');
+  const verificarEmail = httpsCallable(functions, 'verificarEmail');
   const revocarPase = httpsCallable(functions, 'revocarPase');
   const actualizarMiPerfil = httpsCallable(functions, 'actualizarMiPerfil');
 
@@ -209,8 +210,9 @@ async function iniciar() {
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
       $('info-usuario').classList.add('oculto');
-      // Si llegó por un enlace de pase, ofrecer registrarse; si no, login.
-      mostrarVista(paseTokenPendiente ? 'vista-registro' : 'vista-login');
+      // Con un enlace de pase: pedir el correo primero (email-first) y según si
+      // ya tiene cuenta, mostrar login o crear cuenta. Si no, login normal.
+      mostrarVista(paseTokenPendiente ? 'vista-email' : 'vista-login');
       return;
     }
     mostrarVista('vista-cargando');
@@ -257,6 +259,42 @@ async function iniciar() {
       console.error(err);
       toast('Error cargando tus datos. Recarga la página.', 'error');
       mostrarVista('vista-sin-acceso');
+    }
+  });
+
+  // ---- Invitación por pase: primero el correo (email-first) ----
+  $('form-email').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    const error = $('error-email');
+    error.classList.add('oculto');
+    const email = $('pase-email').value.trim();
+    if (!email.includes('@')) {
+      error.textContent = 'Escribe un correo válido.';
+      error.classList.remove('oculto');
+      return;
+    }
+    const boton = $('btn-continuar');
+    boton.disabled = true;
+    boton.textContent = 'Verificando…';
+    try {
+      const res = await verificarEmail({ token: paseTokenPendiente, email });
+      if (res.data && res.data.existe) {
+        // Ya tiene cuenta: al login (correo precargado) para poner su clave.
+        $('campo-email').value = email;
+        mostrarVista('vista-login');
+        $('campo-password').focus();
+      } else {
+        // No tiene cuenta: a crear cuenta (correo precargado).
+        $('reg-email').value = email;
+        mostrarVista('vista-registro');
+        $('reg-nombre').focus();
+      }
+    } catch (err) {
+      error.textContent = (err && err.message) || 'No se pudo verificar el correo. Intenta de nuevo.';
+      error.classList.remove('oculto');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Continuar';
     }
   });
 
@@ -308,8 +346,10 @@ async function iniciar() {
     }
   });
 
-  // "Ya tengo cuenta": ir al login conservando el pase pendiente.
+  // "Ya tengo cuenta": ir al login conservando el pase pendiente y el correo.
   $('btn-ir-login').addEventListener('click', () => {
+    const em = $('reg-email').value.trim();
+    if (em) $('campo-email').value = em;
     mostrarVista('vista-login');
   });
 

@@ -167,7 +167,8 @@ code {
 }
 
 #form-login input::placeholder,
-#form-registro input::placeholder {
+#form-registro input::placeholder,
+#form-email input::placeholder {
   color: var(--texto-suave);
 }
 
@@ -212,6 +213,7 @@ code {
 
 #form-login input,
 #form-registro input,
+#form-email input,
 #form-perfil input,
 #form-perfil select,
 #form-clave input,
@@ -233,6 +235,7 @@ code {
 
 #form-login input:focus,
 #form-registro input:focus,
+#form-email input:focus,
 #form-perfil input:focus,
 #form-perfil select:focus,
 #form-clave input:focus,
