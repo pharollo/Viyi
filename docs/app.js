@@ -424,7 +424,7 @@ async function iniciar() {
     if (!dispositivos.length) {
       const aviso = document.createElement('p');
       aviso.className = 'centrado';
-      aviso.textContent = 'No tienes dispositivos asignados. Contacta al administrador.';
+      aviso.textContent = 'Aún no tienes dispositivos asignados.';
       contenedor.appendChild(aviso);
       return;
     }
