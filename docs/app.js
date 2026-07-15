@@ -290,8 +290,17 @@ async function iniciar() {
         $('reg-nombre').focus();
       }
     } catch (err) {
-      error.textContent = (err && err.message) || 'No se pudo verificar el correo. Intenta de nuevo.';
-      error.classList.remove('oculto');
+      if (err && err.code === 'functions/not-found') {
+        error.textContent = 'El enlace no es válido.';
+        error.classList.remove('oculto');
+      } else {
+        // No se pudo verificar (función no disponible u otro fallo): no
+        // bloqueamos al invitado; lo llevamos a crear cuenta con el correo.
+        // Si ya existe, createUser avisa y "Ya tengo cuenta" lo lleva al login.
+        $('reg-email').value = email;
+        mostrarVista('vista-registro');
+        $('reg-nombre').focus();
+      }
     } finally {
       boton.disabled = false;
       boton.textContent = 'Continuar';
