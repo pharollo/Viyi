@@ -247,7 +247,7 @@ async function iniciar() {
         verificarEmail({ token: paseTokenPendiente })
           .then((r) => {
             paseEventoPendiente = (r.data && r.data.evento) || '';
-            paseInvitadorPendiente = (r.data && r.data.porNombre) || '';
+            paseInvitadorPendiente = r.data ? [r.data.porNombre, r.data.porApellido].filter(Boolean).join(' ') : '';
             pintarEventoPase();
           })
           .catch(() => {});
@@ -318,7 +318,7 @@ async function iniciar() {
     try {
       const res = await verificarEmail({ token: paseTokenPendiente, email });
       paseEventoPendiente = (res.data && res.data.evento) || paseEventoPendiente;
-      paseInvitadorPendiente = (res.data && res.data.porNombre) || paseInvitadorPendiente;
+      paseInvitadorPendiente = (res.data ? [res.data.porNombre, res.data.porApellido].filter(Boolean).join(' ') : '') || paseInvitadorPendiente;
       pintarEventoPase();
       if (res.data && res.data.existe) {
         // Ya tiene cuenta: al login (correo precargado) para poner su clave.
@@ -1786,11 +1786,11 @@ async function iniciar() {
     for (const d of conAcceso) {
       const acc = usuarioActual.accesos[d.id] || {};
       const clave = acc.token || '_';
-      if (!grupos.has(clave)) grupos.set(clave, { evento: acc.evento || '', porNombre: acc.porNombre || '', disp: [] });
+      if (!grupos.has(clave)) grupos.set(clave, { evento: acc.evento || '', invitador: [acc.porNombre, acc.porApellido].filter(Boolean).join(' '), disp: [] });
       grupos.get(clave).disp.push(d);
     }
     for (const g of grupos.values()) {
-      if (g.evento || g.porNombre) {
+      if (g.evento || g.invitador) {
         const cab = document.createElement('div');
         cab.className = 'acceso-cab';
         if (g.evento) {
@@ -1798,10 +1798,10 @@ async function iniciar() {
           ev.textContent = g.evento;
           cab.appendChild(ev);
         }
-        if (g.porNombre) {
+        if (g.invitador) {
           const inv = document.createElement('span');
           inv.className = 'acceso-invitador';
-          inv.textContent = `Te invitó ${g.porNombre}`;
+          inv.textContent = `Te invitó ${g.invitador}`;
           cab.appendChild(inv);
         }
         card.appendChild(cab);
@@ -1880,7 +1880,7 @@ async function iniciar() {
   }
 
   // Mensaje que se comparte con el invitado (no solo la URL pelada).
-  const mensajePase = (url) => `Usa ViYi para abrir la puerta, esta es tu llave: ${url}`;
+  const mensajePase = (url) => `Usa ViYi para abrir la puerta, esta es tu llave ${url}`;
 
   function mostrarResultadoPase(url) {
     const cont = $('pase-resultado');

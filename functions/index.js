@@ -695,15 +695,16 @@ exports.verificarEmail = onCall(async (request) => {
   }
   const evento = paseSnap.data().evento || '';
   const porNombre = paseSnap.data().porNombre || '';
+  const porApellido = paseSnap.data().porApellido || '';
   // Sin correo: solo devuelve info del pase (para mostrar el evento al abrir).
   if (!email || typeof email !== 'string' || !email.includes('@')) {
-    return { evento, porNombre };
+    return { evento, porNombre, porApellido };
   }
   try {
     await admin.auth().getUserByEmail(email.trim());
-    return { existe: true, evento, porNombre };
+    return { existe: true, evento, porNombre, porApellido };
   } catch (err) {
-    if (err.code === 'auth/user-not-found') return { existe: false, evento, porNombre };
+    if (err.code === 'auth/user-not-found') return { existe: false, evento, porNombre, porApellido };
     throw new HttpsError('internal', 'No se pudo verificar el correo.');
   }
 });
@@ -745,6 +746,7 @@ exports.crearPase = onCall(async (request) => {
   await db.doc(`pases/${token}`).set({
     por: uid,
     porNombre: usuario.nombre || '',
+    porApellido: usuario.apellido || '',
     dispositivos: compartir,
     evento: (typeof evento === 'string' ? evento.trim() : '').slice(0, 60),
     duracion,
@@ -801,6 +803,7 @@ exports.canjearPase = onCall(async (request) => {
       token,
       evento: pase.evento || '',
       porNombre: pase.porNombre || '',
+      porApellido: pase.porApellido || '',
     };
   }
 
