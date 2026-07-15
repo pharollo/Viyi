@@ -1505,37 +1505,41 @@ async function iniciar() {
   });
 
   // ---- Mi perfil (clic en el nombre arriba a la derecha) ----
-  // Los inmuebles los asigna el admin; aquí solo se muestran (solo lectura).
-  function renderInmuebles(lista) {
+  // El vecino elige sus inmuebles de un selector del catálogo que creó el admin.
+  let selectorInmuebles = null;
+  function renderSelectorInmuebles(asignados) {
     const ul = $('lista-inmuebles');
     ul.textContent = '';
-    if (!lista || !lista.length) {
+    if (!cacheInmuebles.length) {
+      selectorInmuebles = null;
       const li = document.createElement('li');
       li.className = 'vacio';
-      li.textContent = 'Sin inmuebles asignados.';
+      li.textContent = 'No hay inmuebles disponibles todavía.';
       ul.appendChild(li);
       return;
     }
-    for (const inm of lista) {
-      const li = document.createElement('li');
-      li.className = 'inmueble-ro';
-      li.innerHTML = `<strong>${escapar(inm.nombre)}</strong>`
-        + `<span class="pase-meta">${TIPO_INMUEBLE_TXT[inm.tipo] || inm.tipo}</span>`;
-      ul.appendChild(li);
-    }
+    selectorInmuebles = casillasInmuebles(asignados);
+    ul.appendChild(selectorInmuebles.cont);
   }
 
-  function abrirPerfil() {
+  async function abrirPerfil() {
     if (!usuarioActual) return;
     $('perfil-nombre').value = usuarioActual.nombre || '';
     $('perfil-apellido').value = usuarioActual.apellido || '';
     $('perfil-email').value = (auth.currentUser && auth.currentUser.email) || usuarioActual.email || '';
-    renderInmuebles(usuarioActual.inmuebles);
     $('perfil-msg').classList.add('oculto');
     $('clave-msg').classList.add('oculto');
     $('form-clave').reset();
     mostrarTab('tab-perfil');
     cerrarMenu();
+    // El vecino no pasa por Gestión: carga el catálogo aquí para el selector.
+    try {
+      const snap = await getDocs(collection(db, 'inmuebles'));
+      cacheInmuebles = snap.docs
+        .map((s) => ({ id: s.id, ...s.data() }))
+        .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+    } catch (err) { /* si falla, se pinta con lo que haya en cache */ }
+    renderSelectorInmuebles(usuarioActual.inmuebles);
   }
   $('info-usuario').addEventListener('click', abrirPerfil);
   $('info-usuario').addEventListener('keydown', (e) => {
@@ -1553,12 +1557,14 @@ async function iniciar() {
       msg.classList.remove('oculto');
       return;
     }
+    const seleccion = selectorInmuebles ? selectorInmuebles.seleccionados() : (usuarioActual.inmuebles || []);
     const btn = $('btn-guardar-perfil');
     btn.disabled = true;
     try {
-      await actualizarMiPerfil({ nombre, apellido });
+      await actualizarMiPerfil({ nombre, apellido, inmuebles: seleccion.map((x) => x.id) });
       usuarioActual.nombre = nombre;
       usuarioActual.apellido = apellido;
+      usuarioActual.inmuebles = seleccion;
       $('nombre-usuario').textContent = nombreCompleto(usuarioActual);
       toast('Perfil actualizado.');
     } catch (err) {

@@ -282,22 +282,20 @@ code {
   margin: 10px 0 6px;
 }
 .lista-inmuebles {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  margin-bottom: 4px;
 }
-.inmueble-ro {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  box-shadow: inset 3px 3px 7px var(--sombra-oscura), inset -3px -3px 7px var(--sombra-clara);
-}
-.inmueble-ro strong {
-  color: var(--texto);
-  font-size: 14px;
-  font-weight: 600;
+/* El checklist del perfil: que el checkbox no herede el estilo de input de
+   texto (la regla base #form-perfil input lo convertía en una píldora). */
+#form-perfil .casilla input {
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+  border-radius: 4px;
+  -webkit-appearance: auto;
+  appearance: auto;
+  accent-color: var(--primario);
 }
 
 .campo input:disabled {
