@@ -288,6 +288,8 @@ async function iniciar() {
       const esAdmin = usuario.rol === 'admin';
       $('btn-menu').classList.remove('oculto');
       document.querySelectorAll('.solo-admin').forEach((el) => el.classList.toggle('oculto', !esAdmin));
+      // Cuentas normales: Salir va pegado a los ítems (no fijado al fondo).
+      $('menu-lateral').classList.toggle('sin-admin', !esAdmin);
       if (esAdmin) {
         cargarGestion();
         cargarRegistros();
