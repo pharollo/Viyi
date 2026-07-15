@@ -1374,7 +1374,17 @@ async function iniciar() {
     const inm = existente || {};
     const sTipo = selector(Object.entries(TIPO_INMUEBLE_TXT), inm.tipo || 'edificio');
     const iNombre = entrada(inm.nombre, 'ej: Torre A, Casa 12');
-    const filas = [campo('Tipo', sTipo), campo('Nombre', iNombre)];
+    const iCiudad = entrada(inm.ciudad, 'ej: Caracas');
+    const iEstado = entrada(inm.estado, 'ej: Miranda');
+    const iZona = entrada(inm.zona, 'ej: El Hatillo');
+    [iNombre, iCiudad, iEstado, iZona].forEach((i) => i.setAttribute('autocapitalize', 'words'));
+    const filas = [
+      campo('Tipo', sTipo),
+      campo('Nombre', iNombre),
+      campo('Ciudad', iCiudad),
+      campo('Estado', iEstado),
+      campo('Zona', iZona),
+    ];
     const acciones = [
       botonForm('Guardar', 'btn-primario', async (ev) => {
         const b = ev.currentTarget;
@@ -1385,6 +1395,9 @@ async function iniciar() {
             id: esNuevo ? undefined : inm.id,
             tipo: sTipo.value,
             nombre: iNombre.value.trim(),
+            ciudad: iCiudad.value.trim(),
+            estado: iEstado.value.trim(),
+            zona: iZona.value.trim(),
           });
           toast(esNuevo ? 'Inmueble creado ✓' : 'Inmueble actualizado ✓', 'ok');
           await trasGuardar();

@@ -470,18 +470,26 @@ exports.actualizarMiPerfil = onCall(async (request) => {
 // Crea o actualiza un inmueble del catálogo (solo admin).
 exports.adminGuardarInmueble = onCall(async (request) => {
   await exigirAdmin(request);
-  const { id, tipo, nombre } = request.data || {};
+  const { id, tipo, nombre, ciudad, estado, zona } = request.data || {};
   if (!TIPOS_INMUEBLE.includes(tipo)) {
     throw new HttpsError('invalid-argument', 'Tipo de inmueble no válido.');
   }
   if (typeof nombre !== 'string' || !nombre.trim()) {
     throw new HttpsError('invalid-argument', 'Falta el nombre del inmueble.');
   }
-  const datos = { tipo, nombre: nombre.trim().slice(0, 60) };
+  const texto = (v) => (typeof v === 'string' ? v.trim() : '').slice(0, 60);
+  const datos = {
+    tipo,
+    nombre: nombre.trim().slice(0, 60),
+    ciudad: texto(ciudad),
+    estado: texto(estado),
+    zona: texto(zona),
+  };
   let inmuebleId = id;
   if (id && typeof id === 'string') {
     await db.doc(`inmuebles/${id}`).set(datos, { merge: true });
-    // Propaga el nuevo nombre/tipo al snapshot de los vecinos que lo tengan.
+    // Propaga el nuevo nombre/tipo al snapshot de los vecinos que lo tengan
+    // (el snapshot solo guarda id/tipo/nombre, no la ubicación).
     const usuarios = await db.collection('usuarios').get();
     const batch = db.batch();
     let hayCambios = false;
@@ -490,7 +498,7 @@ exports.adminGuardarInmueble = onCall(async (request) => {
       if (lista.some((x) => x.id === id)) {
         hayCambios = true;
         batch.set(s.ref, {
-          inmuebles: lista.map((x) => (x.id === id ? { id, ...datos } : x)),
+          inmuebles: lista.map((x) => (x.id === id ? { id, tipo: datos.tipo, nombre: datos.nombre } : x)),
         }, { merge: true });
       }
     });
