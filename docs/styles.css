@@ -471,13 +471,7 @@ button:disabled {
 }
 
 .item-salir {
-  margin-top: auto;
   color: var(--error);
-}
-
-/* Cuentas normales: Salir queda junto a los ítems, no fijado al fondo. */
-.menu-lateral.sin-admin .item-salir {
-  margin-top: 0;
 }
 
 .dps-detectados {
