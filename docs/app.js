@@ -102,6 +102,18 @@ async function iniciar() {
   };
 
   const nombreCompleto = (u) => [u && u.nombre, u && u.apellido].filter(Boolean).join(' ');
+
+  // Title Case: cada palabra con mayúscula inicial, salvo conectores (de, del,
+  // la, y…) que quedan en minúscula (excepto cuando son la primera palabra).
+  const MENORES = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y', 'e', 'o', 'u', 'en', 'a', 'al', 'con', 'por', 'para', 'un', 'una', 'unos', 'unas', 'sin', 'lo', 'vs']);
+  const tituloCase = (s) => s.split(' ')
+    .map((w, i) => {
+      if (!w) return w;
+      const min = w.toLocaleLowerCase();
+      if (i > 0 && MENORES.has(min.replace(/[.,;:]+$/, ''))) return min;
+      return w.charAt(0).toLocaleUpperCase() + w.slice(1);
+    })
+    .join(' ');
   const TIPO_INMUEBLE_TXT = {
     conjunto: 'Conjunto Residencial',
     residencias: 'Residencias',
@@ -1211,17 +1223,6 @@ async function iniciar() {
     const iId = entrada(d.id, 'se genera del nombre');
     if (!esNuevo) iId.disabled = true;
     const iNombre = entrada(d.nombre, 'ej: Portón del Garaje');
-    // Cada palabra con mayúscula inicial, salvo conectores (de, del, la, y…)
-    // que quedan en minúscula (excepto cuando son la primera palabra).
-    const MENORES = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y', 'e', 'o', 'u', 'en', 'a', 'al', 'con', 'por', 'para', 'un', 'una', 'unos', 'unas', 'sin', 'lo']);
-    const tituloCase = (s) => s.split(' ')
-      .map((w, i) => {
-        if (!w) return w;
-        const min = w.toLocaleLowerCase();
-        if (i > 0 && MENORES.has(min)) return min;
-        return w.charAt(0).toLocaleUpperCase() + w.slice(1);
-      })
-      .join(' ');
     // Identificador = nombre en minúsculas, sin acentos, palabras con guion.
     const aSlug = (s) => s.toLowerCase()
       .replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e').replace(/[íìï]/g, 'i')
@@ -1754,6 +1755,13 @@ async function iniciar() {
   });
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   $('btn-refrescar-pases').addEventListener('click', cargarMisPases);
+  // Evento en Title Case (mayúscula por palabra, salvo preposiciones).
+  $('pase-evento').addEventListener('input', () => {
+    const campo = $('pase-evento');
+    const pos = campo.selectionStart;
+    campo.value = tituloCase(campo.value);
+    try { campo.setSelectionRange(pos, pos); } catch (e) { /* ignore */ }
+  });
 
   // Dispositivos propios que el usuario puede compartir (admin: todos).
   function dispositivosCompartibles() {
