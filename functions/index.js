@@ -737,7 +737,8 @@ exports.crearPase = onCall(async (request) => {
   const expira = ms == null
     ? FIN_INDEFINIDO
     : admin.firestore.Timestamp.fromMillis(Date.now() + ms);
-  const token = crypto.randomBytes(16).toString('hex');
+  // Token corto y URL-safe (12 chars, 72 bits) para un enlace más corto.
+  const token = crypto.randomBytes(9).toString('base64url');
   await db.doc(`pases/${token}`).set({
     por: uid,
     porNombre: usuario.nombre || '',

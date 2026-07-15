@@ -60,13 +60,14 @@ async function iniciar() {
   let misDispositivos = [];
   let avisoTimer = null;
 
-  // Enlace de pase entrante (?pase=TOKEN): se canjea al iniciar sesión.
+  // Enlace de pase entrante (?p=TOKEN, o ?pase= de enlaces viejos).
   const paramsUrl = new URLSearchParams(location.search);
-  let paseTokenPendiente = paramsUrl.get('pase');
+  let paseTokenPendiente = paramsUrl.get('p') || paramsUrl.get('pase');
   let registroNombrePendiente = null;
   let registroApellidoPendiente = null;
   function limpiarUrlPase() {
     const u = new URL(location.href);
+    u.searchParams.delete('p');
     u.searchParams.delete('pase');
     history.replaceState(null, '', u.pathname + u.search + u.hash);
   }
@@ -1797,7 +1798,7 @@ async function iniciar() {
     try {
       const multiuso = $('pase-multiuso').checked;
       const res = await crearPase({ dispositivos: seleccion, duracion: paseDuracionSel, multiuso });
-      const url = `${location.origin}${location.pathname}?pase=${res.data.token}`;
+      const url = `${location.origin}${location.pathname}?p=${res.data.token}`;
       mostrarResultadoPase(url);
       cargarMisPases();
     } catch (err) {
@@ -1927,7 +1928,7 @@ async function iniciar() {
     acciones.appendChild(badge);
 
     if (estado === 'activo') {
-      const url = `${location.origin}${location.pathname}?pase=${p.token}`;
+      const url = `${location.origin}${location.pathname}?p=${p.token}`;
       const bCopiar = document.createElement('button');
       bCopiar.type = 'button';
       bCopiar.className = 'btn-mini';
