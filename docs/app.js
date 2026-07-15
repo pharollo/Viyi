@@ -1548,6 +1548,8 @@ async function iniciar() {
     $('perfil-msg').classList.add('oculto');
     $('clave-msg').classList.add('oculto');
     $('form-clave').reset();
+    $('form-clave').classList.add('oculto');
+    $('btn-toggle-clave').setAttribute('aria-expanded', 'false');
     mostrarTab('tab-perfil');
     cerrarMenu();
     // El vecino no pasa por Gestión: carga el catálogo aquí para el selector.
@@ -1562,6 +1564,17 @@ async function iniciar() {
   $('info-usuario').addEventListener('click', abrirPerfil);
   $('info-usuario').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirPerfil(); }
+  });
+
+  // Desplegar/ocultar el cambio de clave (menos clutter por defecto).
+  $('btn-toggle-clave').addEventListener('click', () => {
+    const form = $('form-clave');
+    const mostrar = form.classList.contains('oculto');
+    form.classList.toggle('oculto', !mostrar);
+    $('btn-toggle-clave').setAttribute('aria-expanded', String(mostrar));
+    $('clave-msg').classList.add('oculto');
+    if (mostrar) $('clave-actual').focus();
+    else form.reset();
   });
 
   $('form-perfil').addEventListener('submit', async (e) => {
@@ -1617,6 +1630,8 @@ async function iniciar() {
       await reauthenticateWithCredential(auth.currentUser, cred);
       await updatePassword(auth.currentUser, nueva);
       $('form-clave').reset();
+      $('form-clave').classList.add('oculto');
+      $('btn-toggle-clave').setAttribute('aria-expanded', 'false');
       toast('Clave actualizada.');
     } catch (err) {
       const code = err && err.code;

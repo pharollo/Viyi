@@ -259,11 +259,40 @@ code {
   display: flex;
   flex-direction: column;
 }
-#form-clave h3, .perfil-seccion h3 {
+.perfil-seccion h3 {
   font-size: 15px;
   font-weight: 600;
   color: var(--texto);
   margin-bottom: 12px;
+}
+
+/* Botón que despliega una sección (p. ej. cambiar clave), con chevron. */
+.btn-desplegar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: transparent;
+  color: var(--texto);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 2px 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-desplegar::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--texto-suave);
+  border-bottom: 2px solid var(--texto-suave);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+}
+.btn-desplegar[aria-expanded="true"]::after {
+  transform: rotate(45deg);
+}
+.form-desplegable {
+  margin-top: 14px;
 }
 
 .campo-perfil {
