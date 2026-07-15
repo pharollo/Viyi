@@ -1429,8 +1429,8 @@ async function iniciar() {
   function abrirEditorUsuario(existente) {
     const esNuevo = !existente;
     const u = existente || {};
-    const iNombre = entrada(u.nombre, 'ej: María');
-    const iApellido = entrada(u.apellido, 'ej: Pérez');
+    const iNombre = entrada(u.nombre);
+    const iApellido = entrada(u.apellido);
     [iNombre, iApellido].forEach((i) => i.setAttribute('autocapitalize', 'words'));
     const iEmail = entrada(u.email, 'correo@ejemplo.com', 'email');
     if (!esNuevo) iEmail.disabled = true;
