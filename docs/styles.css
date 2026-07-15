@@ -1250,6 +1250,31 @@ button:disabled {
 .vence-ok { color: var(--primario); font-weight: 500; }
 .vence-mal { color: var(--error); font-weight: 500; }
 
+/* Campo Evento del generador de pases + su etiqueta en "Mis pases". */
+.pase-evento {
+  width: 100%;
+  padding: 12px 14px;
+  margin: 10px 0;
+  border: none;
+  border-radius: 12px;
+  background: var(--fondo);
+  color: var(--texto);
+  font-size: 15px;
+  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.pase-evento::placeholder { color: var(--texto-suave); }
+.pase-evento:focus {
+  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara), 0 0 0 1.5px var(--primario);
+}
+.pase-evento-lbl {
+  color: var(--texto);
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .pase-fila-acciones {
   display: flex;
   align-items: center;

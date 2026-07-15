@@ -1785,6 +1785,7 @@ async function iniciar() {
       lab.innerHTML = `<input type="checkbox" value="${escapar(d.id)}"><span>${escapar(d.nombre)}</span>`;
       cont.appendChild(lab);
     }
+    $('pase-evento').value = '';
     $('pase-resultado').classList.add('oculto');
     cargarMisPases();
   }
@@ -1797,7 +1798,8 @@ async function iniciar() {
     boton.textContent = 'Generando…';
     try {
       const multiuso = $('pase-multiuso').checked;
-      const res = await crearPase({ dispositivos: seleccion, duracion: paseDuracionSel, multiuso });
+      const evento = $('pase-evento').value.trim();
+      const res = await crearPase({ dispositivos: seleccion, duracion: paseDuracionSel, multiuso, evento });
       const url = `${location.origin}${location.pathname}?p=${res.data.token}`;
       mostrarResultadoPase(url);
       cargarMisPases();
@@ -1921,7 +1923,9 @@ async function iniciar() {
 
     const info = document.createElement('div');
     info.className = 'pase-info';
+    const eventoHtml = p.evento ? `<span class="pase-evento-lbl">${escapar(p.evento)}</span>` : '';
     info.innerHTML = `<strong>${escapar(nombres)}</strong>`
+      + eventoHtml
       + `<span class="pase-meta">${escapar(invitadoTxt)}</span>`
       + `<span class="pase-meta">${fechasHtml}</span>`;
 

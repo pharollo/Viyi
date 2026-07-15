@@ -711,7 +711,7 @@ exports.crearPase = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
   }
   const uid = request.auth.uid;
-  const { dispositivos, duracion, multiuso } = request.data || {};
+  const { dispositivos, duracion, multiuso, evento } = request.data || {};
   if (!Array.isArray(dispositivos) || !dispositivos.length) {
     throw new HttpsError('invalid-argument', 'Elige al menos un dispositivo para compartir.');
   }
@@ -743,6 +743,7 @@ exports.crearPase = onCall(async (request) => {
     por: uid,
     porNombre: usuario.nombre || '',
     dispositivos: compartir,
+    evento: (typeof evento === 'string' ? evento.trim() : '').slice(0, 60),
     duracion,
     expira,
     multiuso: multiuso === true,
