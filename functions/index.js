@@ -694,15 +694,16 @@ exports.verificarEmail = onCall(async (request) => {
     throw new HttpsError('not-found', 'El enlace no es válido.');
   }
   const evento = paseSnap.data().evento || '';
+  const porNombre = paseSnap.data().porNombre || '';
   // Sin correo: solo devuelve info del pase (para mostrar el evento al abrir).
   if (!email || typeof email !== 'string' || !email.includes('@')) {
-    return { evento };
+    return { evento, porNombre };
   }
   try {
     await admin.auth().getUserByEmail(email.trim());
-    return { existe: true, evento };
+    return { existe: true, evento, porNombre };
   } catch (err) {
-    if (err.code === 'auth/user-not-found') return { existe: false, evento };
+    if (err.code === 'auth/user-not-found') return { existe: false, evento, porNombre };
     throw new HttpsError('internal', 'No se pudo verificar el correo.');
   }
 });
