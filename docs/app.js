@@ -1879,6 +1879,9 @@ async function iniciar() {
     return Promise.resolve(false);
   }
 
+  // Mensaje que se comparte con el invitado (no solo la URL pelada).
+  const mensajePase = (url) => `Usa ViYi para abrir la puerta, esta es tu llave: ${url}`;
+
   function mostrarResultadoPase(url) {
     const cont = $('pase-resultado');
     cont.classList.remove('oculto');
@@ -1889,7 +1892,7 @@ async function iniciar() {
     const campo = document.createElement('input');
     campo.type = 'text';
     campo.readOnly = true;
-    campo.value = url;
+    campo.value = mensajePase(url);
     campo.className = 'pase-url';
     campo.addEventListener('focus', () => campo.select());
     const acciones = document.createElement('div');
@@ -1897,11 +1900,11 @@ async function iniciar() {
     const bCopiar = document.createElement('button');
     bCopiar.type = 'button';
     bCopiar.className = 'btn-secundario';
-    bCopiar.textContent = 'Copiar enlace';
+    bCopiar.textContent = 'Copiar';
     bCopiar.addEventListener('click', async () => {
-      const ok = await copiarTexto(url);
+      const ok = await copiarTexto(mensajePase(url));
       if (ok) toast('Copiado');
-      else { campo.select(); toast('Selecciona y copia el enlace.'); }
+      else { campo.select(); toast('Selecciona y copia el mensaje.'); }
     });
     acciones.appendChild(bCopiar);
     if (navigator.share) {
@@ -1910,7 +1913,7 @@ async function iniciar() {
       bShare.className = 'btn-secundario';
       bShare.textContent = 'Compartir';
       bShare.addEventListener('click', () => {
-        navigator.share({ title: 'Acceso ViYi', text: 'Te comparto acceso en ViYi', url }).catch(() => {});
+        navigator.share({ title: 'ViYi', text: mensajePase(url) }).catch(() => {});
       });
       acciones.appendChild(bShare);
     }
@@ -2028,7 +2031,7 @@ async function iniciar() {
       bCopiar.className = 'btn-mini';
       bCopiar.textContent = 'Copiar';
       bCopiar.addEventListener('click', async () => {
-        const ok = await copiarTexto(url);
+        const ok = await copiarTexto(mensajePase(url));
         toast(ok ? 'Copiado' : 'No se pudo copiar.', ok ? undefined : 'error');
       });
       acciones.appendChild(bCopiar);
