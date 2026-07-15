@@ -65,11 +65,24 @@ async function iniciar() {
   let paseTokenPendiente = paramsUrl.get('p') || paramsUrl.get('pase');
   let registroNombrePendiente = null;
   let registroApellidoPendiente = null;
+  let paseEventoPendiente = '';
   function limpiarUrlPase() {
     const u = new URL(location.href);
     u.searchParams.delete('p');
     u.searchParams.delete('pase');
     history.replaceState(null, '', u.pathname + u.search + u.hash);
+  }
+  // "Te invitaron a <evento>" en las pantallas del flujo de pase.
+  function pintarEventoPase() {
+    document.querySelectorAll('.pase-evento-info').forEach((el) => {
+      el.textContent = '';
+      if (!paseEventoPendiente) { el.classList.add('oculto'); return; }
+      el.append('Te invitaron a ');
+      const s = document.createElement('strong');
+      s.textContent = paseEventoPendiente;
+      el.append(s);
+      el.classList.remove('oculto');
+    });
   }
   const msExpira = (exp) => {
     if (!exp) return 0;
@@ -214,6 +227,12 @@ async function iniciar() {
       // Con un enlace de pase: pedir el correo primero (email-first) y según si
       // ya tiene cuenta, mostrar login o crear cuenta. Si no, login normal.
       mostrarVista(paseTokenPendiente ? 'vista-email' : 'vista-login');
+      // Mostrar al invitado a qué evento lo invitan (si el pase tiene evento).
+      if (paseTokenPendiente) {
+        verificarEmail({ token: paseTokenPendiente })
+          .then((r) => { paseEventoPendiente = (r.data && r.data.evento) || ''; pintarEventoPase(); })
+          .catch(() => {});
+      }
       return;
     }
     mostrarVista('vista-cargando');
@@ -279,6 +298,8 @@ async function iniciar() {
     boton.textContent = 'Verificando…';
     try {
       const res = await verificarEmail({ token: paseTokenPendiente, email });
+      paseEventoPendiente = (res.data && res.data.evento) || paseEventoPendiente;
+      pintarEventoPase();
       if (res.data && res.data.existe) {
         // Ya tiene cuenta: al login (correo precargado) para poner su clave.
         $('campo-email').value = email;

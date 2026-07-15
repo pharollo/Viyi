@@ -689,18 +689,20 @@ exports.verificarEmail = onCall(async (request) => {
   if (!token || typeof token !== 'string') {
     throw new HttpsError('invalid-argument', 'Falta el enlace del pase.');
   }
-  if (!email || typeof email !== 'string' || !email.includes('@')) {
-    throw new HttpsError('invalid-argument', 'Escribe un correo válido.');
-  }
   const paseSnap = await db.doc(`pases/${token}`).get();
   if (!paseSnap.exists) {
     throw new HttpsError('not-found', 'El enlace no es válido.');
   }
+  const evento = paseSnap.data().evento || '';
+  // Sin correo: solo devuelve info del pase (para mostrar el evento al abrir).
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    return { evento };
+  }
   try {
     await admin.auth().getUserByEmail(email.trim());
-    return { existe: true };
+    return { existe: true, evento };
   } catch (err) {
-    if (err.code === 'auth/user-not-found') return { existe: false };
+    if (err.code === 'auth/user-not-found') return { existe: false, evento };
     throw new HttpsError('internal', 'No se pudo verificar el correo.');
   }
 });
