@@ -28,6 +28,7 @@ async function iniciar() {
   const {
     getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail,
     createUserWithEmailAndPassword, updateProfile,
+    updatePassword, reauthenticateWithCredential, EmailAuthProvider,
   } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
   const {
     getFirestore, doc, getDoc, collection, query, where, orderBy, limit, getDocs,
@@ -50,6 +51,7 @@ async function iniciar() {
   const crearPase = httpsCallable(functions, 'crearPase');
   const canjearPase = httpsCallable(functions, 'canjearPase');
   const revocarPase = httpsCallable(functions, 'revocarPase');
+  const actualizarMiPerfil = httpsCallable(functions, 'actualizarMiPerfil');
 
   let usuarioActual = null;
   let misDispositivos = [];
@@ -77,6 +79,8 @@ async function iniciar() {
     if (!ms) return '—';
     return new Date(ms).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' });
   };
+
+  const nombreCompleto = (u) => [u && u.nombre, u && u.apellido].filter(Boolean).join(' ');
 
   const TIPOS = [
     { clave: 'puerta', titulo: 'Puertas' },
@@ -219,9 +223,7 @@ async function iniciar() {
       }
       const usuario = perfilSnap.data();
       usuarioActual = usuario;
-      $('nombre-usuario').textContent = usuario.unidad
-        ? `${usuario.nombre} · ${usuario.unidad}`
-        : usuario.nombre;
+      $('nombre-usuario').textContent = nombreCompleto(usuario);
       $('info-usuario').classList.remove('oculto');
 
       const dispositivos = await cargarDispositivos(usuario);
@@ -1375,7 +1377,7 @@ async function iniciar() {
   $('btn-nuevo-dispositivo').addEventListener('click', () => abrirEditorDispositivo(null));
   $('btn-nuevo-usuario').addEventListener('click', () => abrirEditorUsuario(null));
 
-  const PANELES_TAB = ['tab-controles', 'tab-pases', 'tab-gestion', 'tab-registro'];
+  const PANELES_TAB = ['tab-controles', 'tab-pases', 'tab-gestion', 'tab-registro', 'tab-perfil'];
   function mostrarTab(id) {
     PANELES_TAB.forEach((t) => $(t).classList.toggle('oculto', t !== id));
     document.querySelectorAll('.item-menu').forEach((p) => {
@@ -1406,6 +1408,137 @@ async function iniciar() {
   $('ir-inicio').addEventListener('click', irInicio);
   $('ir-inicio').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); irInicio(); }
+  });
+
+  // ---- Mi perfil (clic en el nombre arriba a la derecha) ----
+  const TIPOS_INMUEBLE = [
+    { v: 'conjunto', t: 'Conjunto residencial' },
+    { v: 'edificio', t: 'Edificio' },
+    { v: 'casa', t: 'Casa' },
+  ];
+  function filaInmueble(inm) {
+    const li = document.createElement('li');
+    li.className = 'fila-inmueble';
+    const sel = document.createElement('select');
+    sel.className = 'inm-tipo';
+    for (const o of TIPOS_INMUEBLE) {
+      const op = document.createElement('option');
+      op.value = o.v;
+      op.textContent = o.t;
+      if (inm && inm.tipo === o.v) op.selected = true;
+      sel.appendChild(op);
+    }
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.className = 'inm-nombre';
+    inp.placeholder = 'Nombre o número';
+    inp.value = (inm && inm.nombre) || '';
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'btn-quitar-inmueble';
+    del.setAttribute('aria-label', 'Quitar');
+    del.textContent = '×';
+    del.addEventListener('click', () => li.remove());
+    li.append(sel, inp, del);
+    return li;
+  }
+  function renderInmuebles(lista) {
+    const ul = $('lista-inmuebles');
+    ul.textContent = '';
+    for (const inm of (lista || [])) ul.appendChild(filaInmueble(inm));
+  }
+  $('btn-add-inmueble').addEventListener('click', () => {
+    $('lista-inmuebles').appendChild(filaInmueble(null));
+  });
+
+  function abrirPerfil() {
+    if (!usuarioActual) return;
+    $('perfil-nombre').value = usuarioActual.nombre || '';
+    $('perfil-apellido').value = usuarioActual.apellido || '';
+    $('perfil-email').value = (auth.currentUser && auth.currentUser.email) || usuarioActual.email || '';
+    renderInmuebles(usuarioActual.inmuebles);
+    $('perfil-msg').classList.add('oculto');
+    $('clave-msg').classList.add('oculto');
+    $('form-clave').reset();
+    mostrarTab('tab-perfil');
+    cerrarMenu();
+  }
+  $('info-usuario').addEventListener('click', abrirPerfil);
+  $('info-usuario').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirPerfil(); }
+  });
+
+  $('form-perfil').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = $('perfil-msg');
+    msg.classList.add('oculto');
+    const nombre = $('perfil-nombre').value.trim();
+    const apellido = $('perfil-apellido').value.trim();
+    if (!nombre) {
+      msg.textContent = 'El nombre no puede quedar vacío.';
+      msg.classList.remove('oculto');
+      return;
+    }
+    const inmuebles = [...$('lista-inmuebles').querySelectorAll('.fila-inmueble')]
+      .map((li) => ({
+        tipo: li.querySelector('.inm-tipo').value,
+        nombre: li.querySelector('.inm-nombre').value.trim(),
+      }))
+      .filter((x) => x.nombre);
+    const btn = $('btn-guardar-perfil');
+    btn.disabled = true;
+    try {
+      await actualizarMiPerfil({ nombre, apellido, inmuebles });
+      usuarioActual.nombre = nombre;
+      usuarioActual.apellido = apellido;
+      usuarioActual.inmuebles = inmuebles;
+      $('nombre-usuario').textContent = nombreCompleto(usuarioActual);
+      toast('Perfil actualizado.');
+    } catch (err) {
+      msg.textContent = (err && err.message) || 'No se pudo guardar el perfil.';
+      msg.classList.remove('oculto');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $('form-clave').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = $('clave-msg');
+    msg.classList.add('oculto');
+    const actual = $('clave-actual').value;
+    const nueva = $('clave-nueva').value;
+    const nueva2 = $('clave-nueva2').value;
+    if (nueva.length < 6) {
+      msg.textContent = 'La clave nueva debe tener al menos 6 caracteres.';
+      msg.classList.remove('oculto');
+      return;
+    }
+    if (nueva !== nueva2) {
+      msg.textContent = 'Las claves nuevas no coinciden.';
+      msg.classList.remove('oculto');
+      return;
+    }
+    const btn = $('btn-cambiar-clave');
+    btn.disabled = true;
+    try {
+      const cred = EmailAuthProvider.credential(auth.currentUser.email, actual);
+      await reauthenticateWithCredential(auth.currentUser, cred);
+      await updatePassword(auth.currentUser, nueva);
+      $('form-clave').reset();
+      toast('Clave actualizada.');
+    } catch (err) {
+      const code = err && err.code;
+      let m = 'No se pudo cambiar la clave.';
+      if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') m = 'La clave actual no es correcta.';
+      else if (code === 'auth/weak-password') m = 'La clave nueva es muy débil.';
+      else if (code === 'auth/too-many-requests') m = 'Demasiados intentos. Espera un momento.';
+      else if (code === 'auth/requires-recent-login') m = 'Vuelve a iniciar sesión e inténtalo de nuevo.';
+      msg.textContent = m;
+      msg.classList.remove('oculto');
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   // ---- Pases: generar / listar / revocar ----

@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=88">
+  <link rel="stylesheet" href="styles.css?v=89">
 </head>
 <body>
   <header>
@@ -23,7 +23,7 @@
         <h1>ViYi</h1>
       </div>
     </div>
-    <div id="info-usuario" class="oculto">
+    <div id="info-usuario" class="oculto" role="button" tabindex="0" aria-label="Mi perfil">
       <span id="nombre-usuario"></span>
     </div>
   </header>
@@ -137,6 +137,45 @@
         </div>
         <ul id="lista-registros"></ul>
       </div>
+      <div id="tab-perfil" class="panel-tab oculto">
+        <div class="encabezado-admin">
+          <h2>Mi perfil</h2>
+        </div>
+        <form id="form-perfil" class="tarjeta">
+          <label class="campo-perfil">Nombre
+            <input type="text" id="perfil-nombre" autocomplete="given-name" placeholder="Nombre">
+          </label>
+          <label class="campo-perfil">Apellido
+            <input type="text" id="perfil-apellido" autocomplete="family-name" placeholder="Apellido">
+          </label>
+          <label class="campo-perfil">Email
+            <input type="email" id="perfil-email" autocomplete="email" disabled>
+          </label>
+          <div class="perfil-seccion">
+            <div class="encabezado-admin">
+              <h3>Inmuebles asignados</h3>
+              <button type="button" id="btn-add-inmueble" class="btn-secundario">+ Agregar</button>
+            </div>
+            <ul id="lista-inmuebles" class="lista-inmuebles"></ul>
+          </div>
+          <button type="submit" id="btn-guardar-perfil" class="btn-primario">Guardar</button>
+          <p id="perfil-msg" class="mensaje-error oculto"></p>
+        </form>
+        <form id="form-clave" class="tarjeta">
+          <h3>Cambiar clave</h3>
+          <div class="campo-clave">
+            <input type="password" id="clave-actual" autocomplete="current-password" placeholder="Clave actual">
+          </div>
+          <div class="campo-clave">
+            <input type="password" id="clave-nueva" autocomplete="new-password" placeholder="Clave nueva (mín. 6)">
+          </div>
+          <div class="campo-clave">
+            <input type="password" id="clave-nueva2" autocomplete="new-password" placeholder="Repetir clave nueva">
+          </div>
+          <button type="submit" id="btn-cambiar-clave" class="btn-primario">Cambiar clave</button>
+          <p id="clave-msg" class="mensaje-error oculto"></p>
+        </form>
+      </div>
     </section>
   </main>
 
@@ -151,6 +190,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=88"></script>
+  <script type="module" src="app.js?v=89"></script>
 </body>
 </html>

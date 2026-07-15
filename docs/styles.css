@@ -212,6 +212,9 @@ code {
 
 #form-login input,
 #form-registro input,
+#form-perfil input,
+#form-perfil select,
+#form-clave input,
 .campo input,
 .campo select {
   padding: 13px 14px;
@@ -230,9 +233,85 @@ code {
 
 #form-login input:focus,
 #form-registro input:focus,
+#form-perfil input:focus,
+#form-perfil select:focus,
+#form-clave input:focus,
 .campo input:focus,
 .campo select:focus {
   box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara), 0 0 0 1.5px var(--primario);
+}
+
+#form-perfil input::placeholder,
+#form-clave input::placeholder {
+  color: var(--texto-suave);
+}
+
+/* ---- Mi perfil ---- */
+#info-usuario {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#info-usuario:active #nombre-usuario {
+  color: var(--primario);
+}
+
+#form-perfil, #form-clave {
+  display: flex;
+  flex-direction: column;
+}
+#form-clave h3, .perfil-seccion h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--texto);
+  margin-bottom: 12px;
+}
+
+.campo-perfil {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--texto-suave);
+  margin-bottom: 6px;
+}
+#perfil-email:disabled {
+  opacity: 0.6;
+}
+
+.perfil-seccion {
+  margin: 10px 0 6px;
+}
+.lista-inmuebles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fila-inmueble {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.fila-inmueble .inm-tipo {
+  flex: 0 0 44%;
+  margin-bottom: 0;
+}
+.fila-inmueble .inm-nombre {
+  flex: 1 1 auto;
+  margin-bottom: 0;
+}
+.btn-quitar-inmueble {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 44px;
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 22px;
+  line-height: 1;
+  border-radius: 10px;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-quitar-inmueble:active {
+  color: var(--error);
 }
 
 .campo input:disabled {

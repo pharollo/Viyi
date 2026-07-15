@@ -420,6 +420,37 @@ exports.adminActualizarUsuario = onCall(async (request) => {
   return { ok: true };
 });
 
+// El propio usuario edita SOLO campos seguros de su perfil: nombre, apellido e
+// inmuebles asignados. Nunca rol/activo/dispositivos/accesos (eso es de admin).
+const TIPOS_INMUEBLE = ['conjunto', 'edificio', 'casa'];
+exports.actualizarMiPerfil = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
+  }
+  const uid = request.auth.uid;
+  const snap = await db.doc(`usuarios/${uid}`).get();
+  if (!snap.exists || snap.data().activo === false) {
+    throw new HttpsError('permission-denied', 'Tu cuenta no está activa.');
+  }
+  const { nombre, apellido, inmuebles } = request.data || {};
+  const cambios = {};
+  if (typeof nombre === 'string' && nombre.trim()) {
+    cambios.nombre = nombre.trim().slice(0, 60);
+  } else {
+    throw new HttpsError('invalid-argument', 'El nombre no puede quedar vacío.');
+  }
+  if (typeof apellido === 'string') cambios.apellido = apellido.trim().slice(0, 60);
+  if (Array.isArray(inmuebles)) {
+    cambios.inmuebles = inmuebles
+      .filter((x) => x && TIPOS_INMUEBLE.includes(x.tipo)
+        && typeof x.nombre === 'string' && x.nombre.trim())
+      .map((x) => ({ tipo: x.tipo, nombre: x.nombre.trim().slice(0, 60) }))
+      .slice(0, 20);
+  }
+  await db.doc(`usuarios/${uid}`).set(cambios, { merge: true });
+  return { ok: true, perfil: cambios };
+});
+
 exports.adminGuardarDispositivo = onCall(async (request) => {
   await exigirAdmin(request);
   const {
