@@ -1757,12 +1757,10 @@ async function iniciar() {
   });
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   $('btn-refrescar-pases').addEventListener('click', cargarMisPases);
-  // Evento en Title Case (mayúscula por palabra, salvo preposiciones).
-  $('pase-evento').addEventListener('input', () => {
-    const campo = $('pase-evento');
-    const pos = campo.selectionStart;
-    campo.value = tituloCase(campo.value);
-    try { campo.setSelectionRange(pos, pos); } catch (e) { /* ignore */ }
+  // Evento en Title Case al salir del campo (no en cada tecla: reescribir el
+  // value mientras se escribe rompe el teclado en móviles y cortaba el texto).
+  $('pase-evento').addEventListener('blur', () => {
+    $('pase-evento').value = tituloCase($('pase-evento').value);
   });
 
   // Dispositivos propios que el usuario puede compartir (admin: todos).
@@ -1837,7 +1835,7 @@ async function iniciar() {
     boton.textContent = 'Generando…';
     try {
       const multiuso = $('pase-multiuso').checked;
-      const evento = $('pase-evento').value.trim();
+      const evento = tituloCase($('pase-evento').value.trim());
       const res = await crearPase({ dispositivos: seleccion, duracion: paseDuracionSel, multiuso, evento });
       const url = `${location.origin}${location.pathname}?p=${res.data.token}`;
       mostrarResultadoPase(url);
