@@ -1429,7 +1429,9 @@ async function iniciar() {
   function abrirEditorUsuario(existente) {
     const esNuevo = !existente;
     const u = existente || {};
-    const iNombre = entrada(u.nombre, 'ej: María Pérez');
+    const iNombre = entrada(u.nombre, 'ej: María');
+    const iApellido = entrada(u.apellido, 'ej: Pérez');
+    [iNombre, iApellido].forEach((i) => i.setAttribute('autocapitalize', 'words'));
     const iEmail = entrada(u.email, 'correo@ejemplo.com', 'email');
     if (!esNuevo) iEmail.disabled = true;
     const iPass = entrada('', esNuevo ? 'Mínimo 6 caracteres' : 'Dejar vacío para no cambiarla', 'password');
@@ -1440,6 +1442,7 @@ async function iniciar() {
 
     const filas = [
       campo('Nombre', iNombre),
+      campo('Apellido', iApellido),
       campo('Correo electrónico', iEmail),
       campo(esNuevo ? 'Contraseña' : 'Nueva contraseña (opcional)', iPass),
       campo('Rol', sRol),
@@ -1448,7 +1451,7 @@ async function iniciar() {
     filas.push(campo('Inmuebles asignados', casInm.cont));
     filas.push(campo('Dispositivos permitidos (el admin ve todos)', casillas.cont));
 
-    abrirEditor(esNuevo ? 'Nuevo vecino' : `Editar: ${u.nombre}`, filas, [
+    abrirEditor(esNuevo ? 'Nuevo vecino' : `Editar: ${nombreCompleto(u)}`, filas, [
       botonForm('Guardar', 'btn-primario', async (ev) => {
         const b = ev.currentTarget;
         b.disabled = true;
@@ -1456,6 +1459,7 @@ async function iniciar() {
           if (esNuevo) {
             await adminCrearUsuario({
               nombre: iNombre.value.trim(),
+              apellido: iApellido.value.trim(),
               email: iEmail.value.trim(),
               password: iPass.value,
               rol: sRol.value,
@@ -1467,6 +1471,7 @@ async function iniciar() {
             await adminActualizarUsuario({
               uid: u.uid,
               nombre: iNombre.value.trim(),
+              apellido: iApellido.value.trim(),
               rol: sRol.value,
               activo: cActivo.c.checked,
               dispositivos: casillas.seleccionados(),

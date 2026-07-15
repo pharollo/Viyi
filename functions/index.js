@@ -360,7 +360,7 @@ async function exigirAdmin(request) {
 
 exports.adminCrearUsuario = onCall(async (request) => {
   await exigirAdmin(request);
-  const { email, password, nombre, unidad, rol, dispositivos, inmuebles } = request.data || {};
+  const { email, password, nombre, apellido, unidad, rol, dispositivos, inmuebles } = request.data || {};
   if (!email || !password || !nombre) {
     throw new HttpsError('invalid-argument', 'Faltan correo, contraseña o nombre.');
   }
@@ -381,6 +381,7 @@ exports.adminCrearUsuario = onCall(async (request) => {
   }
   await db.doc(`usuarios/${user.uid}`).set({
     nombre,
+    apellido: typeof apellido === 'string' ? apellido.trim().slice(0, 60) : '',
     unidad: unidad || '',
     email,
     rol: rol === 'admin' ? 'admin' : 'vecino',
@@ -393,7 +394,7 @@ exports.adminCrearUsuario = onCall(async (request) => {
 
 exports.adminActualizarUsuario = onCall(async (request) => {
   await exigirAdmin(request);
-  const { uid, nombre, unidad, rol, activo, dispositivos, password, inmuebles } = request.data || {};
+  const { uid, nombre, apellido, unidad, rol, activo, dispositivos, password, inmuebles } = request.data || {};
   if (!uid || typeof uid !== 'string') {
     throw new HttpsError('invalid-argument', 'Falta el uid.');
   }
@@ -402,6 +403,7 @@ exports.adminActualizarUsuario = onCall(async (request) => {
   }
   const cambios = {};
   if (typeof nombre === 'string' && nombre) cambios.nombre = nombre;
+  if (typeof apellido === 'string') cambios.apellido = apellido.trim().slice(0, 60);
   if (typeof unidad === 'string') cambios.unidad = unidad;
   if (rol === 'admin' || rol === 'vecino') cambios.rol = rol;
   if (typeof activo === 'boolean') cambios.activo = activo;
