@@ -1845,7 +1845,7 @@ async function iniciar() {
     cont.innerHTML = '';
     const titulo = document.createElement('p');
     titulo.className = 'pase-ok';
-    titulo.textContent = '¡Enlace listo! Compártelo con tu invitado:';
+    titulo.textContent = '¡Enlace listo! ¡Compártelo!';
     const campo = document.createElement('input');
     campo.type = 'text';
     campo.readOnly = true;
@@ -1860,7 +1860,7 @@ async function iniciar() {
     bCopiar.textContent = 'Copiar enlace';
     bCopiar.addEventListener('click', async () => {
       const ok = await copiarTexto(url);
-      if (ok) toast('Enlace copiado.');
+      if (ok) toast('Copiado');
       else { campo.select(); toast('Selecciona y copia el enlace.'); }
     });
     acciones.appendChild(bCopiar);
@@ -1989,7 +1989,7 @@ async function iniciar() {
       bCopiar.textContent = 'Copiar';
       bCopiar.addEventListener('click', async () => {
         const ok = await copiarTexto(url);
-        toast(ok ? 'Enlace copiado.' : 'No se pudo copiar.', ok ? undefined : 'error');
+        toast(ok ? 'Copiado' : 'No se pudo copiar.', ok ? undefined : 'error');
       });
       acciones.appendChild(bCopiar);
       const bRev = document.createElement('button');

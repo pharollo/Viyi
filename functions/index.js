@@ -825,21 +825,26 @@ exports.canjearPase = onCall(async (request) => {
     await userRef.set({ accesos }, { merge: true });
   }
 
-  const cambios = {
-    usos: admin.firestore.FieldValue.increment(1),
-    redimidoPor: admin.firestore.FieldValue.arrayUnion(uid),
+  // Cuenta una sola vez por usuario: si este uid ya canjeó, no suma otro canje
+  // (la misma persona puede volver a usar el enlace; el acceso ya se refrescó
+  // arriba). Solo aplica a multiuso — el de un uso ya se bloqueó por `usado`.
+  const yaCanjeo = Array.isArray(pase.redimidoPor) && pase.redimidoPor.includes(uid);
+  const cambios = {};
+  if (!yaCanjeo) {
+    cambios.usos = admin.firestore.FieldValue.increment(1);
+    cambios.redimidoPor = admin.firestore.FieldValue.arrayUnion(uid);
     // Quién canjeó el pase (para mostrarlo en "Mis pases"). Timestamp.now()
     // porque serverTimestamp() no se permite dentro de un array.
-    invitados: admin.firestore.FieldValue.arrayUnion({
+    cambios.invitados = admin.firestore.FieldValue.arrayUnion({
       uid,
       nombre: nombreInvitado,
       apellido: apellidoInvitado,
       email: emailInvitado,
       cuando: admin.firestore.Timestamp.now(),
-    }),
-  };
+    });
+  }
   if (pase.multiuso !== true) cambios.usado = true;
-  await ref.set(cambios, { merge: true });
+  if (Object.keys(cambios).length) await ref.set(cambios, { merge: true });
 
   return { ok: true, dispositivos: pase.dispositivos || [] };
 });
