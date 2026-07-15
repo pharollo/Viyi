@@ -1890,19 +1890,24 @@ async function iniciar() {
     else if (!p.multiuso && p.usado) estado = 'usado';
     else if (venc && venc <= Date.now()) estado = 'vencido';
 
-    // A quién se le hizo el pase (nombres de quienes lo canjearon).
-    const nombresInv = (Array.isArray(p.invitados) ? p.invitados : [])
-      .map((x) => x && x.nombre).filter(Boolean);
+    // Quiénes canjearon el pase (nombre + hora en pases.invitados[]).
+    const inv = Array.isArray(p.invitados) ? p.invitados : [];
     let invitadoTxt;
-    if (nombresInv.length) {
-      invitadoTxt = 'Para ' + nombresInv.slice(0, 3).join(', ');
-      if (nombresInv.length > 3) invitadoTxt += ` +${nombresInv.length - 3}`;
-    } else if (p.usos > 0) {
-      invitadoTxt = 'Canjeado'; // pase viejo, sin nombre registrado
+    if (p.multiuso) {
+      // Multiuso: en vez de "Para X", el conteo de canjes (+ botón Detalle).
+      const n = p.usos || inv.length;
+      invitadoTxt = `Multiuso · ${n} canje${n === 1 ? '' : 's'}`;
     } else {
-      invitadoTxt = 'Sin canjear aún';
+      const nombresInv = inv.map((x) => x && x.nombre).filter(Boolean);
+      if (nombresInv.length) {
+        invitadoTxt = 'Para ' + nombresInv.slice(0, 3).join(', ');
+        if (nombresInv.length > 3) invitadoTxt += ` +${nombresInv.length - 3}`;
+      } else if (p.usos > 0) {
+        invitadoTxt = 'Canjeado'; // pase viejo, sin nombre registrado
+      } else {
+        invitadoTxt = 'Sin canjear aún';
+      }
     }
-    if (p.multiuso) invitadoTxt += ' · multiuso';
 
     // Cuándo se emitió y cuándo vence/venció (Vence en verde, Venció en rojo).
     const esIndef = p.duracion === 'indef';
@@ -1920,12 +1925,36 @@ async function iniciar() {
       + `<span class="pase-meta">${escapar(invitadoTxt)}</span>`
       + `<span class="pase-meta">${fechasHtml}</span>`;
 
+    // Detalle de canjes (solo multiuso con canjes): quién y a qué hora.
+    let detalle = null;
+    let btnDetalle = null;
+    if (p.multiuso && inv.length) {
+      detalle = document.createElement('div');
+      detalle.className = 'pase-detalle oculto';
+      for (const x of inv) {
+        const item = document.createElement('div');
+        item.className = 'pase-detalle-item';
+        item.innerHTML = `<span>${escapar(x.nombre || x.email || 'Invitado')}</span>`
+          + `<span class="pase-meta">${fmtFecha(x.cuando)}</span>`;
+        detalle.appendChild(item);
+      }
+      btnDetalle = document.createElement('button');
+      btnDetalle.type = 'button';
+      btnDetalle.className = 'btn-mini';
+      btnDetalle.textContent = 'Detalle';
+      btnDetalle.addEventListener('click', () => {
+        const oculto = detalle.classList.toggle('oculto');
+        btnDetalle.textContent = oculto ? 'Detalle' : 'Ocultar';
+      });
+    }
+
     const acciones = document.createElement('div');
     acciones.className = 'pase-fila-acciones';
     const badge = document.createElement('span');
     badge.className = 'pase-estado estado-' + estado;
     badge.textContent = estado;
     acciones.appendChild(badge);
+    if (btnDetalle) acciones.appendChild(btnDetalle);
 
     if (estado === 'activo') {
       const url = `${location.origin}${location.pathname}?p=${p.token}`;
@@ -1959,6 +1988,7 @@ async function iniciar() {
 
     li.appendChild(info);
     li.appendChild(acciones);
+    if (detalle) li.appendChild(detalle);
     return li;
   }
 

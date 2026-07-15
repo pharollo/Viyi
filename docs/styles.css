@@ -1257,6 +1257,29 @@ button:disabled {
   flex: 0 0 auto;
 }
 
+/* El detalle de canjes se despliega en una fila completa debajo. */
+.fila-pase { flex-wrap: wrap; }
+.pase-detalle {
+  flex-basis: 100%;
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(141, 146, 151, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pase-detalle-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.pase-detalle-item > span:first-child {
+  color: var(--texto);
+  font-size: 13px;
+}
+
 .pase-estado {
   font-size: 10.5px;
   font-weight: 700;
