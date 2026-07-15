@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=89">
+  <link rel="stylesheet" href="styles.css?v=90">
 </head>
 <body>
   <header>
@@ -122,6 +122,11 @@
         </div>
         <ul id="gestion-dispositivos" class="lista-gestion"></ul>
         <div class="encabezado-admin">
+          <h2>Inmuebles</h2>
+          <button id="btn-nuevo-inmueble" type="button" class="btn-secundario">+ Agregar</button>
+        </div>
+        <ul id="gestion-inmuebles" class="lista-gestion"></ul>
+        <div class="encabezado-admin">
           <h2>Vecinos</h2>
           <button id="btn-nuevo-usuario" type="button" class="btn-secundario">+ Agregar</button>
         </div>
@@ -152,10 +157,7 @@
             <input type="email" id="perfil-email" autocomplete="email" disabled>
           </label>
           <div class="perfil-seccion">
-            <div class="encabezado-admin">
-              <h3>Inmuebles asignados</h3>
-              <button type="button" id="btn-add-inmueble" class="btn-secundario">+ Agregar</button>
-            </div>
+            <h3>Inmuebles asignados</h3>
             <ul id="lista-inmuebles" class="lista-inmuebles"></ul>
           </div>
           <button type="submit" id="btn-guardar-perfil" class="btn-primario">Guardar</button>
@@ -190,6 +192,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=89"></script>
+  <script type="module" src="app.js?v=90"></script>
 </body>
 </html>

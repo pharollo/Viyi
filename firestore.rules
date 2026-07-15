@@ -58,5 +58,13 @@ service cloud.firestore {
       allow read: if esAdmin();
       allow write: if false;
     }
+
+    // Catálogo de inmuebles del condominio. Lo crean, editan y asignan las
+    // Functions (solo admin). Cualquier autenticado puede leerlo (lo usará el
+    // selector de "Mi perfil" cuando se habilite la autoasignación).
+    match /inmuebles/{id} {
+      allow read: if autenticado();
+      allow write: if false;
+    }
   }
 }

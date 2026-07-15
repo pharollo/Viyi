@@ -286,32 +286,18 @@ code {
   flex-direction: column;
   gap: 8px;
 }
-.fila-inmueble {
+.inmueble-ro {
   display: flex;
-  gap: 8px;
-  align-items: center;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  box-shadow: inset 3px 3px 7px var(--sombra-oscura), inset -3px -3px 7px var(--sombra-clara);
 }
-.fila-inmueble .inm-tipo {
-  flex: 0 0 44%;
-  margin-bottom: 0;
-}
-.fila-inmueble .inm-nombre {
-  flex: 1 1 auto;
-  margin-bottom: 0;
-}
-.btn-quitar-inmueble {
-  flex: 0 0 auto;
-  width: 36px;
-  height: 44px;
-  background: transparent;
-  color: var(--texto-suave);
-  font-size: 22px;
-  line-height: 1;
-  border-radius: 10px;
-  -webkit-tap-highlight-color: transparent;
-}
-.btn-quitar-inmueble:active {
-  color: var(--error);
+.inmueble-ro strong {
+  color: var(--texto);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .campo input:disabled {

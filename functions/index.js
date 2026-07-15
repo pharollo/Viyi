@@ -360,7 +360,7 @@ async function exigirAdmin(request) {
 
 exports.adminCrearUsuario = onCall(async (request) => {
   await exigirAdmin(request);
-  const { email, password, nombre, unidad, rol, dispositivos } = request.data || {};
+  const { email, password, nombre, unidad, rol, dispositivos, inmuebles } = request.data || {};
   if (!email || !password || !nombre) {
     throw new HttpsError('invalid-argument', 'Faltan correo, contraseña o nombre.');
   }
@@ -386,13 +386,14 @@ exports.adminCrearUsuario = onCall(async (request) => {
     rol: rol === 'admin' ? 'admin' : 'vecino',
     activo: true,
     dispositivos: Array.isArray(dispositivos) ? dispositivos : [],
+    inmuebles: limpiarInmuebles(inmuebles) || [],
   });
   return { uid: user.uid };
 });
 
 exports.adminActualizarUsuario = onCall(async (request) => {
   await exigirAdmin(request);
-  const { uid, nombre, unidad, rol, activo, dispositivos, password } = request.data || {};
+  const { uid, nombre, unidad, rol, activo, dispositivos, password, inmuebles } = request.data || {};
   if (!uid || typeof uid !== 'string') {
     throw new HttpsError('invalid-argument', 'Falta el uid.');
   }
@@ -405,6 +406,8 @@ exports.adminActualizarUsuario = onCall(async (request) => {
   if (rol === 'admin' || rol === 'vecino') cambios.rol = rol;
   if (typeof activo === 'boolean') cambios.activo = activo;
   if (Array.isArray(dispositivos)) cambios.dispositivos = dispositivos;
+  const inmLimpios = limpiarInmuebles(inmuebles);
+  if (inmLimpios) cambios.inmuebles = inmLimpios;
   if (Object.keys(cambios).length) {
     await db.doc(`usuarios/${uid}`).set(cambios, { merge: true });
   }
@@ -420,9 +423,21 @@ exports.adminActualizarUsuario = onCall(async (request) => {
   return { ok: true };
 });
 
-// El propio usuario edita SOLO campos seguros de su perfil: nombre, apellido e
-// inmuebles asignados. Nunca rol/activo/dispositivos/accesos (eso es de admin).
+// Catálogo de inmuebles del condominio: los crea y asigna el admin.
 const TIPOS_INMUEBLE = ['conjunto', 'edificio', 'casa'];
+// Normaliza la lista de inmuebles asignados a un usuario (id + snapshot del
+// nombre/tipo para poder mostrarlo sin leer todo el catálogo).
+function limpiarInmuebles(inmuebles) {
+  if (!Array.isArray(inmuebles)) return null;
+  return inmuebles
+    .filter((x) => x && typeof x.id === 'string' && TIPOS_INMUEBLE.includes(x.tipo)
+      && typeof x.nombre === 'string' && x.nombre.trim())
+    .map((x) => ({ id: x.id, tipo: x.tipo, nombre: x.nombre.trim().slice(0, 60) }))
+    .slice(0, 40);
+}
+
+// El propio usuario edita SOLO nombre y apellido de su perfil. Los inmuebles
+// los asigna el admin (por ahora), no el vecino; nunca rol/activo/dispositivos.
 exports.actualizarMiPerfil = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
@@ -432,7 +447,7 @@ exports.actualizarMiPerfil = onCall(async (request) => {
   if (!snap.exists || snap.data().activo === false) {
     throw new HttpsError('permission-denied', 'Tu cuenta no está activa.');
   }
-  const { nombre, apellido, inmuebles } = request.data || {};
+  const { nombre, apellido } = request.data || {};
   const cambios = {};
   if (typeof nombre === 'string' && nombre.trim()) {
     cambios.nombre = nombre.trim().slice(0, 60);
@@ -440,15 +455,66 @@ exports.actualizarMiPerfil = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'El nombre no puede quedar vacío.');
   }
   if (typeof apellido === 'string') cambios.apellido = apellido.trim().slice(0, 60);
-  if (Array.isArray(inmuebles)) {
-    cambios.inmuebles = inmuebles
-      .filter((x) => x && TIPOS_INMUEBLE.includes(x.tipo)
-        && typeof x.nombre === 'string' && x.nombre.trim())
-      .map((x) => ({ tipo: x.tipo, nombre: x.nombre.trim().slice(0, 60) }))
-      .slice(0, 20);
-  }
   await db.doc(`usuarios/${uid}`).set(cambios, { merge: true });
   return { ok: true, perfil: cambios };
+});
+
+// Crea o actualiza un inmueble del catálogo (solo admin).
+exports.adminGuardarInmueble = onCall(async (request) => {
+  await exigirAdmin(request);
+  const { id, tipo, nombre } = request.data || {};
+  if (!TIPOS_INMUEBLE.includes(tipo)) {
+    throw new HttpsError('invalid-argument', 'Tipo de inmueble no válido.');
+  }
+  if (typeof nombre !== 'string' || !nombre.trim()) {
+    throw new HttpsError('invalid-argument', 'Falta el nombre del inmueble.');
+  }
+  const datos = { tipo, nombre: nombre.trim().slice(0, 60) };
+  let inmuebleId = id;
+  if (id && typeof id === 'string') {
+    await db.doc(`inmuebles/${id}`).set(datos, { merge: true });
+    // Propaga el nuevo nombre/tipo al snapshot de los vecinos que lo tengan.
+    const usuarios = await db.collection('usuarios').get();
+    const batch = db.batch();
+    let hayCambios = false;
+    usuarios.forEach((s) => {
+      const lista = s.data().inmuebles || [];
+      if (lista.some((x) => x.id === id)) {
+        hayCambios = true;
+        batch.set(s.ref, {
+          inmuebles: lista.map((x) => (x.id === id ? { id, ...datos } : x)),
+        }, { merge: true });
+      }
+    });
+    if (hayCambios) await batch.commit();
+  } else {
+    inmuebleId = 'inm_' + crypto.randomBytes(8).toString('hex');
+    datos.creado = admin.firestore.FieldValue.serverTimestamp();
+    await db.doc(`inmuebles/${inmuebleId}`).set(datos);
+  }
+  return { ok: true, id: inmuebleId };
+});
+
+// Elimina un inmueble del catálogo y lo quita de los vecinos asignados.
+exports.adminEliminarInmueble = onCall(async (request) => {
+  await exigirAdmin(request);
+  const { id } = request.data || {};
+  if (!id || typeof id !== 'string') {
+    throw new HttpsError('invalid-argument', 'Falta el id.');
+  }
+  await db.doc(`inmuebles/${id}`).delete();
+  const usuarios = await db.collection('usuarios').get();
+  const batch = db.batch();
+  let hayCambios = false;
+  usuarios.forEach((s) => {
+    const lista = s.data().inmuebles || [];
+    if (lista.some((x) => x.id === id)) {
+      hayCambios = true;
+      batch.set(s.ref, { inmuebles: lista.filter((x) => x.id !== id) }, { merge: true });
+    }
+  });
+  if (hayCambios) await batch.commit();
+  return { ok: true };
 });
 
 exports.adminGuardarDispositivo = onCall(async (request) => {

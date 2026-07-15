@@ -45,6 +45,8 @@ async function iniciar() {
   const adminActualizarUsuario = httpsCallable(functions, 'adminActualizarUsuario');
   const adminGuardarDispositivo = httpsCallable(functions, 'adminGuardarDispositivo');
   const adminEliminarDispositivo = httpsCallable(functions, 'adminEliminarDispositivo');
+  const adminGuardarInmueble = httpsCallable(functions, 'adminGuardarInmueble');
+  const adminEliminarInmueble = httpsCallable(functions, 'adminEliminarInmueble');
   const adminInspeccionarDispositivo = httpsCallable(functions, 'adminInspeccionarDispositivo');
   const adminListarAccesoriosHomebridge = httpsCallable(functions, 'adminListarAccesoriosHomebridge');
   const adminAccesorioCrudo = httpsCallable(functions, 'adminAccesorioCrudo');
@@ -81,6 +83,7 @@ async function iniciar() {
   };
 
   const nombreCompleto = (u) => [u && u.nombre, u && u.apellido].filter(Boolean).join(' ');
+  const TIPO_INMUEBLE_TXT = { conjunto: 'Conjunto residencial', edificio: 'Edificio', casa: 'Casa' };
 
   const TIPOS = [
     { clave: 'puerta', titulo: 'Puertas' },
@@ -900,18 +903,23 @@ async function iniciar() {
 
   let cacheDispositivos = [];
   let cacheUsuarios = [];
+  let cacheInmuebles = [];
 
   async function cargarGestion() {
     try {
-      const [dispSnap, usuSnap] = await Promise.all([
+      const [dispSnap, usuSnap, inmSnap] = await Promise.all([
         getDocs(collection(db, 'dispositivos')),
         getDocs(collection(db, 'usuarios')),
+        getDocs(collection(db, 'inmuebles')),
       ]);
       cacheDispositivos = dispSnap.docs
         .map((s) => normalizar({ id: s.id, ...s.data() }))
         .sort((a, b) => (a.orden || 99) - (b.orden || 99));
       cacheUsuarios = usuSnap.docs
         .map((s) => ({ uid: s.id, ...s.data() }))
+        .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+      cacheInmuebles = inmSnap.docs
+        .map((s) => ({ id: s.id, ...s.data() }))
         .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
       renderGestion();
     } catch (err) {
@@ -954,10 +962,24 @@ async function iniciar() {
         ld.appendChild(filaGestion(texto, d.activo === false, () => abrirEditorDispositivo(d)));
       }
     }
+    const li = $('gestion-inmuebles');
+    li.textContent = '';
+    if (!cacheInmuebles.length) {
+      const vacio = document.createElement('li');
+      vacio.className = 'vacio';
+      vacio.textContent = 'Aún no hay inmuebles. Créalos para asignarlos a los vecinos.';
+      li.appendChild(vacio);
+    }
+    for (const inm of cacheInmuebles) {
+      const texto = `${inm.nombre} · ${TIPO_INMUEBLE_TXT[inm.tipo] || inm.tipo}`;
+      li.appendChild(filaGestion(texto, false, () => abrirEditorInmueble(inm)));
+    }
+
     const lu = $('gestion-usuarios');
     lu.textContent = '';
     for (const u of cacheUsuarios) {
-      const partes = [u.nombre, u.unidad, u.rol === 'admin' ? 'admin' : null].filter(Boolean);
+      const inm = (u.inmuebles || []).map((x) => x.nombre).join(', ');
+      const partes = [nombreCompleto(u), inm, u.rol === 'admin' ? 'admin' : null].filter(Boolean);
       lu.appendChild(filaGestion(partes.join(' · '), u.activo === false, () => abrirEditorUsuario(u)));
     }
   }
@@ -1017,6 +1039,30 @@ async function iniciar() {
       cont.appendChild(label);
     }
     return { cont, seleccionados: () => [...mapa].filter(([, c]) => c.checked).map(([id]) => id) };
+  }
+
+  function casillasInmuebles(asignados) {
+    const cont = document.createElement('div');
+    cont.className = 'casillas';
+    const set = new Set((asignados || []).map((x) => x.id));
+    const mapa = new Map();
+    if (!cacheInmuebles.length) {
+      const p = document.createElement('p');
+      p.className = 'ayuda-pase';
+      p.textContent = 'No hay inmuebles creados todavía.';
+      cont.appendChild(p);
+    }
+    for (const inm of cacheInmuebles) {
+      const { label, c } = casilla(`${inm.nombre} · ${TIPO_INMUEBLE_TXT[inm.tipo] || inm.tipo}`, set.has(inm.id));
+      mapa.set(inm.id, c);
+      cont.appendChild(label);
+    }
+    return {
+      cont,
+      seleccionados: () => cacheInmuebles
+        .filter((inm) => mapa.get(inm.id) && mapa.get(inm.id).checked)
+        .map((inm) => ({ id: inm.id, tipo: inm.tipo, nombre: inm.nombre })),
+    };
   }
 
   function botonForm(texto, clase, alHacerClic) {
@@ -1315,26 +1361,73 @@ async function iniciar() {
     ], acciones);
   }
 
+  function abrirEditorInmueble(existente) {
+    const esNuevo = !existente;
+    const inm = existente || {};
+    const sTipo = selector(
+      [['conjunto', 'Conjunto residencial'], ['edificio', 'Edificio'], ['casa', 'Casa']],
+      inm.tipo || 'edificio',
+    );
+    const iNombre = entrada(inm.nombre, 'ej: Torre A, Casa 12');
+    const filas = [campo('Tipo', sTipo), campo('Nombre', iNombre)];
+    const acciones = [
+      botonForm('Guardar', 'btn-primario', async (ev) => {
+        const b = ev.currentTarget;
+        if (!iNombre.value.trim()) { toast('Escribe el nombre del inmueble.', 'error'); return; }
+        b.disabled = true;
+        try {
+          await adminGuardarInmueble({
+            id: esNuevo ? undefined : inm.id,
+            tipo: sTipo.value,
+            nombre: iNombre.value.trim(),
+          });
+          toast(esNuevo ? 'Inmueble creado ✓' : 'Inmueble actualizado ✓', 'ok');
+          await trasGuardar();
+        } catch (err) {
+          toast(err.message || 'No se pudo guardar.', 'error');
+          b.disabled = false;
+        }
+      }),
+      botonForm('Cancelar', 'btn-secundario', cerrarEditor),
+    ];
+    if (!esNuevo) {
+      acciones.push(botonForm('Eliminar', 'btn-peligro', async (ev) => {
+        if (!confirm(`¿Eliminar el inmueble "${inm.nombre}"? Se quitará de los vecinos que lo tengan asignado.`)) return;
+        const b = ev.currentTarget;
+        b.disabled = true;
+        try {
+          await adminEliminarInmueble({ id: inm.id });
+          toast('Inmueble eliminado.', 'ok');
+          await trasGuardar();
+        } catch (err) {
+          toast(err.message || 'No se pudo eliminar.', 'error');
+          b.disabled = false;
+        }
+      }));
+    }
+    abrirEditor(esNuevo ? 'Nuevo inmueble' : `Editar: ${inm.nombre}`, filas, acciones);
+  }
+
   function abrirEditorUsuario(existente) {
     const esNuevo = !existente;
     const u = existente || {};
     const iNombre = entrada(u.nombre, 'ej: María Pérez');
-    const iUnidad = entrada(u.unidad, 'ej: Apto 3B');
     const iEmail = entrada(u.email, 'correo@ejemplo.com', 'email');
     if (!esNuevo) iEmail.disabled = true;
     const iPass = entrada('', esNuevo ? 'Mínimo 6 caracteres' : 'Dejar vacío para no cambiarla', 'password');
     const sRol = selector([['vecino', 'Vecino'], ['admin', 'Administrador']], u.rol || 'vecino');
     const cActivo = casilla('Cuenta activa', u.activo !== false);
     const casillas = casillasDispositivos(u.dispositivos);
+    const casInm = casillasInmuebles(u.inmuebles);
 
     const filas = [
       campo('Nombre', iNombre),
-      campo('Unidad / apartamento', iUnidad),
       campo('Correo electrónico', iEmail),
       campo(esNuevo ? 'Contraseña' : 'Nueva contraseña (opcional)', iPass),
       campo('Rol', sRol),
     ];
     if (!esNuevo) filas.push(cActivo.label);
+    filas.push(campo('Inmuebles asignados', casInm.cont));
     filas.push(campo('Dispositivos permitidos (el admin ve todos)', casillas.cont));
 
     abrirEditor(esNuevo ? 'Nuevo vecino' : `Editar: ${u.nombre}`, filas, [
@@ -1345,21 +1438,21 @@ async function iniciar() {
           if (esNuevo) {
             await adminCrearUsuario({
               nombre: iNombre.value.trim(),
-              unidad: iUnidad.value.trim(),
               email: iEmail.value.trim(),
               password: iPass.value,
               rol: sRol.value,
               dispositivos: casillas.seleccionados(),
+              inmuebles: casInm.seleccionados(),
             });
             toast('Vecino creado ✓ Ya puede entrar con su correo y contraseña.', 'ok');
           } else {
             await adminActualizarUsuario({
               uid: u.uid,
               nombre: iNombre.value.trim(),
-              unidad: iUnidad.value.trim(),
               rol: sRol.value,
               activo: cActivo.c.checked,
               dispositivos: casillas.seleccionados(),
+              inmuebles: casInm.seleccionados(),
               password: iPass.value || undefined,
             });
             toast('Vecino actualizado ✓', 'ok');
@@ -1375,6 +1468,7 @@ async function iniciar() {
   }
 
   $('btn-nuevo-dispositivo').addEventListener('click', () => abrirEditorDispositivo(null));
+  $('btn-nuevo-inmueble').addEventListener('click', () => abrirEditorInmueble(null));
   $('btn-nuevo-usuario').addEventListener('click', () => abrirEditorUsuario(null));
 
   const PANELES_TAB = ['tab-controles', 'tab-pases', 'tab-gestion', 'tab-registro', 'tab-perfil'];
@@ -1411,45 +1505,25 @@ async function iniciar() {
   });
 
   // ---- Mi perfil (clic en el nombre arriba a la derecha) ----
-  const TIPOS_INMUEBLE = [
-    { v: 'conjunto', t: 'Conjunto residencial' },
-    { v: 'edificio', t: 'Edificio' },
-    { v: 'casa', t: 'Casa' },
-  ];
-  function filaInmueble(inm) {
-    const li = document.createElement('li');
-    li.className = 'fila-inmueble';
-    const sel = document.createElement('select');
-    sel.className = 'inm-tipo';
-    for (const o of TIPOS_INMUEBLE) {
-      const op = document.createElement('option');
-      op.value = o.v;
-      op.textContent = o.t;
-      if (inm && inm.tipo === o.v) op.selected = true;
-      sel.appendChild(op);
-    }
-    const inp = document.createElement('input');
-    inp.type = 'text';
-    inp.className = 'inm-nombre';
-    inp.placeholder = 'Nombre o número';
-    inp.value = (inm && inm.nombre) || '';
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'btn-quitar-inmueble';
-    del.setAttribute('aria-label', 'Quitar');
-    del.textContent = '×';
-    del.addEventListener('click', () => li.remove());
-    li.append(sel, inp, del);
-    return li;
-  }
+  // Los inmuebles los asigna el admin; aquí solo se muestran (solo lectura).
   function renderInmuebles(lista) {
     const ul = $('lista-inmuebles');
     ul.textContent = '';
-    for (const inm of (lista || [])) ul.appendChild(filaInmueble(inm));
+    if (!lista || !lista.length) {
+      const li = document.createElement('li');
+      li.className = 'vacio';
+      li.textContent = 'Sin inmuebles asignados.';
+      ul.appendChild(li);
+      return;
+    }
+    for (const inm of lista) {
+      const li = document.createElement('li');
+      li.className = 'inmueble-ro';
+      li.innerHTML = `<strong>${escapar(inm.nombre)}</strong>`
+        + `<span class="pase-meta">${TIPO_INMUEBLE_TXT[inm.tipo] || inm.tipo}</span>`;
+      ul.appendChild(li);
+    }
   }
-  $('btn-add-inmueble').addEventListener('click', () => {
-    $('lista-inmuebles').appendChild(filaInmueble(null));
-  });
 
   function abrirPerfil() {
     if (!usuarioActual) return;
@@ -1479,19 +1553,12 @@ async function iniciar() {
       msg.classList.remove('oculto');
       return;
     }
-    const inmuebles = [...$('lista-inmuebles').querySelectorAll('.fila-inmueble')]
-      .map((li) => ({
-        tipo: li.querySelector('.inm-tipo').value,
-        nombre: li.querySelector('.inm-nombre').value.trim(),
-      }))
-      .filter((x) => x.nombre);
     const btn = $('btn-guardar-perfil');
     btn.disabled = true;
     try {
-      await actualizarMiPerfil({ nombre, apellido, inmuebles });
+      await actualizarMiPerfil({ nombre, apellido });
       usuarioActual.nombre = nombre;
       usuarioActual.apellido = apellido;
-      usuarioActual.inmuebles = inmuebles;
       $('nombre-usuario').textContent = nombreCompleto(usuarioActual);
       toast('Perfil actualizado.');
     } catch (err) {
