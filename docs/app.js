@@ -1374,9 +1374,9 @@ async function iniciar() {
     const inm = existente || {};
     const sTipo = selector(Object.entries(TIPO_INMUEBLE_TXT), inm.tipo || 'edificio');
     const iNombre = entrada(inm.nombre, 'ej: Torre A, Casa 12');
-    const iCiudad = entrada(inm.ciudad, 'ej: Caracas');
-    const iEstado = entrada(inm.estado, 'ej: Miranda');
-    const iZona = entrada(inm.zona, 'ej: El Hatillo');
+    const iCiudad = entrada(inm.ciudad);
+    const iEstado = entrada(inm.estado);
+    const iZona = entrada(inm.zona);
     [iNombre, iCiudad, iEstado, iZona].forEach((i) => i.setAttribute('autocapitalize', 'words'));
     const filas = [
       campo('Tipo', sTipo),
