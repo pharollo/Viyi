@@ -1781,20 +1781,46 @@ async function iniciar() {
     card.classList.remove('oculto');
     card.textContent = '';
     const limiteIndef = Date.now() + 100 * 365 * 24 * 3600 * 1000; // >100 años = indefinido
+    // Agrupar por pase (token) para mostrar el evento y quién invitó por grupo.
+    const grupos = new Map();
     for (const d of conAcceso) {
-      const ms = msExpira(usuarioActual.accesos[d.id] && usuarioActual.accesos[d.id].expira);
-      const fila = document.createElement('div');
-      fila.className = 'acceso-fila';
-      const nombre = document.createElement('span');
-      nombre.className = 'acceso-nombre';
-      nombre.textContent = d.nombre;
-      const reloj = document.createElement('span');
-      reloj.className = 'acceso-reloj';
-      reloj.dataset.expira = (ms && ms < limiteIndef) ? String(ms) : '0';
-      reloj.innerHTML = `${ICONO_RELOJ}<span class="acceso-tiempo"></span>`;
-      pintarRelojAcceso(reloj);
-      fila.append(nombre, reloj);
-      card.appendChild(fila);
+      const acc = usuarioActual.accesos[d.id] || {};
+      const clave = acc.token || '_';
+      if (!grupos.has(clave)) grupos.set(clave, { evento: acc.evento || '', porNombre: acc.porNombre || '', disp: [] });
+      grupos.get(clave).disp.push(d);
+    }
+    for (const g of grupos.values()) {
+      if (g.evento || g.porNombre) {
+        const cab = document.createElement('div');
+        cab.className = 'acceso-cab';
+        if (g.evento) {
+          const ev = document.createElement('strong');
+          ev.textContent = g.evento;
+          cab.appendChild(ev);
+        }
+        if (g.porNombre) {
+          const inv = document.createElement('span');
+          inv.className = 'acceso-invitador';
+          inv.textContent = `Te invitó ${g.porNombre}`;
+          cab.appendChild(inv);
+        }
+        card.appendChild(cab);
+      }
+      for (const d of g.disp) {
+        const ms = msExpira(usuarioActual.accesos[d.id] && usuarioActual.accesos[d.id].expira);
+        const fila = document.createElement('div');
+        fila.className = 'acceso-fila';
+        const nombre = document.createElement('span');
+        nombre.className = 'acceso-nombre';
+        nombre.textContent = d.nombre;
+        const reloj = document.createElement('span');
+        reloj.className = 'acceso-reloj';
+        reloj.dataset.expira = (ms && ms < limiteIndef) ? String(ms) : '0';
+        reloj.innerHTML = `${ICONO_RELOJ}<span class="acceso-tiempo"></span>`;
+        pintarRelojAcceso(reloj);
+        fila.append(nombre, reloj);
+        card.appendChild(fila);
+      }
     }
     avisoTimer = setInterval(() => {
       const relojes = card.querySelectorAll('.acceso-reloj');

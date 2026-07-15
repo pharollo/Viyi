@@ -791,9 +791,17 @@ exports.canjearPase = onCall(async (request) => {
   if (typeof expira.toMillis === 'function' && expira.toMillis() <= Date.now()) {
     throw new HttpsError('failed-precondition', 'Este enlace ya venció.');
   }
+  // Denormaliza evento y nombre del invitador en el acceso, porque el invitado
+  // no puede leer el pase (reglas) para mostrarlos en su tarjeta.
   const accesos = {};
   for (const id of (pase.dispositivos || [])) {
-    accesos[id] = { expira, por: pase.por, token };
+    accesos[id] = {
+      expira,
+      por: pase.por,
+      token,
+      evento: pase.evento || '',
+      porNombre: pase.porNombre || '',
+    };
   }
 
   const userRef = db.doc(`usuarios/${uid}`);

@@ -493,6 +493,28 @@ button:disabled {
 }
 
 /* Acceso del invitado: una fila por dispositivo con su tiempo restante. */
+/* Encabezado por pase en la tarjeta de invitado: evento + quién invitó. */
+.acceso-cab {
+  padding: 4px 2px 6px;
+}
+.acceso-cab:not(:first-child) {
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.acceso-cab strong {
+  display: block;
+  color: var(--primario);
+  font-size: 16px;
+  font-weight: 600;
+}
+.acceso-invitador {
+  display: block;
+  color: var(--texto-suave);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
 .acceso-fila {
   display: flex;
   align-items: center;
