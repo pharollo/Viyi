@@ -1786,11 +1786,16 @@ async function iniciar() {
     for (const d of conAcceso) {
       const acc = usuarioActual.accesos[d.id] || {};
       const clave = acc.token || '_';
-      if (!grupos.has(clave)) grupos.set(clave, { evento: acc.evento || '', invitador: [acc.porNombre, acc.porApellido].filter(Boolean).join(' '), disp: [] });
+      if (!grupos.has(clave)) grupos.set(clave, { evento: acc.evento || '', invitador: [acc.porNombre, acc.porApellido].filter(Boolean).join(' '), fechaMs: msExpira(acc.creado), disp: [] });
       grupos.get(clave).disp.push(d);
     }
     for (const g of grupos.values()) {
-      if (g.evento || g.invitador) {
+      const fecha = g.fechaMs ? new Date(g.fechaMs).toLocaleDateString('es', { dateStyle: 'short' }) : '';
+      let subtexto = '';
+      if (g.invitador && fecha) subtexto = `Te invitó ${g.invitador} · ${fecha}`;
+      else if (g.invitador) subtexto = `Te invitó ${g.invitador}`;
+      else if (fecha) subtexto = `Invitado el ${fecha}`;
+      if (g.evento || subtexto) {
         const cab = document.createElement('div');
         cab.className = 'acceso-cab';
         if (g.evento) {
@@ -1798,10 +1803,10 @@ async function iniciar() {
           ev.textContent = g.evento;
           cab.appendChild(ev);
         }
-        if (g.invitador) {
+        if (subtexto) {
           const inv = document.createElement('span');
           inv.className = 'acceso-invitador';
-          inv.textContent = `Te invitó ${g.invitador}`;
+          inv.textContent = subtexto;
           cab.appendChild(inv);
         }
         card.appendChild(cab);

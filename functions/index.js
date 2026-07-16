@@ -804,6 +804,7 @@ exports.canjearPase = onCall(async (request) => {
       evento: pase.evento || '',
       porNombre: pase.porNombre || '',
       porApellido: pase.porApellido || '',
+      creado: pase.creado || null,
     };
   }
 
