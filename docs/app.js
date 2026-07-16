@@ -1790,7 +1790,7 @@ async function iniciar() {
       grupos.get(clave).disp.push(d);
     }
     for (const g of grupos.values()) {
-      const fecha = g.fechaMs ? new Date(g.fechaMs).toLocaleDateString('es', { dateStyle: 'short' }) : '';
+      const fecha = g.fechaMs ? new Date(g.fechaMs).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' }) : '';
       let subtexto = '';
       if (g.invitador && fecha) subtexto = `Te invitó ${g.invitador} · ${fecha}`;
       else if (g.invitador) subtexto = `Te invitó ${g.invitador}`;
