@@ -1690,6 +1690,10 @@ async function iniciar() {
     $('form-clave').reset();
     $('form-clave').classList.add('oculto');
     $('btn-toggle-clave').setAttribute('aria-expanded', 'false');
+    // "Cambiar clave" solo si la cuenta tiene clave (no si entró con Google).
+    const proveedores = (auth.currentUser && auth.currentUser.providerData) || [];
+    const tieneClave = proveedores.some((p) => p && p.providerId === 'password');
+    $('seccion-clave').classList.toggle('oculto', !tieneClave);
     mostrarTab('tab-perfil');
     cerrarMenu();
     // El vecino no pasa por Gestión: carga el catálogo aquí para el selector.
