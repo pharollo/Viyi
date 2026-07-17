@@ -311,15 +311,38 @@ async function iniciar() {
 
   // ---- Invitación por pase: primero el correo (email-first) ----
   // El botón se adapta al correo: @gmail → "Continuar con Google"; otro → "Continuar".
-  // Si el gmail ya tiene cuenta con clave, forzarEmailPase manda a la vía de clave.
+  // Se usa Google solo si es gmail y la cuenta NO es de solo-clave. Al escribir un
+  // gmail se consulta (con debounce) verificarEmail: si ya existe con clave y sin
+  // Google, se muestra "Continuar" (clave) directo, sin pasar por Google.
   const esGmail = (email) => /@(gmail|googlemail)\.com$/i.test(String(email || '').trim());
   let forzarEmailPase = false;
+  let cuentaConClave = false;
+  let verifTimer = null;
+  const usarGoogle = () => esGmail($('pase-email').value) && !cuentaConClave && !forzarEmailPase;
   function actualizarBotonPase() {
-    const gmail = esGmail($('pase-email').value) && !forzarEmailPase;
-    $('btn-continuar').classList.toggle('oculto', gmail);
-    $('btn-google').classList.toggle('oculto', !gmail);
+    const g = usarGoogle();
+    $('btn-continuar').classList.toggle('oculto', g);
+    $('btn-google').classList.toggle('oculto', !g);
   }
-  $('pase-email').addEventListener('input', () => { forzarEmailPase = false; actualizarBotonPase(); });
+  $('pase-email').addEventListener('input', () => {
+    forzarEmailPase = false;
+    cuentaConClave = false;
+    actualizarBotonPase();
+    clearTimeout(verifTimer);
+    const email = $('pase-email').value.trim();
+    if (!esGmail(email)) return; // para otros correos ya se usa la clave
+    verifTimer = setTimeout(async () => {
+      try {
+        const res = await verificarEmail({ token: paseTokenPendiente, email });
+        // Solo-clave (tiene clave y no Google): mostrar "Continuar" (clave) directo.
+        if ($('pase-email').value.trim() === email && res.data
+          && res.data.existe && res.data.tieneClave && !res.data.tieneGoogle) {
+          cuentaConClave = true;
+          actualizarBotonPase();
+        }
+      } catch (e) { /* si falla, queda con Google (+ fallback al canjear) */ }
+    }, 500);
+  });
 
   // Invitado que entra con Google (sin crear otra cuenta). Al firmar,
   // onAuthStateChanged canjea el pase; canjearPase toma nombre/apellido/correo
@@ -356,8 +379,8 @@ async function iniciar() {
       error.classList.remove('oculto');
       return;
     }
-    // Gmail → Google (también con Enter), salvo que ya se detectó cuenta con clave.
-    if (esGmail(email) && !forzarEmailPase) { entrarConGoogle(); return; }
+    // Gmail sin cuenta de clave → Google (también con Enter).
+    if (usarGoogle()) { entrarConGoogle(); return; }
     const boton = $('btn-continuar');
     boton.disabled = true;
     boton.textContent = 'Verificando…';

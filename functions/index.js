@@ -701,10 +701,20 @@ exports.verificarEmail = onCall(async (request) => {
     return { evento, porNombre, porApellido };
   }
   try {
-    await admin.auth().getUserByEmail(email.trim());
-    return { existe: true, evento, porNombre, porApellido };
+    const rec = await admin.auth().getUserByEmail(email.trim());
+    const metodos = (rec.providerData || []).map((p) => p.providerId);
+    return {
+      existe: true,
+      tieneClave: metodos.includes('password'),
+      tieneGoogle: metodos.includes('google.com'),
+      evento,
+      porNombre,
+      porApellido,
+    };
   } catch (err) {
-    if (err.code === 'auth/user-not-found') return { existe: false, evento, porNombre, porApellido };
+    if (err.code === 'auth/user-not-found') {
+      return { existe: false, tieneClave: false, tieneGoogle: false, evento, porNombre, porApellido };
+    }
     throw new HttpsError('internal', 'No se pudo verificar el correo.');
   }
 });
