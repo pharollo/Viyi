@@ -1192,10 +1192,9 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 11px 14px;
-  border-radius: 12px;
-  background: var(--fondo);
-  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara);
+  padding: 8px 6px;
+  border-radius: 8px;
+  background: transparent;
   color: var(--texto);
   font-size: 15px;
   cursor: pointer;
@@ -1210,7 +1209,6 @@ button:disabled {
 
 .pase-casilla:has(input:checked) {
   color: var(--primario);
-  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara), inset 0 0 0 1.5px var(--primario);
 }
 
 .pase-duracion {
