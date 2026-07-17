@@ -1722,6 +1722,10 @@ async function iniciar() {
     $('seccion-clave').classList.toggle('oculto', !tieneClave);
     mostrarTab('tab-perfil');
     cerrarMenu();
+    // Inmuebles: solo para vecinos/admin (a los invitados no se les asigna).
+    const esInvitado = usuarioActual.invitado === true;
+    $('seccion-inmuebles').classList.toggle('oculto', esInvitado);
+    if (esInvitado) { selectorInmuebles = null; return; }
     // El vecino no pasa por Gestión: carga el catálogo aquí para el selector.
     try {
       const snap = await getDocs(collection(db, 'inmuebles'));
