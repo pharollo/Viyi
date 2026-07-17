@@ -1000,12 +1000,16 @@ button:disabled {
   margin: 44px 4px 14px;
 }
 
-.encabezado-admin h2 {
+.encabezado-admin h2,
+#pase-generador h2 {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--texto-suave);
+}
+#pase-generador h2 {
+  margin-bottom: 12px;
 }
 
 #lista-registros {
