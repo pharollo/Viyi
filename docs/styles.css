@@ -178,6 +178,41 @@ code {
   font-weight: 600;
 }
 
+/* Separador "o" y botón de Google (flujo de pase). */
+.separador-o {
+  display: flex;
+  align-items: center;
+  margin: 4px 0;
+}
+.separador-o span {
+  padding: 0 10px;
+  color: var(--texto-suave);
+  font-size: 12px;
+}
+.separador-o::before,
+.separador-o::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(141, 146, 151, 0.22);
+}
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 14px;
+  border-radius: 12px;
+  background: #fff;
+  color: #1f1f1f;
+  font-size: 15px;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-google:active { background: #ececec; }
+.btn-google:disabled { opacity: 0.6; }
+
 #form-login input::placeholder,
 #form-registro input::placeholder,
 #form-email input::placeholder {

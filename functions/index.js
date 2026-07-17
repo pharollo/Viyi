@@ -811,14 +811,26 @@ exports.canjearPase = onCall(async (request) => {
   const userRef = db.doc(`usuarios/${uid}`);
   const userSnap = await userRef.get();
   const emailInvitado = request.auth.token.email || '';
-  const nombreInvitado = (userSnap.exists && userSnap.data().nombre)
-    || (typeof nombre === 'string' && nombre.trim())
-    || request.auth.token.name
-    || emailInvitado.split('@')[0]
-    || 'Invitado';
-  const apellidoInvitado = (userSnap.exists && userSnap.data().apellido)
-    || (typeof apellido === 'string' && apellido.trim())
-    || '';
+  const perfilPrevio = userSnap.exists ? userSnap.data() : null;
+  const nombreDado = (typeof nombre === 'string' && nombre.trim()) || '';
+  const apellidoDado = (typeof apellido === 'string' && apellido.trim()) || '';
+  let nombreInvitado;
+  let apellidoInvitado;
+  if (perfilPrevio) {
+    // Usuario existente: respeta lo que ya tenga.
+    nombreInvitado = perfilPrevio.nombre || nombreDado || emailInvitado.split('@')[0] || 'Invitado';
+    apellidoInvitado = perfilPrevio.apellido || apellidoDado || '';
+  } else if (nombreDado) {
+    // Registro con formulario (nombre y apellido por separado).
+    nombreInvitado = nombreDado;
+    apellidoInvitado = apellidoDado;
+  } else {
+    // Sin formulario (p.ej. Google): separa el displayName en nombre + apellido.
+    const full = String(request.auth.token.name || emailInvitado.split('@')[0] || 'Invitado').trim();
+    const partes = full.split(/\s+/);
+    nombreInvitado = partes[0] || 'Invitado';
+    apellidoInvitado = apellidoDado || partes.slice(1).join(' ');
+  }
   if (!userSnap.exists) {
     await userRef.set({
       nombre: nombreInvitado,
