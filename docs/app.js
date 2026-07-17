@@ -1380,7 +1380,9 @@ async function iniciar() {
       campoCodigo.classList.toggle('oculto', esHb);
       campoBrilloCodigo.classList.toggle('oculto', esHb || !esDimmer);
       campoBrilloMax.classList.toggle('oculto', esHb || !esDimmer);
-      campoDetectar.classList.toggle('oculto', esHb || !esDimmer);
+      // El inspector de DPs sirve para cualquier dispositivo Tuya (no solo
+      // dimmers): es la herramienta para depurar suiches, cortinas, etc.
+      campoDetectar.classList.toggle('oculto', esHb);
       campoAccesorio.classList.toggle('oculto', !esHb);
       campoCaracteristica.classList.toggle('oculto', !esHb);
       cInvertir.label.classList.toggle('oculto', sModo.value !== 'cortina');
