@@ -303,6 +303,39 @@ async function iniciar() {
   });
 
   // ---- Invitación por pase: primero el correo (email-first) ----
+  // El botón se adapta al correo: @gmail → "Continuar con Google"; otro → "Continuar".
+  const esGmail = (email) => /@(gmail|googlemail)\.com$/i.test(String(email || '').trim());
+  function actualizarBotonPase() {
+    const gmail = esGmail($('pase-email').value);
+    $('btn-continuar').classList.toggle('oculto', gmail);
+    $('btn-google').classList.toggle('oculto', !gmail);
+  }
+  $('pase-email').addEventListener('input', actualizarBotonPase);
+
+  // Invitado que entra con Google (sin crear otra cuenta). Al firmar,
+  // onAuthStateChanged canjea el pase; canjearPase toma nombre/apellido/correo
+  // del token de Google.
+  async function entrarConGoogle() {
+    const error = $('error-email');
+    error.classList.add('oculto');
+    $('btn-google').disabled = true;
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch (err) {
+      const code = err && err.code;
+      let m = 'No se pudo entrar con Google.';
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') m = '';
+      else if (code === 'auth/account-exists-with-different-credential') {
+        m = 'Ya tienes una cuenta con ese correo. Entra con tu clave.';
+        $('btn-continuar').classList.remove('oculto'); // dale la opción de clave
+      } else if (code === 'auth/operation-not-allowed') m = 'El acceso con Google aún no está habilitado.';
+      else if (code === 'auth/popup-blocked') m = 'El navegador bloqueó la ventana de Google. Habilítala e intenta de nuevo.';
+      if (m) { error.textContent = m; error.classList.remove('oculto'); }
+      $('btn-google').disabled = false;
+    }
+  }
+  $('btn-google').addEventListener('click', entrarConGoogle);
+
   $('form-email').addEventListener('submit', async (evento) => {
     evento.preventDefault();
     const error = $('error-email');
@@ -313,6 +346,8 @@ async function iniciar() {
       error.classList.remove('oculto');
       return;
     }
+    // Gmail → Google (también si presiona Enter con el botón de Google visible).
+    if (esGmail(email)) { entrarConGoogle(); return; }
     const boton = $('btn-continuar');
     boton.disabled = true;
     boton.textContent = 'Verificando…';
@@ -347,28 +382,6 @@ async function iniciar() {
     } finally {
       boton.disabled = false;
       boton.textContent = 'Continuar';
-    }
-  });
-
-  // Invitado que prefiere entrar con Google (sin crear otra cuenta). Al firmar,
-  // onAuthStateChanged canjea el pase; canjearPase toma nombre/apellido/correo
-  // del token de Google.
-  $('btn-google').addEventListener('click', async () => {
-    const b = $('btn-google');
-    const error = $('error-email');
-    error.classList.add('oculto');
-    b.disabled = true;
-    try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
-    } catch (err) {
-      const code = err && err.code;
-      let m = 'No se pudo entrar con Google.';
-      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') m = '';
-      else if (code === 'auth/account-exists-with-different-credential') m = 'Ya tienes una cuenta con ese correo. Entra con tu clave.';
-      else if (code === 'auth/operation-not-allowed') m = 'El acceso con Google aún no está habilitado.';
-      else if (code === 'auth/popup-blocked') m = 'El navegador bloqueó la ventana de Google. Habilítala e intenta de nuevo.';
-      if (m) { error.textContent = m; error.classList.remove('oculto'); }
-      b.disabled = false;
     }
   });
 
