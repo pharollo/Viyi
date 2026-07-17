@@ -918,7 +918,9 @@ exports.revocarPase = onCall(async (request) => {
 });
 
 exports.consultarEstado = onCall(
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB] },
+  // minInstances: 1 mantiene una instancia despierta 24/7 para evitar el cold
+  // start al cargar la app tras inactividad (tiene costo: instancia siempre on).
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB], minInstances: 1 },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
