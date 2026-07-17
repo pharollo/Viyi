@@ -259,6 +259,13 @@ async function iniciar() {
     try {
       // Canjear un pase pendiente antes de cargar el perfil (lo puede crear).
       if (paseTokenPendiente) {
+        // Google no pasa por el formulario: separa el nombre de la cuenta en
+        // nombre + apellido (la primera palabra es el nombre, el resto apellido).
+        if (!registroNombrePendiente && user.displayName) {
+          const partes = user.displayName.trim().split(/\s+/);
+          registroNombrePendiente = partes[0] || null;
+          registroApellidoPendiente = partes.slice(1).join(' ') || null;
+        }
         try {
           await canjearPase({ token: paseTokenPendiente, nombre: registroNombrePendiente, apellido: registroApellidoPendiente });
           toast('¡Listo! Ya tienes acceso a los dispositivos compartidos.');
