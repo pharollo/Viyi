@@ -333,6 +333,8 @@ code {
   flex-direction: column;
   gap: 8px;
   margin-bottom: 4px;
+  padding: 0;
+  list-style: none;
 }
 .inmueble-ro {
   display: flex;
