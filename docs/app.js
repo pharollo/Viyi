@@ -1609,7 +1609,7 @@ async function iniciar() {
       campo('Rol', sRol),
     ];
     if (!esNuevo) filas.push(cActivo.label);
-    filas.push(campo('Inmuebles asignados', casInm.cont));
+    filas.push(campo('Inmuebles', casInm.cont));
     filas.push(campo('Dispositivos permitidos (el admin ve todos)', casillas.cont));
 
     abrirEditor(esNuevo ? 'Nuevo vecino' : `Editar: ${nombreCompleto(u)}`, filas, [
