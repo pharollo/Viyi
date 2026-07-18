@@ -326,45 +326,23 @@ code {
 .perfil-seccion {
   margin: 10px 0 6px;
 }
+/* Inmuebles del perfil: solo lectura (los asigna el admin). Lista vertical
+   limpia: nombre + tipo por ítem. */
 .lista-inmuebles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-bottom: 4px;
 }
-/* El checklist del perfil: que el checkbox no herede el estilo de input de
-   texto (la regla base #form-perfil input lo convertía en una píldora). */
-#form-perfil .casilla input {
-  width: 17px;
-  height: 17px;
-  padding: 0;
-  margin: 0;
-  box-shadow: none;
-  border-radius: 4px;
-  -webkit-appearance: auto;
-  appearance: auto;
-  accent-color: var(--primario);
-}
-
-/* Inmuebles del perfil: lista vertical con scroll y sin el recuadro grande
-   de cada ítem (solo el check + texto), para que no se vea desordenado. */
-#lista-inmuebles .casillas {
+.inmueble-ro {
+  display: flex;
   flex-direction: column;
-  flex-wrap: nowrap;
   gap: 2px;
-  max-height: 200px;
-  overflow-y: auto;
-  margin: 4px 0 8px;
-  -webkit-overflow-scrolling: touch;
 }
-#lista-inmuebles .casilla {
-  background: transparent;
-  box-shadow: none;
-  padding: 8px 6px;
-  border-radius: 8px;
-  justify-content: flex-start;
-}
-#lista-inmuebles .casilla.marcada {
-  background: transparent;
-  box-shadow: none;
-  color: var(--primario);
+.inmueble-ro strong {
+  color: var(--texto);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .campo input:disabled {

@@ -450,7 +450,9 @@ exports.actualizarMiPerfil = onCall(async (request) => {
   if (!snap.exists || snap.data().activo === false) {
     throw new HttpsError('permission-denied', 'Tu cuenta no está activa.');
   }
-  const { nombre, apellido, inmuebles } = request.data || {};
+  // El vecino solo edita nombre/apellido. Los inmuebles los asigna el admin
+  // (adminActualizarUsuario), no se aceptan aquí para que no se autoasignen.
+  const { nombre, apellido } = request.data || {};
   const cambios = {};
   if (typeof nombre === 'string' && nombre.trim()) {
     cambios.nombre = nombre.trim().slice(0, 60);
@@ -458,13 +460,6 @@ exports.actualizarMiPerfil = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'El nombre no puede quedar vacío.');
   }
   if (typeof apellido === 'string') cambios.apellido = apellido.trim().slice(0, 60);
-  if (Array.isArray(inmuebles)) {
-    const ids = [...new Set(inmuebles.filter((x) => typeof x === 'string'))].slice(0, 40);
-    const docs = await Promise.all(ids.map((id) => db.doc(`inmuebles/${id}`).get()));
-    cambios.inmuebles = docs
-      .filter((s) => s.exists && TIPOS_INMUEBLE.includes(s.data().tipo))
-      .map((s) => ({ id: s.id, tipo: s.data().tipo, nombre: s.data().nombre }));
-  }
   await db.doc(`usuarios/${uid}`).set(cambios, { merge: true });
   return { ok: true, perfil: cambios };
 });

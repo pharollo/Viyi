@@ -1689,21 +1689,25 @@ async function iniciar() {
   });
 
   // ---- Mi perfil (clic en el nombre arriba a la derecha) ----
-  // El vecino elige sus inmuebles de un selector del catálogo que creó el admin.
-  let selectorInmuebles = null;
-  function renderSelectorInmuebles(asignados) {
+  // Los inmuebles los asigna el ADMIN (Gestión → Vecinos); aquí son solo lectura.
+  function renderInmueblesPerfil(lista) {
     const ul = $('lista-inmuebles');
     ul.textContent = '';
-    if (!cacheInmuebles.length) {
-      selectorInmuebles = null;
+    const items = Array.isArray(lista) ? lista : [];
+    if (!items.length) {
       const li = document.createElement('li');
       li.className = 'vacio';
-      li.textContent = 'No hay inmuebles disponibles todavía.';
+      li.textContent = 'Sin inmuebles asignados.';
       ul.appendChild(li);
       return;
     }
-    selectorInmuebles = casillasInmuebles(asignados);
-    ul.appendChild(selectorInmuebles.cont);
+    for (const inm of items) {
+      const li = document.createElement('li');
+      li.className = 'inmueble-ro';
+      li.innerHTML = `<strong>${escapar(inm.nombre)}</strong>`
+        + `<span class="pase-meta">${TIPO_INMUEBLE_TXT[inm.tipo] || inm.tipo}</span>`;
+      ul.appendChild(li);
+    }
   }
 
   async function abrirPerfil() {
@@ -1722,18 +1726,11 @@ async function iniciar() {
     $('seccion-clave').classList.toggle('oculto', !tieneClave);
     mostrarTab('tab-perfil');
     cerrarMenu();
-    // Inmuebles: solo para vecinos/admin (a los invitados no se les asigna).
+    // Inmuebles: solo para vecinos/admin (a los invitados no se les asigna), y
+    // en solo lectura — la asignación la hace el admin desde Gestión.
     const esInvitado = usuarioActual.invitado === true;
     $('seccion-inmuebles').classList.toggle('oculto', esInvitado);
-    if (esInvitado) { selectorInmuebles = null; return; }
-    // El vecino no pasa por Gestión: carga el catálogo aquí para el selector.
-    try {
-      const snap = await getDocs(collection(db, 'inmuebles'));
-      cacheInmuebles = snap.docs
-        .map((s) => ({ id: s.id, ...s.data() }))
-        .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
-    } catch (err) { /* si falla, se pinta con lo que haya en cache */ }
-    renderSelectorInmuebles(usuarioActual.inmuebles);
+    if (!esInvitado) renderInmueblesPerfil(usuarioActual.inmuebles);
   }
   $('info-usuario').addEventListener('click', abrirPerfil);
   $('info-usuario').addEventListener('keydown', (e) => {
@@ -1762,14 +1759,12 @@ async function iniciar() {
       msg.classList.remove('oculto');
       return;
     }
-    const seleccion = selectorInmuebles ? selectorInmuebles.seleccionados() : (usuarioActual.inmuebles || []);
     const btn = $('btn-guardar-perfil');
     btn.disabled = true;
     try {
-      await actualizarMiPerfil({ nombre, apellido, inmuebles: seleccion.map((x) => x.id) });
+      await actualizarMiPerfil({ nombre, apellido });
       usuarioActual.nombre = nombre;
       usuarioActual.apellido = apellido;
-      usuarioActual.inmuebles = seleccion;
       $('nombre-usuario').textContent = nombreCompleto(usuarioActual);
       toast('Perfil actualizado.');
     } catch (err) {
