@@ -333,7 +333,9 @@ code {
   flex-direction: column;
   gap: 8px;
   margin-bottom: 4px;
-  padding: 0;
+  /* 14px = mismo sangrado que el texto dentro de los inputs, para que los
+     inmuebles alineen con los valores (Eduardo, Jimenez…), no con los labels. */
+  padding: 0 0 0 14px;
   list-style: none;
 }
 .inmueble-ro {
