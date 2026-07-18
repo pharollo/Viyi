@@ -1704,8 +1704,8 @@ async function iniciar() {
     for (const inm of items) {
       const li = document.createElement('li');
       li.className = 'inmueble-ro';
-      li.innerHTML = `<strong>${escapar(inm.nombre)}</strong>`
-        + `<span class="pase-meta">${TIPO_INMUEBLE_TXT[inm.tipo] || inm.tipo}</span>`;
+      li.innerHTML = `<span class="pase-meta">${TIPO_INMUEBLE_TXT[inm.tipo] || inm.tipo}</span>`
+        + `<strong>${escapar(inm.nombre)}</strong>`;
       ul.appendChild(li);
     }
   }

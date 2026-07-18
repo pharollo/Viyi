@@ -336,9 +336,8 @@ code {
 }
 .inmueble-ro {
   display: flex;
-  justify-content: space-between;
   align-items: baseline;
-  gap: 10px;
+  gap: 8px;
 }
 .inmueble-ro strong {
   color: var(--texto);
