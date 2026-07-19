@@ -38,8 +38,10 @@ async function iniciar() {
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  // Correos de Firebase (restablecer clave, etc.) en español.
-  auth.languageCode = 'es';
+  // OJO: no forzar auth.languageCode = 'es'. Firebase solo permite EDITAR la
+  // plantilla del idioma por defecto; al forzar español usa la traducción
+  // automática de Google, que es de solo lectura. Dejando el default, el texto
+  // en español se escribe directo en la plantilla (Authentication → Templates).
   const db = getFirestore(app);
   const functions = getFunctions(app, FUNCTIONS_REGION);
   const ejecutarComando = httpsCallable(functions, 'ejecutarComando');
