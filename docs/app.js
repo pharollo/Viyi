@@ -1694,6 +1694,7 @@ async function iniciar() {
     const ul = $('lista-inmuebles');
     ul.textContent = '';
     const items = Array.isArray(lista) ? lista : [];
+    $('titulo-inmuebles').textContent = items.length === 1 ? 'Inmueble' : 'Inmuebles';
     if (!items.length) {
       const li = document.createElement('li');
       li.className = 'vacio';
