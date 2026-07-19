@@ -896,7 +896,11 @@ exports.revocarPase = onCall(async (request) => {
   }
   const pase = snap.data();
   if (pase.por !== uid) {
-    throw new HttpsError('permission-denied', 'No puedes revocar este pase.');
+    // El admin puede revocar cualquier pase; el resto, solo los suyos.
+    const me = await db.doc(`usuarios/${uid}`).get();
+    if (!me.exists || me.data().rol !== 'admin') {
+      throw new HttpsError('permission-denied', 'No puedes revocar este pase.');
+    }
   }
   await ref.set({ revocado: true }, { merge: true });
   const disp = pase.dispositivos || [];

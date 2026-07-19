@@ -1219,6 +1219,29 @@ button:disabled {
   box-shadow: inset 3px 3px 6px var(--sombra-oscura), inset -3px -3px 6px var(--sombra-clara), inset 0 0 0 1.5px var(--primario);
 }
 
+/* Toggle admin "Míos / Todos" en Mis pases. */
+.pase-scope {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.chip-scope {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--superficie);
+  color: var(--texto-suave);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 3px 3px 7px var(--sombra-oscura), -3px -3px 7px var(--sombra-clara);
+  -webkit-tap-highlight-color: transparent;
+}
+.chip-scope.activa {
+  color: var(--primario);
+  box-shadow: inset 3px 3px 6px var(--sombra-oscura), inset -3px -3px 6px var(--sombra-clara), inset 0 0 0 1.5px var(--primario);
+}
+
 .pase-multi {
   display: flex;
   align-items: center;

@@ -1727,11 +1727,13 @@ async function iniciar() {
     $('seccion-clave').classList.toggle('oculto', !tieneClave);
     mostrarTab('tab-perfil');
     cerrarMenu();
-    // Inmuebles: solo para vecinos/admin (a los invitados no se les asigna), y
-    // en solo lectura — la asignación la hace el admin desde Gestión.
+    // Inmuebles: solo lectura (los asigna el admin en Gestión). La sección solo
+    // aparece si hay al menos uno y no es invitado (a los invitados no se asigna).
     const esInvitado = usuarioActual.invitado === true;
-    $('seccion-inmuebles').classList.toggle('oculto', esInvitado);
-    if (!esInvitado) renderInmueblesPerfil(usuarioActual.inmuebles);
+    const inmuebles = Array.isArray(usuarioActual.inmuebles) ? usuarioActual.inmuebles : [];
+    const mostrarInmuebles = !esInvitado && inmuebles.length > 0;
+    $('seccion-inmuebles').classList.toggle('oculto', !mostrarInmuebles);
+    if (mostrarInmuebles) renderInmueblesPerfil(inmuebles);
   }
   $('info-usuario').addEventListener('click', abrirPerfil);
   $('info-usuario').addEventListener('keydown', (e) => {
@@ -1830,6 +1832,15 @@ async function iniciar() {
   });
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   $('btn-refrescar-pases').addEventListener('click', cargarMisPases);
+  // Toggle admin: ver solo mis pases o todos los del condominio.
+  $('pase-scope').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip-scope');
+    if (!b) return;
+    paseVerTodos = b.dataset.scope === 'todos';
+    document.querySelectorAll('#pase-scope .chip-scope').forEach((c) => c.classList.toggle('activa', c === b));
+    $('titulo-mis-pases').textContent = paseVerTodos ? 'Todos los pases' : 'Mis pases';
+    cargarMisPases();
+  });
   // Evento en Title Case al salir del campo (no en cada tecla: reescribir el
   // value mientras se escribe rompe el teclado en móviles y cortaba el texto).
   $('pase-evento').addEventListener('blur', () => {
@@ -2002,23 +2013,28 @@ async function iniciar() {
     cont.appendChild(acciones);
   }
 
+  let paseVerTodos = false; // admin: ver todos los pases del condominio vs solo los míos
   async function cargarMisPases() {
     const lista = $('lista-pases');
     if (!usuarioActual || !auth.currentUser) return;
+    const todos = paseVerTodos && usuarioActual.rol === 'admin';
     lista.textContent = '';
     try {
-      const res = await getDocs(query(collection(db, 'pases'), where('por', '==', auth.currentUser.uid)));
+      const consulta = todos
+        ? query(collection(db, 'pases'))
+        : query(collection(db, 'pases'), where('por', '==', auth.currentUser.uid));
+      const res = await getDocs(consulta);
       if (res.empty) {
         const li = document.createElement('li');
         li.className = 'vacio';
-        li.textContent = 'Aún no has generado pases.';
+        li.textContent = todos ? 'No hay pases todavía.' : 'Aún no has generado pases.';
         lista.appendChild(li);
         return;
       }
       const nombrePorId = Object.fromEntries(misDispositivos.map((d) => [d.id, d.nombre]));
       const items = res.docs.map((d) => ({ token: d.id, ...d.data() }))
         .sort((a, b) => msExpira(b.creado) - msExpira(a.creado));
-      for (const p of items) lista.appendChild(filaPase(p, nombrePorId));
+      for (const p of items) lista.appendChild(filaPase(p, nombrePorId, todos));
     } catch (err) {
       const li = document.createElement('li');
       li.textContent = 'No se pudieron cargar los pases.';
@@ -2026,10 +2042,11 @@ async function iniciar() {
     }
   }
 
-  function filaPase(p, nombrePorId) {
+  function filaPase(p, nombrePorId, mostrarEmisor) {
     const li = document.createElement('li');
     li.className = 'fila-pase';
     const nombres = (p.dispositivos || []).map((id) => nombrePorId[id] || id).join(', ');
+    const emisor = [p.porNombre, p.porApellido].filter(Boolean).join(' ');
     let estado = 'activo';
     const venc = msExpira(p.expira);
     if (p.revocado) estado = 'revocado';
@@ -2068,7 +2085,9 @@ async function iniciar() {
     const info = document.createElement('div');
     info.className = 'pase-info';
     const eventoHtml = p.evento ? `<span class="pase-evento-lbl">${escapar(p.evento)}</span>` : '';
+    const emisorHtml = (mostrarEmisor && emisor) ? `<span class="pase-meta">de ${escapar(emisor)}</span>` : '';
     info.innerHTML = `<strong>${escapar(nombres)}</strong>`
+      + emisorHtml
       + eventoHtml
       + `<span class="pase-meta">${escapar(invitadoTxt)}</span>`
       + `<span class="pase-meta">${fechasHtml}</span>`;
