@@ -38,6 +38,8 @@ async function iniciar() {
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
+  // Correos de Firebase (restablecer clave, etc.) en español.
+  auth.languageCode = 'es';
   const db = getFirestore(app);
   const functions = getFunctions(app, FUNCTIONS_REGION);
   const ejecutarComando = httpsCallable(functions, 'ejecutarComando');
