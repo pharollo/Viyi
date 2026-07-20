@@ -54,11 +54,17 @@ jobs:
       # Cloud Functions v2 a veces falla al actualizar un subconjunto de
       # funciones por flakiness de Cloud Run. Reintentamos: las ya desplegadas
       # se saltan y solo se reintentan las que quedaron pendientes.
+      #
+      # --force es obligatorio aquí: consultarEstado usa minInstances: 1 (una
+      # instancia siempre encendida para que no haya arranque en frío), y sin
+      # --force la CLI aborta con "Pass the --force option to deploy functions
+      # that increase the minimum bill". Ojo: --force también borra sin
+      # preguntar las funciones que se quiten del código.
       - name: Desplegar functions y Firestore
         run: |
           for intento in 1 2 3; do
             echo "== Intento $intento de deploy =="
-            if firebase deploy --only functions,firestore --project viyi-25a09 --non-interactive; then
+            if firebase deploy --only functions,firestore --project viyi-25a09 --non-interactive --force; then
               echo "Deploy OK en el intento $intento"
               exit 0
             fi
