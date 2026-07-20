@@ -33,6 +33,32 @@ const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 // atiende 80 peticiones a la vez.
 setGlobalOptions({ region: 'us-central1', maxInstances: 3 });
 
+// Nombres y apellidos siempre en Title Case, con las partículas en minúscula
+// ("María Pérez de la Cruz"). Se normaliza AQUÍ y no en cada formulario para
+// que dé igual por dónde entró el dato: registro de invitado, Google, panel de
+// admin o "Mi perfil". Recorta a 60 y colapsa los espacios de más.
+const MENORES_NOMBRE = new Set([
+  'de', 'del', 'la', 'las', 'los', 'y', 'e', 'da', 'das', 'do', 'dos',
+  'van', 'von', 'der', 'den', 'ter', 'di', 'du', 'le', 'bin', 'ibn', 'san',
+]);
+function nombrePropio(s) {
+  return String(s == null ? '' : s)
+    .trim().replace(/\s+/g, ' ').slice(0, 60)
+    .split(' ')
+    .map((p, i) => {
+      if (!p) return p;
+      const min = p.toLocaleLowerCase('es');
+      if (i > 0 && MENORES_NOMBRE.has(min)) return min;
+      // Si la palabra trae mayúscula interna se respeta tal cual: es
+      // intencional (McDonald, DeLuca). Solo se normaliza lo que viene todo
+      // en minúsculas o todo en mayúsculas ("carlos" y "CARLOS" → "Carlos").
+      const uniforme = p === min || p === p.toLocaleUpperCase('es');
+      const base = uniforme ? min : p;
+      return base.charAt(0).toLocaleUpperCase('es') + base.slice(1);
+    })
+    .join(' ');
+}
+
 let clienteTuya = null;
 function tuya() {
   if (!clienteTuya) {
@@ -389,8 +415,8 @@ exports.adminCrearUsuario = onCall(async (request) => {
     throw new HttpsError('internal', 'No se pudo crear la cuenta.');
   }
   await db.doc(`usuarios/${user.uid}`).set({
-    nombre,
-    apellido: typeof apellido === 'string' ? apellido.trim().slice(0, 60) : '',
+    nombre: nombrePropio(nombre),
+    apellido: nombrePropio(apellido),
     unidad: unidad || '',
     email,
     rol: rol === 'admin' ? 'admin' : 'vecino',
@@ -411,8 +437,8 @@ exports.adminActualizarUsuario = onCall(async (request) => {
     throw new HttpsError('failed-precondition', 'No puedes quitarte el acceso a ti mismo.');
   }
   const cambios = {};
-  if (typeof nombre === 'string' && nombre) cambios.nombre = nombre;
-  if (typeof apellido === 'string') cambios.apellido = apellido.trim().slice(0, 60);
+  if (typeof nombre === 'string' && nombre) cambios.nombre = nombrePropio(nombre);
+  if (typeof apellido === 'string') cambios.apellido = nombrePropio(apellido);
   if (typeof unidad === 'string') cambios.unidad = unidad;
   if (rol === 'admin' || rol === 'vecino') cambios.rol = rol;
   if (typeof activo === 'boolean') cambios.activo = activo;
@@ -464,11 +490,11 @@ exports.actualizarMiPerfil = onCall(async (request) => {
   const { nombre, apellido } = request.data || {};
   const cambios = {};
   if (typeof nombre === 'string' && nombre.trim()) {
-    cambios.nombre = nombre.trim().slice(0, 60);
+    cambios.nombre = nombrePropio(nombre);
   } else {
     throw new HttpsError('invalid-argument', 'El nombre no puede quedar vacío.');
   }
-  if (typeof apellido === 'string') cambios.apellido = apellido.trim().slice(0, 60);
+  if (typeof apellido === 'string') cambios.apellido = nombrePropio(apellido);
   await db.doc(`usuarios/${uid}`).set(cambios, { merge: true });
   return { ok: true, perfil: cambios };
 });
@@ -997,8 +1023,11 @@ exports.canjearPase = onCall(async (request) => {
   }
   if (!userSnap.exists) {
     await userRef.set({
-      nombre: nombreInvitado,
-      apellido: typeof apellido === 'string' ? apellido.trim().slice(0, 60) : '',
+      nombre: nombrePropio(nombreInvitado),
+      // Antes guardaba el `apellido` crudo del formulario en vez del resuelto:
+      // por eso quien entraba con Google quedaba sin apellido, aunque se
+      // hubiera sacado de su displayName.
+      apellido: nombrePropio(apellidoInvitado),
       unidad: '',
       email: emailInvitado,
       rol: 'vecino',
