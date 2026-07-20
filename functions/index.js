@@ -1,4 +1,5 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { defineSecret, defineString } = require('firebase-functions/params');
 const admin = require('firebase-admin');
@@ -782,11 +783,12 @@ exports.enviarResetClave = onCall({ secrets: [RESEND_API_KEY] }, async (request)
 // accesorios una sola vez. Si un proveedor falla, sus dispositivos quedan en
 // `online: null` (desconocido) en vez de tumbar la respuesta completa: que
 // Homebridge esté caído no debe ocultar el estado de los Tuya.
-exports.estadoDispositivos = onCall(
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB] },
-  async (request) => {
-    await exigirAdmin(request);
-
+// Consulta a los proveedores y guarda el resultado en cada dispositivo, para
+// que el panel lo lea sin esperar y para saber DESDE CUÁNDO está así (el campo
+// `desde` solo se toca cuando el estado cambia; si no, se perdería la hora en
+// que se cayó). La usan tanto el botón de actualizar como el chequeo programado.
+async function revisarConexion() {
+  {
     const snap = await db.collection('dispositivos').get();
     const disps = [];
     for (const doc of snap.docs) {
@@ -823,7 +825,9 @@ exports.estadoDispositivos = onCall(
       }
     }
 
-    const lista = disps.map((d) => {
+    const ahora = admin.firestore.Timestamp.now();
+    const lista = [];
+    for (const d of disps) {
       let online = null; // null = no se pudo averiguar
       if (!d.cfg) online = null;
       else if (d.proveedor === 'homebridge') {
@@ -831,10 +835,41 @@ exports.estadoDispositivos = onCall(
       } else if (onlineTuya.size) {
         online = onlineTuya.get(d.cfg.tuyaDeviceId) === true;
       }
-      return { id: d.id, nombre: d.nombre, proveedor: d.proveedor, activo: d.activo, online };
-    });
 
-    return { dispositivos: lista, consultado: Date.now() };
+      if (online !== null) {
+        const previo = (snap.docs.find((x) => x.id === d.id).data() || {}).conexion || {};
+        // `desde` solo se reinicia cuando el estado cambia: así se conserva la
+        // hora exacta en que se cayó, que es lo que uno quiere saber.
+        const desde = previo.online === online && previo.desde ? previo.desde : ahora;
+        await db.doc(`dispositivos/${d.id}`)
+          .set({ conexion: { online, revisado: ahora, desde } }, { merge: true });
+        lista.push({ id: d.id, nombre: d.nombre, proveedor: d.proveedor, activo: d.activo, online, desde: desde.toMillis() });
+      } else {
+        lista.push({ id: d.id, nombre: d.nombre, proveedor: d.proveedor, activo: d.activo, online: null, desde: null });
+      }
+    }
+
+    return { dispositivos: lista, consultado: ahora.toMillis() };
+  }
+}
+
+// Botón "actualizar" del panel: consulta en vivo. Solo admin.
+exports.estadoDispositivos = onCall(
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB] },
+  async (request) => {
+    await exigirAdmin(request);
+    return revisarConexion();
+  },
+);
+
+// Chequeo automático cada 10 minutos, para que la caída quede registrada con su
+// hora aunque nadie esté mirando el panel.
+exports.revisarConexionProgramada = onSchedule(
+  { schedule: 'every 10 minutes', timeZone: 'America/Caracas', secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB] },
+  async () => {
+    const { dispositivos } = await revisarConexion();
+    const caidos = dispositivos.filter((d) => d.online === false).map((d) => d.nombre);
+    if (caidos.length) console.warn('Dispositivos sin conexión:', caidos.join(', '));
   },
 );
 

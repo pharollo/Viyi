@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=146';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=147';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -1131,7 +1131,7 @@ async function iniciar() {
         .map((s) => ({ id: s.id, ...s.data() }))
         .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
       renderGestion();
-      pintarConexion(); // sin await: la lista no espera por Tuya
+      pintarConexion(conexionGuardada());
     } catch (err) {
       toast('No se pudo cargar la gestión.', 'error');
     }
@@ -1151,25 +1151,44 @@ async function iniciar() {
     return li;
   }
 
-  // Pinta un punto de conexión en cada fila de dispositivo. Va aparte del
-  // render porque consulta a Tuya y Homebridge: la lista aparece de una y los
-  // puntos caen cuando lleguen. Si la consulta falla, no se pinta nada — mejor
-  // sin dato que un rojo mentiroso.
-  async function pintarConexion() {
-    let lista;
-    try {
-      const res = await estadoDispositivos();
-      lista = (res.data && res.data.dispositivos) || [];
-    } catch (err) { return; }
-    for (const d of lista) {
+  // Pinta el punto de conexión de cada dispositivo. Si no se sabe el estado no
+  // se pinta nada: mejor sin dato que un rojo mentiroso.
+  function pintarConexion(lista) {
+    for (const d of lista || []) {
       const fila = document.querySelector(`#gestion-dispositivos li[data-disp="${d.id}"]`);
-      if (!fila || d.online === null) continue;
+      if (!fila) continue;
       const info = fila.querySelector('span');
-      if (!info || info.querySelector('.punto-con')) continue;
+      if (!info) continue;
+      const viejo = info.querySelector('.punto-con');
+      if (viejo) viejo.remove();
+      if (d.online === null || d.online === undefined) continue;
       const punto = document.createElement('i');
       punto.className = `punto-con ${d.online ? 'con-ok' : 'con-mal'}`;
-      punto.title = d.online ? 'En línea' : 'Sin conexión';
+      const desde = d.desde ? ` desde ${fmtFecha(d.desde)}` : '';
+      punto.title = (d.online ? 'En línea' : 'Sin conexión') + desde;
       info.prepend(punto);
+    }
+  }
+
+  // Estado guardado por el chequeo automático (cada 10 min). Sale al instante,
+  // sin llamar a Tuya: ya viene en el documento de cada dispositivo.
+  const conexionGuardada = () => cacheDispositivos.map((d) => {
+    const c = d.conexion || {};
+    const ms = c.desde && typeof c.desde.toMillis === 'function' ? c.desde.toMillis() : null;
+    return { id: d.id, online: typeof c.online === 'boolean' ? c.online : null, desde: ms };
+  });
+
+  // Botón de actualizar: consulta en vivo, por si no quieres esperar los 10 min.
+  async function refrescarConexion(boton) {
+    if (boton) boton.disabled = true;
+    try {
+      const res = await estadoDispositivos();
+      pintarConexion((res.data && res.data.dispositivos) || []);
+      toast('Estado actualizado.', 'ok');
+    } catch (err) {
+      toast('No se pudo consultar el estado.', 'error');
+    } finally {
+      if (boton) boton.disabled = false;
     }
   }
 
@@ -1708,6 +1727,7 @@ async function iniciar() {
   }
 
   $('btn-nuevo-dispositivo').addEventListener('click', () => abrirEditorDispositivo(null));
+  $('btn-refrescar-conexion').addEventListener('click', (ev) => refrescarConexion(ev.currentTarget));
   $('btn-nuevo-inmueble').addEventListener('click', () => abrirEditorInmueble(null));
   $('btn-nuevo-usuario').addEventListener('click', () => abrirEditorUsuario(null));
 
