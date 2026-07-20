@@ -59,6 +59,7 @@ async function iniciar() {
   const canjearPase = httpsCallable(functions, 'canjearPase');
   const verificarEmail = httpsCallable(functions, 'verificarEmail');
   const enviarResetClave = httpsCallable(functions, 'enviarResetClave');
+  const estadoDispositivos = httpsCallable(functions, 'estadoDispositivos');
   const revocarPase = httpsCallable(functions, 'revocarPase');
   const actualizarMiPerfil = httpsCallable(functions, 'actualizarMiPerfil');
 
@@ -1126,6 +1127,7 @@ async function iniciar() {
         .map((s) => ({ id: s.id, ...s.data() }))
         .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
       renderGestion();
+      pintarConexion(); // sin await: la lista no espera por Tuya
     } catch (err) {
       toast('No se pudo cargar la gestión.', 'error');
     }
@@ -1143,6 +1145,28 @@ async function iniciar() {
     btn.addEventListener('click', alEditar);
     li.append(info, btn);
     return li;
+  }
+
+  // Pinta un punto de conexión en cada fila de dispositivo. Va aparte del
+  // render porque consulta a Tuya y Homebridge: la lista aparece de una y los
+  // puntos caen cuando lleguen. Si la consulta falla, no se pinta nada — mejor
+  // sin dato que un rojo mentiroso.
+  async function pintarConexion() {
+    let lista;
+    try {
+      const res = await estadoDispositivos();
+      lista = (res.data && res.data.dispositivos) || [];
+    } catch (err) { return; }
+    for (const d of lista) {
+      const fila = document.querySelector(`#gestion-dispositivos li[data-disp="${d.id}"]`);
+      if (!fila || d.online === null) continue;
+      const info = fila.querySelector('span');
+      if (!info || info.querySelector('.punto-con')) continue;
+      const punto = document.createElement('i');
+      punto.className = `punto-con ${d.online ? 'con-ok' : 'con-mal'}`;
+      punto.title = d.online ? 'En línea' : 'Sin conexión';
+      info.prepend(punto);
+    }
   }
 
   function renderGestion() {
@@ -1163,7 +1187,9 @@ async function iniciar() {
       ld.appendChild(cab);
       for (const d of items) {
         const texto = `${d.nombre} · ${MODOS[d.modo] || 'pulso'}`;
-        ld.appendChild(filaGestion(texto, d.activo === false, () => abrirEditorDispositivo(d)));
+        const fila = filaGestion(texto, d.activo === false, () => abrirEditorDispositivo(d));
+        fila.dataset.disp = d.id; // para colgarle después el punto de conexión
+        ld.appendChild(fila);
       }
     }
     const li = $('gestion-inmuebles');

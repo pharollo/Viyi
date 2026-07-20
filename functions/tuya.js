@@ -75,6 +75,21 @@ class TuyaClient {
   especificacion(deviceId) {
     return this.peticion('GET', `/v1.0/iot-03/devices/${deviceId}/specification`);
   }
+
+  // Info de varios dispositivos en UNA sola llamada (trae el campo `online`).
+  // Se pide por lotes porque Tuya limita cuántos ids acepta por petición.
+  async infoLote(deviceIds) {
+    const ids = (deviceIds || []).filter(Boolean);
+    const salida = [];
+    for (let i = 0; i < ids.length; i += 20) {
+      const lote = ids.slice(i, i + 20);
+      const res = await this.peticion('GET', `/v1.0/iot-03/devices?device_ids=${lote.join(',')}`);
+      // Según el endpoint, Tuya devuelve el arreglo suelto o dentro de `list`.
+      const arr = Array.isArray(res) ? res : ((res && res.list) || []);
+      salida.push(...arr);
+    }
+    return salida;
+  }
 }
 
 module.exports = { TuyaClient };

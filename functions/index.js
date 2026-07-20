@@ -775,6 +775,69 @@ exports.enviarResetClave = onCall({ secrets: [RESEND_API_KEY] }, async (request)
   return { ok: true };
 });
 
+// Tablero de fallas: dice cuáles dispositivos están en línea. Solo admin.
+//
+// Se pide TODO en el menor número de llamadas posible: a Tuya se le consultan
+// todos los ids de una vez (infoLote) y a Homebridge se le pide su lista de
+// accesorios una sola vez. Si un proveedor falla, sus dispositivos quedan en
+// `online: null` (desconocido) en vez de tumbar la respuesta completa: que
+// Homebridge esté caído no debe ocultar el estado de los Tuya.
+exports.estadoDispositivos = onCall(
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB] },
+  async (request) => {
+    await exigirAdmin(request);
+
+    const snap = await db.collection('dispositivos').get();
+    const disps = [];
+    for (const doc of snap.docs) {
+      const cfgSnap = await db.doc(`dispositivos/${doc.id}/privado/tuya`).get();
+      disps.push({
+        id: doc.id,
+        nombre: doc.data().nombre || doc.id,
+        proveedor: doc.data().proveedor || 'tuya',
+        activo: doc.data().activo !== false,
+        cfg: cfgSnap.exists ? cfgSnap.data() : null,
+      });
+    }
+
+    const deTuya = disps.filter((d) => d.proveedor !== 'homebridge' && d.cfg && d.cfg.tuyaDeviceId);
+    const deHb = disps.filter((d) => d.proveedor === 'homebridge' && d.cfg && d.cfg.accesorioId);
+
+    const onlineTuya = new Map();
+    if (deTuya.length) {
+      try {
+        const info = await tuya().infoLote(deTuya.map((d) => d.cfg.tuyaDeviceId));
+        for (const eq of info) onlineTuya.set(eq.id, eq.online === true);
+      } catch (err) {
+        console.error('No se pudo consultar el estado en Tuya:', err.message);
+      }
+    }
+
+    const onlineHb = new Map();
+    if (deHb.length) {
+      try {
+        const accs = await homebridge().listarAccesorios();
+        for (const a of (accs || [])) onlineHb.set(a.uniqueId, true);
+      } catch (err) {
+        console.error('No se pudo consultar el estado en Homebridge:', err.message);
+      }
+    }
+
+    const lista = disps.map((d) => {
+      let online = null; // null = no se pudo averiguar
+      if (!d.cfg) online = null;
+      else if (d.proveedor === 'homebridge') {
+        if (onlineHb.size) online = onlineHb.has(d.cfg.accesorioId);
+      } else if (onlineTuya.size) {
+        online = onlineTuya.get(d.cfg.tuyaDeviceId) === true;
+      }
+      return { id: d.id, nombre: d.nombre, proveedor: d.proveedor, activo: d.activo, online };
+    });
+
+    return { dispositivos: lista, consultado: Date.now() };
+  },
+);
+
 // Genera un enlace de pase con los dispositivos y la duración elegidos.
 exports.crearPase = onCall(async (request) => {
   if (!request.auth) {
