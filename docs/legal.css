@@ -1,4 +1,4 @@
-/* Estilos de las páginas legales (privacidad y términos).
+/* Estilos de las páginas públicas: inicio, privacidad y términos.
    Aparte de styles.css, que es solo para la app. */
 
 * {
@@ -85,6 +85,38 @@ a {
   border-left: 2px solid var(--primario);
   padding-left: 12px;
   color: var(--texto);
+}
+
+/* Página de inicio (la que Google revisa como "home page") */
+
+.inicio h1 {
+  font-size: 34px;
+  margin-bottom: 2px;
+}
+
+.marca-logo {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.lema {
+  color: var(--texto-suave);
+  font-size: 17px;
+  margin-bottom: 22px;
+}
+
+.acciones {
+  margin: 26px 0 8px;
+}
+
+.boton {
+  display: inline-block;
+  padding: 11px 26px;
+  border-radius: 10px;
+  background: var(--primario);
+  color: #16210a;
+  font-weight: 600;
+  text-decoration: none;
 }
 
 .pie {
