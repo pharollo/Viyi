@@ -4,7 +4,11 @@
 // la seguridad real está en las reglas de Firestore y en las Cloud Functions.
 export const firebaseConfig = {
   apiKey: "AIzaSyDgYJ9unbuT3Xw3IJ1DjqfCDRlCs6Ae1jA",
-  authDomain: "viyi-25a09.firebaseapp.com",
+  // Dominio propio (Firebase Hosting) en vez de viyi-25a09.firebaseapp.com: es
+  // el que Google le muestra al usuario al entrar con su cuenta, y el que sale
+  // en el enlace del correo de clave nueva. Para revertir, basta volver a
+  // "viyi-25a09.firebaseapp.com" — su URI de redirección sigue autorizado.
+  authDomain: "auth.viyi.ai",
   projectId: "viyi-25a09",
   storageBucket: "viyi-25a09.firebasestorage.app",
   messagingSenderId: "1009083361507",
