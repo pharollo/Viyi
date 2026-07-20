@@ -748,6 +748,12 @@ exports.enviarResetClave = onCall({ secrets: [RESEND_API_KEY] }, async (request)
       url: 'https://www.viyi.ai/',
       handleCodeInApp: false,
     });
+    // La pantalla donde se escribe la clave nueva la sirve Firebase y se
+    // localiza con ?lang=. El enlace viene con lang=en, así que el correo
+    // quedaba en español pero la página de destino en inglés.
+    enlace = /[?&]lang=/.test(enlace)
+      ? enlace.replace(/([?&])lang=[^&]*/, '$1lang=es')
+      : `${enlace}${enlace.includes('?') ? '&' : '?'}lang=es`;
   } catch (err) {
     if (err.code === 'auth/user-not-found') return { ok: true };
     console.error('generatePasswordResetLink falló:', err.code || err.message);
