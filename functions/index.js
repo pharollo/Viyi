@@ -565,6 +565,47 @@ exports.adminEliminarInmueble = onCall(async (request) => {
   return { ok: true };
 });
 
+// Borra un vecino de verdad: su cuenta de acceso y su ficha. Es irreversible.
+//
+// Tres decisiones que conviene tener presentes:
+//  - Se revocan los pases que haya emitido. Si no, sus invitados seguirían
+//    entrando al condominio después de que él ya no está.
+//  - NO se toca el registro de actividad: es la bitácora de quién abrió qué, y
+//    borrar a alguien no debería borrar la historia. Ya guarda el nombre
+//    copiado, así que se sigue leyendo bien sin la ficha.
+//  - El admin no puede borrarse a sí mismo, para no quedarse fuera del panel.
+exports.adminEliminarUsuario = onCall(async (request) => {
+  await exigirAdmin(request);
+  const { uid } = request.data || {};
+  if (!uid || typeof uid !== 'string') {
+    throw new HttpsError('invalid-argument', 'Falta el uid.');
+  }
+  if (uid === request.auth.uid) {
+    throw new HttpsError('failed-precondition', 'No puedes eliminar tu propia cuenta.');
+  }
+
+  const pases = await db.collection('pases').where('por', '==', uid).get();
+  if (!pases.empty) {
+    const batch = db.batch();
+    pases.forEach((s) => {
+      if (!s.data().revocado) batch.set(s.ref, { revocado: true }, { merge: true });
+    });
+    await batch.commit();
+  }
+
+  try {
+    await admin.auth().deleteUser(uid);
+  } catch (err) {
+    // Si en Auth ya no existe, igual se limpia la ficha.
+    if (err.code !== 'auth/user-not-found') {
+      console.error('No se pudo borrar la cuenta de Auth:', err.code || err.message);
+      throw new HttpsError('internal', 'No se pudo eliminar la cuenta.');
+    }
+  }
+  await db.doc(`usuarios/${uid}`).delete();
+  return { ok: true, pasesRevocados: pases.size };
+});
+
 exports.adminGuardarDispositivo = onCall(async (request) => {
   await exigirAdmin(request);
   const {

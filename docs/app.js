@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=148';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=149';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -56,6 +56,7 @@ async function iniciar() {
   const adminEliminarDispositivo = httpsCallable(functions, 'adminEliminarDispositivo');
   const adminGuardarInmueble = httpsCallable(functions, 'adminGuardarInmueble');
   const adminEliminarInmueble = httpsCallable(functions, 'adminEliminarInmueble');
+  const adminEliminarUsuario = httpsCallable(functions, 'adminEliminarUsuario');
   const adminInspeccionarDispositivo = httpsCallable(functions, 'adminInspeccionarDispositivo');
   const adminListarAccesoriosHomebridge = httpsCallable(functions, 'adminListarAccesoriosHomebridge');
   const adminAccesorioCrudo = httpsCallable(functions, 'adminAccesorioCrudo');
@@ -1715,7 +1716,7 @@ async function iniciar() {
     filas.push(campo('Inmuebles', casInm.cont));
     filas.push(campo('Dispositivos permitidos (el admin ve todos)', casillas.cont));
 
-    abrirEditor(esNuevo ? 'Nuevo vecino' : `Editar: ${nombreCompleto(u)}`, filas, [
+    const accionesUsuario = [
       botonForm('Guardar', 'btn-primario', async (ev) => {
         const b = ev.currentTarget;
         b.disabled = true;
@@ -1751,7 +1752,26 @@ async function iniciar() {
         }
       }),
       botonForm('Cancelar', 'btn-secundario', cerrarEditor),
-    ]);
+    ];
+    // Eliminar solo en vecinos ya creados, y nunca sobre uno mismo: el admin se
+    // quedaría fuera de su propio panel.
+    if (!esNuevo && u.uid !== (auth.currentUser && auth.currentUser.uid)) {
+      accionesUsuario.push(botonForm('Eliminar', 'btn-peligro', async (ev) => {
+        if (!confirm(`¿Eliminar a ${nombreCompleto(u)}? Se borra su cuenta y se revocan los pases que haya enviado. No se puede deshacer.`)) return;
+        const b = ev.currentTarget;
+        b.disabled = true;
+        try {
+          const res = await adminEliminarUsuario({ uid: u.uid });
+          const n = (res.data && res.data.pasesRevocados) || 0;
+          toast(n ? `Vecino eliminado. Se revocaron ${n} pase(s).` : 'Vecino eliminado.', 'ok');
+          await trasGuardar();
+        } catch (err) {
+          toast(err.message || 'No se pudo eliminar.', 'error');
+          b.disabled = false;
+        }
+      }));
+    }
+    abrirEditor(esNuevo ? 'Nuevo vecino' : `Editar: ${nombreCompleto(u)}`, filas, accionesUsuario);
   }
 
   $('btn-nuevo-dispositivo').addEventListener('click', () => abrirEditorDispositivo(null));
