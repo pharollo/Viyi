@@ -5,6 +5,7 @@ const admin = require('firebase-admin');
 const crypto = require('crypto');
 const { TuyaClient } = require('./tuya');
 const { HomebridgeClient } = require('./homebridge');
+const { plantillaResetClave, enviar: enviarCorreo } = require('./correo');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -21,6 +22,8 @@ const HOMEBRIDGE_URL = defineSecret('HOMEBRIDGE_URL');
 const HOMEBRIDGE_USER = defineSecret('HOMEBRIDGE_USER');
 const HOMEBRIDGE_PASS = defineSecret('HOMEBRIDGE_PASS');
 const SECRETS_HB = [HOMEBRIDGE_URL, HOMEBRIDGE_USER, HOMEBRIDGE_PASS];
+// Envío de los correos propios (firebase functions:secrets:set RESEND_API_KEY).
+const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 
 setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
 
@@ -712,6 +715,53 @@ exports.verificarEmail = onCall(async (request) => {
     }
     throw new HttpsError('internal', 'No se pudo verificar el correo.');
   }
+});
+
+// Correo propio de "olvidé mi clave": Firebase genera el enlace y nosotros
+// mandamos el mensaje (en español, con el logo y el diseño de ViYi), en vez de
+// usar la plantilla de Firebase, que es texto plano y no se puede editar.
+//
+// No se puede exigir sesión: justamente la pide quien no puede entrar. Por eso:
+//  - Nunca revela si el correo existe (responde igual en los dos casos), para
+//    que no sirva para averiguar quién tiene cuenta.
+//  - Limita a un envío por minuto por correo, para que nadie lo use para
+//    bombardear el buzón de otra persona.
+exports.enviarResetClave = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
+  const email = String((request.data || {}).email || '').trim().toLowerCase();
+  if (!email.includes('@') || email.length > 200) {
+    throw new HttpsError('invalid-argument', 'Escribe un correo válido.');
+  }
+
+  const id = crypto.createHash('sha256').update(email).digest('hex').slice(0, 40);
+  const ref = db.doc(`resets/${id}`);
+  const previo = await ref.get();
+  const ultimo = previo.exists ? previo.data().cuando : null;
+  if (ultimo && Date.now() - ultimo.toMillis() < 60 * 1000) {
+    // Silencioso a propósito: no delata si el correo existe ni invita a reintentar.
+    return { ok: true };
+  }
+  await ref.set({ cuando: admin.firestore.FieldValue.serverTimestamp() });
+
+  let enlace;
+  try {
+    enlace = await admin.auth().generatePasswordResetLink(email, {
+      url: 'https://www.viyi.ai/',
+      handleCodeInApp: false,
+    });
+  } catch (err) {
+    if (err.code === 'auth/user-not-found') return { ok: true };
+    console.error('generatePasswordResetLink falló:', err.code || err.message);
+    throw new HttpsError('internal', 'No se pudo enviar el correo.');
+  }
+
+  const { asunto, html, texto } = plantillaResetClave(enlace);
+  try {
+    await enviarCorreo({ apiKey: RESEND_API_KEY.value(), para: email, asunto, html, texto });
+  } catch (err) {
+    console.error('Envío de correo falló:', err.message);
+    throw new HttpsError('internal', 'No se pudo enviar el correo.');
+  }
+  return { ok: true };
 });
 
 // Genera un enlace de pase con los dispositivos y la duración elegidos.

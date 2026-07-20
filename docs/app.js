@@ -58,6 +58,7 @@ async function iniciar() {
   const crearPase = httpsCallable(functions, 'crearPase');
   const canjearPase = httpsCallable(functions, 'canjearPase');
   const verificarEmail = httpsCallable(functions, 'verificarEmail');
+  const enviarResetClave = httpsCallable(functions, 'enviarResetClave');
   const revocarPase = httpsCallable(functions, 'revocarPase');
   const actualizarMiPerfil = httpsCallable(functions, 'actualizarMiPerfil');
 
@@ -223,15 +224,24 @@ async function iniciar() {
     const b = ev.currentTarget;
     b.disabled = true;
     try {
-      await sendPasswordResetEmail(auth, email);
-      toast('Listo: revisa tu correo para restablecer la clave (mira también spam).', 'ok');
-    } catch (err) {
-      const mensajes = {
-        'auth/invalid-email': 'El email no es válido.',
-        'auth/user-not-found': 'No encontramos ese email. Revísalo o contacta al administrador.',
-        'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos.',
-      };
-      toast(mensajes[err.code] || 'No se pudo enviar el correo. Intenta de nuevo.', 'error');
+      // Correo propio (español, con logo). El mensaje es neutro a propósito:
+      // la función no revela si la cuenta existe.
+      await enviarResetClave({ email });
+      toast('Revisa tu correo para restablecer la clave.', 'ok');
+    } catch (errFn) {
+      // Si la función no está disponible, se cae al correo de Firebase para no
+      // dejar a nadie sin poder recuperar su clave.
+      try {
+        await sendPasswordResetEmail(auth, email);
+        toast('Revisa tu correo para restablecer la clave (mira también spam).', 'ok');
+      } catch (err) {
+        const mensajes = {
+          'auth/invalid-email': 'El email no es válido.',
+          'auth/user-not-found': 'No encontramos ese email. Revísalo o contacta al administrador.',
+          'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos.',
+        };
+        toast(mensajes[err.code] || 'No se pudo enviar el correo. Intenta de nuevo.', 'error');
+      }
     } finally {
       b.disabled = false;
     }

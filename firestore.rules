@@ -66,5 +66,12 @@ service cloud.firestore {
       allow read: if autenticado();
       allow write: if false;
     }
+
+    // Marca de tiempo del último correo de "olvidé mi clave" por cuenta, para
+    // limitar los envíos. Solo lo tocan las Functions; nadie más lo lee, porque
+    // delataría qué correos tienen cuenta.
+    match /resets/{id} {
+      allow read, write: if false;
+    }
   }
 }
