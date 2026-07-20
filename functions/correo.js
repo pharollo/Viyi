@@ -69,8 +69,8 @@ function plantillaResetClave(enlace) {
       titulo: 'Restablece tu clave de ViYi',
       cuerpo: '<p style="margin:0 0 12px;">¡Hola!</p>'
         + '<p style="margin:0;">Olvidaste tu clave, ¡eso pasa! Para crear una nueva, '
-        + 'haz clic aquí o sigue el enlace de abajo.</p>',
-      textoBoton: 'Crear clave nueva',
+        + 'haz click en el botón o sigue el enlace de abajo.</p>',
+      textoBoton: 'Clave Nueva',
       enlace,
       cierre: '<p style="margin:0 0 12px;">Si no pediste cambiar tu clave, '
         + 'puedes ignorar este correo.</p><p style="margin:0;">Saludos,<br>Soporte ViYi</p>',
