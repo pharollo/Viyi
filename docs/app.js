@@ -322,14 +322,17 @@ async function iniciar() {
   const esGmail = (email) => /@(gmail|googlemail)\.com$/i.test(String(email || '').trim());
   let forzarEmailPase = false;
   let cuentaConClave = false;
+  let soloGoogle = false; // cuenta que existe con Google y SIN clave
   let verifTimer = null;
-  const usarGoogle = () => esGmail($('pase-email').value) && !cuentaConClave && !forzarEmailPase;
+  const usarGoogle = () => (esGmail($('pase-email').value) || soloGoogle)
+    && !cuentaConClave && !forzarEmailPase;
   function actualizarBotonPase() {
     $('btn-google').classList.toggle('oculto', !usarGoogle());
   }
   $('pase-email').addEventListener('input', () => {
     forzarEmailPase = false;
     cuentaConClave = false;
+    soloGoogle = false;
     actualizarBotonPase();
     clearTimeout(verifTimer);
     const email = $('pase-email').value.trim();
@@ -391,6 +394,18 @@ async function iniciar() {
       paseInvitadorPendiente = (res.data ? [res.data.porNombre, res.data.porApellido].filter(Boolean).join(' ') : '') || paseInvitadorPendiente;
       pintarEventoPase();
       if (res.data && res.data.existe) {
+        if (res.data.tieneGoogle && !res.data.tieneClave) {
+          // Cuenta creada con Google y sin clave: mandarla al login sería un
+          // callejón sin salida (no tiene clave y no puede crearla porque la
+          // cuenta ya existe). Se le ofrece Google, aunque el correo no sea
+          // gmail. El popup no se puede abrir aquí: tiene que salir del toque
+          // del usuario, si no el navegador lo bloquea.
+          soloGoogle = true;
+          actualizarBotonPase();
+          error.textContent = 'Esta cuenta entra con Google.';
+          error.classList.remove('oculto');
+          return;
+        }
         // Ya tiene cuenta: al login (correo precargado) para poner su clave.
         $('campo-email').value = email;
         mostrarVista('vista-login');
