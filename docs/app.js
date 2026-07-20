@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=147';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=148';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -64,6 +64,7 @@ async function iniciar() {
   const verificarEmail = httpsCallable(functions, 'verificarEmail');
   const enviarResetClave = httpsCallable(functions, 'enviarResetClave');
   const estadoDispositivos = httpsCallable(functions, 'estadoDispositivos');
+  const adminProveedores = httpsCallable(functions, 'adminProveedores');
   const revocarPase = httpsCallable(functions, 'revocarPase');
   const actualizarMiPerfil = httpsCallable(functions, 'actualizarMiPerfil');
 
@@ -1132,6 +1133,7 @@ async function iniciar() {
         .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
       renderGestion();
       pintarConexion(conexionGuardada());
+      pintarProveedores(); // sin await: la lista no espera por Auth
     } catch (err) {
       toast('No se pudo cargar la gestión.', 'error');
     }
@@ -1233,7 +1235,33 @@ async function iniciar() {
     for (const u of cacheUsuarios) {
       const inm = (u.inmuebles || []).map((x) => x.nombre).join(', ');
       const partes = [nombreCompleto(u), inm, u.rol === 'admin' ? 'admin' : null].filter(Boolean);
-      lu.appendChild(filaGestion(partes.join(' · '), u.activo === false, () => abrirEditorUsuario(u)));
+      const fila = filaGestion(partes.join(' · '), u.activo === false, () => abrirEditorUsuario(u));
+      fila.dataset.uid = u.uid; // para colgarle después cómo entra
+      lu.appendChild(fila);
+    }
+  }
+
+  // Marca cómo entra cada vecino: con Google, con clave, o las dos. El dato
+  // vive en Firebase Auth, así que se pide aparte y se pinta al llegar.
+  async function pintarProveedores() {
+    let mapa;
+    try {
+      const res = await adminProveedores();
+      mapa = (res.data && res.data.proveedores) || {};
+    } catch (err) { return; }
+    for (const [uid, provs] of Object.entries(mapa)) {
+      const fila = document.querySelector(`#gestion-usuarios li[data-uid="${uid}"]`);
+      if (!fila) continue;
+      const info = fila.querySelector('span');
+      if (!info || info.querySelector('.como-entra')) continue;
+      const conGoogle = provs.includes('google.com');
+      const conClave = provs.includes('password');
+      const txt = conGoogle && conClave ? 'Google + clave' : (conGoogle ? 'Google' : (conClave ? 'Clave' : ''));
+      if (!txt) continue;
+      const tag = document.createElement('em');
+      tag.className = 'como-entra';
+      tag.textContent = txt;
+      info.append(tag);
     }
   }
 

@@ -141,6 +141,18 @@ code {
   gap: 8px;
 }
 
+/* Cómo entra cada vecino (Google / clave), en la lista de gestión. */
+.como-entra {
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--texto-suave);
+  font-size: 11px;
+  font-style: normal;
+  white-space: nowrap;
+}
+
 /* Punto de conexión de cada dispositivo en la lista de gestión. */
 .punto-con {
   display: inline-block;

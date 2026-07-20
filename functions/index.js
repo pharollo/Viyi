@@ -879,6 +879,26 @@ async function revisarConexion() {
   }
 }
 
+// Cómo entra cada vecino: con clave, con Google, o ambas. El dato vive en
+// Firebase Auth, no en Firestore, así que hay que preguntárselo a Auth.
+// getUsers acepta 100 por llamada, así que esto es una consulta para todos.
+//
+// Sirve para lo práctico: si un vecino dice "no puedo entrar", ver de un
+// vistazo si tiene clave o si siempre entró por Google.
+exports.adminProveedores = onCall(async (request) => {
+  await exigirAdmin(request);
+  const snap = await db.collection('usuarios').get();
+  const uids = snap.docs.map((d) => ({ uid: d.id }));
+  const porUid = {};
+  for (let i = 0; i < uids.length; i += 100) {
+    const res = await admin.auth().getUsers(uids.slice(i, i + 100));
+    for (const u of res.users) {
+      porUid[u.uid] = (u.providerData || []).map((p) => p.providerId);
+    }
+  }
+  return { proveedores: porUid };
+});
+
 // Botón "actualizar" del panel: consulta en vivo. Solo admin.
 exports.estadoDispositivos = onCall(
   { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB] },
