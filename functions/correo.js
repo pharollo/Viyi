@@ -68,10 +68,9 @@ function plantillaResetClave(enlace) {
     asunto: 'Restablece tu clave de ViYi',
     html: maqueta({
       titulo: 'Restablece tu clave de ViYi',
-      cuerpo: '<p style="margin:0 0 14px;">¡Hola!</p>'
+      cuerpo: '<p style="margin:0 0 14px;">Hola!</p>'
         + '<p style="margin:0 0 14px;">Olvidaste tu clave, ¡eso pasa!</p>'
-        + '<p style="margin:0;">Para crear una nueva, haz click en el botón '
-        + 'o sigue el enlace de abajo.</p>',
+        + '<p style="margin:0;">Para crear una nueva, haz click en el botón.</p>',
       textoBoton: 'Clave Nueva',
       enlace,
       cierre: '<p style="margin:0 0 22px;">Si no pediste cambiar tu clave, '
@@ -79,11 +78,12 @@ function plantillaResetClave(enlace) {
         + '<p style="margin:0 0 10px;">Saludos,</p>'
         + '<p style="margin:0;">Soporte ViYi</p>',
     }),
-    texto: '¡Hola!\n\n'
-      + 'Olvidaste tu clave, ¡eso pasa! Para crear una nueva, sigue este enlace:\n\n'
+    texto: 'Hola!\n\n'
+      + 'Olvidaste tu clave, ¡eso pasa!\n\n'
+      + 'Para crear una nueva, sigue este enlace:\n\n'
       + `${enlace}\n\n`
       + 'Si no pediste cambiar tu clave, puedes ignorar este correo.\n\n'
-      + 'Saludos,\nSoporte ViYi',
+      + 'Saludos,\n\nSoporte ViYi',
   };
 }
 
