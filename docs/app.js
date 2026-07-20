@@ -315,18 +315,17 @@ async function iniciar() {
 
   // ---- Invitación por pase: primero el correo (email-first) ----
   // El botón se adapta al correo: @gmail → "Continuar con Google"; otro → "Continuar".
-  // Se usa Google solo si es gmail y la cuenta NO es de solo-clave. Al escribir un
-  // gmail se consulta (con debounce) verificarEmail: si ya existe con clave y sin
-  // Google, se muestra "Continuar" (clave) directo, sin pasar por Google.
+  // "Continuar" (correo + clave) es SIEMPRE el camino principal; Google queda como
+  // botón opcional al lado. Solo se ofrece si es gmail y la cuenta NO es de
+  // solo-clave: al escribir un gmail se consulta (con debounce) verificarEmail y,
+  // si ya existe con clave y sin Google, ni se muestra.
   const esGmail = (email) => /@(gmail|googlemail)\.com$/i.test(String(email || '').trim());
   let forzarEmailPase = false;
   let cuentaConClave = false;
   let verifTimer = null;
   const usarGoogle = () => esGmail($('pase-email').value) && !cuentaConClave && !forzarEmailPase;
   function actualizarBotonPase() {
-    const g = usarGoogle();
-    $('btn-continuar').classList.toggle('oculto', g);
-    $('btn-google').classList.toggle('oculto', !g);
+    $('btn-google').classList.toggle('oculto', !usarGoogle());
   }
   $('pase-email').addEventListener('input', () => {
     forzarEmailPase = false;
@@ -383,8 +382,6 @@ async function iniciar() {
       error.classList.remove('oculto');
       return;
     }
-    // Gmail sin cuenta de clave → Google (también con Enter).
-    if (usarGoogle()) { entrarConGoogle(); return; }
     const boton = $('btn-continuar');
     boton.disabled = true;
     boton.textContent = 'Verificando…';
