@@ -1,4 +1,8 @@
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js';
+// El ?v= va aquí y no en index.html porque este archivo se importa como módulo.
+// Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
+// pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
+// index.html cada vez que cambie firebase-config.js.
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=146';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
