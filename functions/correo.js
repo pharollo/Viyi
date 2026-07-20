@@ -43,10 +43,11 @@ function maqueta({ titulo, cuerpo, textoBoton, enlace, cierre }) {
       <tr><td align="center" style="padding:26px 30px 6px;">
         <a href="${url}" style="display:inline-block;padding:13px 30px;border-radius:10px;background:${PRIMARIO};color:${SOBRE_PRIMARIO};font-family:Helvetica,Arial,sans-serif;font-size:16px;font-weight:bold;text-decoration:none;">${esc(textoBoton)}</a>
       </td></tr>
-      <tr><td style="padding:16px 30px 0;font-family:Helvetica,Arial,sans-serif;color:${SUAVE};font-size:13px;line-height:1.6;word-break:break-all;">
-        Si el botón no funciona, copia este enlace:<br><a href="${url}" style="color:${PRIMARIO};">${url}</a>
+      <tr><td style="padding:20px 30px 0;font-family:Helvetica,Arial,sans-serif;color:${SUAVE};font-size:13px;line-height:1.6;word-break:break-all;">
+        <p style="margin:0 0 10px;">Si el botón no funciona, copia este enlace:</p>
+        <a href="${url}" style="color:${PRIMARIO};">${url}</a>
       </td></tr>
-      <tr><td style="padding:22px 30px 30px;font-family:Helvetica,Arial,sans-serif;color:${SUAVE};font-size:14px;line-height:1.6;">
+      <tr><td style="padding:28px 30px 30px;font-family:Helvetica,Arial,sans-serif;color:${SUAVE};font-size:14px;line-height:1.6;">
         ${cierre}
       </td></tr>
     </table>
@@ -67,13 +68,16 @@ function plantillaResetClave(enlace) {
     asunto: 'Restablece tu clave de ViYi',
     html: maqueta({
       titulo: 'Restablece tu clave de ViYi',
-      cuerpo: '<p style="margin:0 0 12px;">¡Hola!</p>'
-        + '<p style="margin:0;">Olvidaste tu clave, ¡eso pasa! Para crear una nueva, '
-        + 'haz click en el botón o sigue el enlace de abajo.</p>',
+      cuerpo: '<p style="margin:0 0 14px;">¡Hola!</p>'
+        + '<p style="margin:0 0 14px;">Olvidaste tu clave, ¡eso pasa!</p>'
+        + '<p style="margin:0;">Para crear una nueva, haz click en el botón '
+        + 'o sigue el enlace de abajo.</p>',
       textoBoton: 'Clave Nueva',
       enlace,
-      cierre: '<p style="margin:0 0 12px;">Si no pediste cambiar tu clave, '
-        + 'puedes ignorar este correo.</p><p style="margin:0;">Saludos,<br>Soporte ViYi</p>',
+      cierre: '<p style="margin:0 0 22px;">Si no pediste cambiar tu clave, '
+        + 'puedes ignorar este correo.</p>'
+        + '<p style="margin:0 0 10px;">Saludos,</p>'
+        + '<p style="margin:0;">Soporte ViYi</p>',
     }),
     texto: '¡Hola!\n\n'
       + 'Olvidaste tu clave, ¡eso pasa! Para crear una nueva, sigue este enlace:\n\n'
