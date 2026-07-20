@@ -25,7 +25,12 @@ const SECRETS_HB = [HOMEBRIDGE_URL, HOMEBRIDGE_USER, HOMEBRIDGE_PASS];
 // Envío de los correos propios (firebase functions:secrets:set RESEND_API_KEY).
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 
-setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
+// maxInstances bajo a propósito: la cuota de Cloud Run "total allowable CPU per
+// project per region" cuenta el techo de TODAS las funciones juntas, y con 18
+// funciones a 10 instancias se agotó — los despliegues empezaron a fallar con
+// "Container Healthcheck failed / Quota exceeded". Con 3 sobra: cada instancia
+// atiende 80 peticiones a la vez.
+setGlobalOptions({ region: 'us-central1', maxInstances: 3 });
 
 let clienteTuya = null;
 function tuya() {
