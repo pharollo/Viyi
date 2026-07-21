@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=150';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=151';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -63,6 +63,8 @@ async function iniciar() {
   const crearPase = httpsCallable(functions, 'crearPase');
   const canjearPase = httpsCallable(functions, 'canjearPase');
   const verificarEmail = httpsCallable(functions, 'verificarEmail');
+  const misInvitados = httpsCallable(functions, 'misInvitados');
+  const darAcceso = httpsCallable(functions, 'darAcceso');
   const enviarResetClave = httpsCallable(functions, 'enviarResetClave');
   const estadoDispositivos = httpsCallable(functions, 'estadoDispositivos');
   const adminProveedores = httpsCallable(functions, 'adminProveedores');
@@ -1978,6 +1980,7 @@ async function iniciar() {
     document.querySelectorAll('#pase-duracion .chip-dur').forEach((c) => c.classList.toggle('activa', c === b));
   });
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
+  $('pase-destino').addEventListener('change', alCambiarDestino);
   $('btn-refrescar-pases').addEventListener('click', cargarMisPases);
   // Toggle admin: ver solo mis pases o todos los del condominio.
   $('pase-scope').addEventListener('click', (e) => {
@@ -2076,6 +2079,8 @@ async function iniciar() {
     $('pase-generador').classList.toggle('oculto', !puedeCompartir);
     $('pase-mis').classList.toggle('oculto', !puedeCompartir);
     if (!puedeCompartir) return;
+    cargarMisInvitados(); // sin await: el generador no espera por la lista
+    alCambiarDestino();
     const cont = $('pase-dispositivos');
     cont.textContent = '';
     for (const d of compartibles) {
@@ -2089,7 +2094,62 @@ async function iniciar() {
     cargarMisPases();
   }
 
+  // Llena el selector con mis invitados frecuentes: la gente que ya canjeó
+  // algún pase mío. Si aún no hay ninguno, el selector ni se muestra — no tiene
+  // sentido ofrecer una lista vacía a quien todavía no ha compartido nada.
+  async function cargarMisInvitados() {
+    const sel = $('pase-destino');
+    try {
+      const res = await misInvitados();
+      const lista = (res.data && res.data.invitados) || [];
+      sel.classList.toggle('oculto', !lista.length);
+      while (sel.options.length > 1) sel.remove(1);
+      for (const inv of lista) {
+        const o = document.createElement('option');
+        o.value = inv.uid;
+        o.textContent = [inv.nombre, inv.apellido].filter(Boolean).join(' ') || inv.email;
+        sel.appendChild(o);
+      }
+    } catch (err) {
+      sel.classList.add('oculto');
+    }
+  }
+
+  // El selector decide el modo: sin destino se genera un enlace para compartir;
+  // con destino se le da el acceso directo a esa persona. "Multiuso" solo
+  // aplica a los enlaces, así que se esconde.
+  function alCambiarDestino() {
+    const directo = !!$('pase-destino').value;
+    $('btn-generar-pase').textContent = directo ? 'Dar acceso' : 'Generar enlace';
+    document.querySelector('.pase-multi').classList.toggle('oculto', directo);
+    if (directo) $('pase-resultado').classList.add('oculto');
+  }
+
+  async function darAccesoDirecto() {
+    const seleccion = [...document.querySelectorAll('#pase-dispositivos input:checked')].map((i) => i.value);
+    if (!seleccion.length) { toast('Elige al menos un dispositivo.', 'error'); return; }
+    const boton = $('btn-generar-pase');
+    boton.disabled = true;
+    boton.textContent = 'Dando acceso…';
+    try {
+      const evento = tituloCase($('pase-evento').value.trim());
+      const res = await darAcceso({
+        uid: $('pase-destino').value, dispositivos: seleccion, duracion: paseDuracionSel, evento,
+      });
+      toast(res.data && res.data.avisado
+        ? 'Acceso dado. Le llegó un correo con el aviso.'
+        : 'Acceso dado, pero no se le pudo avisar por correo.', 'ok');
+      cargarMisPases();
+    } catch (err) {
+      toast((err && err.message) || 'No se pudo dar el acceso.', 'error');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Dar acceso';
+    }
+  }
+
   async function generarEnlacePase() {
+    if ($('pase-destino').value) return darAccesoDirecto();
     const seleccion = [...document.querySelectorAll('#pase-dispositivos input:checked')].map((i) => i.value);
     if (!seleccion.length) { toast('Elige al menos un dispositivo.', 'error'); return; }
     const boton = $('btn-generar-pase');

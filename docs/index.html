@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=150">
+  <link rel="stylesheet" href="styles.css?v=151">
 </head>
 <body>
   <header>
@@ -111,6 +111,9 @@
         <div id="pase-invitado" class="tarjeta oculto"></div>
         <div class="tarjeta" id="pase-generador">
           <h2>Compartir acceso</h2>
+          <select id="pase-destino" class="pase-destino" aria-label="Para quién">
+            <option value="">Enviar enlace</option>
+          </select>
           <div id="pase-dispositivos" class="pase-disp"></div>
           <input type="text" id="pase-evento" class="pase-evento" maxlength="60" autocapitalize="words" placeholder="Evento (ej: Parrilla, Argentina vs. Inglaterra)" aria-label="Evento">
           <div class="pase-duracion" id="pase-duracion">
@@ -219,6 +222,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=150"></script>
+  <script type="module" src="app.js?v=151"></script>
 </body>
 </html>

@@ -141,6 +141,20 @@ code {
   gap: 8px;
 }
 
+/* Selector de a quién compartir: enlace o un invitado frecuente. */
+.pase-destino {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 11px 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: inherit;
+  font-size: 15px;
+  box-shadow: inset 3px 3px 7px var(--sombra-oscura), inset -3px -3px 7px var(--sombra-clara);
+}
+
 /* Cómo entra cada vecino (Google / clave), en la lista de gestión. */
 .como-entra {
   margin-left: 8px;

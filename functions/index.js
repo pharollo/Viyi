@@ -6,7 +6,7 @@ const admin = require('firebase-admin');
 const crypto = require('crypto');
 const { TuyaClient } = require('./tuya');
 const { HomebridgeClient } = require('./homebridge');
-const { plantillaResetClave, enviar: enviarCorreo } = require('./correo');
+const { plantillaResetClave, plantillaAccesoDado, enviar: enviarCorreo } = require('./correo');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -959,6 +959,128 @@ exports.revisarConexionProgramada = onSchedule(
     if (caidos.length) console.warn('Dispositivos sin conexión:', caidos.join(', '));
   },
 );
+
+// Mis invitados frecuentes: la gente que ya canjeó algún pase mío. La lista se
+// arma sola con lo que los pases ya guardan; no hay que pedir datos nuevos.
+//
+// Es MI lista, no un directorio: nunca devuelve usuarios con los que no he
+// compartido antes, porque eso delataría quién está registrado en el condominio.
+exports.misInvitados = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
+  }
+  const pases = await db.collection('pases').where('por', '==', request.auth.uid).get();
+  const porUid = new Map();
+  pases.forEach((s) => {
+    for (const inv of (s.data().invitados || [])) {
+      if (!inv || !inv.uid || inv.uid === request.auth.uid) continue;
+      const cuando = inv.cuando && inv.cuando.toMillis ? inv.cuando.toMillis() : 0;
+      const previo = porUid.get(inv.uid);
+      if (!previo || cuando > previo.ultima) {
+        porUid.set(inv.uid, {
+          uid: inv.uid,
+          nombre: inv.nombre || '',
+          apellido: inv.apellido || '',
+          email: inv.email || '',
+          ultima: cuando,
+        });
+      }
+    }
+  });
+  const lista = [...porUid.values()].sort((a, b) => b.ultima - a.ultima);
+  return { invitados: lista };
+});
+
+// Da acceso directo a un invitado frecuente, sin enlace de por medio. Escribe
+// el mismo `accesos[]` que escribe el canje de un pase, y avisa por correo:
+// sin el enlace de WhatsApp nadie se enteraría de que ya puede abrir.
+exports.darAcceso = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
+  }
+  const yo = request.auth.uid;
+  const { uid, dispositivos, duracion, evento } = request.data || {};
+  if (!uid || typeof uid !== 'string' || uid === yo) {
+    throw new HttpsError('invalid-argument', 'Elige a quién darle acceso.');
+  }
+  if (!Array.isArray(dispositivos) || !dispositivos.length) {
+    throw new HttpsError('invalid-argument', 'Elige al menos un dispositivo.');
+  }
+  if (!['1h', '24h', '7d', 'indef'].includes(duracion)) {
+    throw new HttpsError('invalid-argument', 'La duración no es válida.');
+  }
+
+  const miSnap = await db.doc(`usuarios/${yo}`).get();
+  if (!miSnap.exists || miSnap.data().activo === false) {
+    throw new HttpsError('permission-denied', 'Tu cuenta no está activa.');
+  }
+  const usuario = miSnap.data();
+  const esAdmin = usuario.rol === 'admin';
+  const propios = usuario.dispositivos || [];
+  const compartir = [...new Set(dispositivos.filter(
+    (id) => typeof id === 'string' && (esAdmin || propios.includes(id)),
+  ))];
+  if (!compartir.length) {
+    throw new HttpsError('permission-denied', 'No puedes compartir esos dispositivos.');
+  }
+
+  // Solo se le puede dar acceso a alguien que ya canjeó un pase mío: si no,
+  // esto sería una puerta para repartir accesos a cualquier uid del sistema.
+  const pasesMios = await db.collection('pases').where('por', '==', yo).get();
+  const esInvitadoMio = pasesMios.docs.some((s) =>
+    (s.data().invitados || []).some((i) => i && i.uid === uid));
+  if (!esInvitadoMio) {
+    throw new HttpsError('permission-denied', 'Esa persona no está en tus invitados.');
+  }
+
+  const destinoSnap = await db.doc(`usuarios/${uid}`).get();
+  if (!destinoSnap.exists || destinoSnap.data().activo === false) {
+    throw new HttpsError('not-found', 'Esa persona ya no tiene cuenta activa.');
+  }
+
+  const ms = msDeDuracion(duracion);
+  const expira = ms == null ? FIN_INDEFINIDO : admin.firestore.Timestamp.fromMillis(Date.now() + ms);
+  const limpio = (typeof evento === 'string' ? evento.trim() : '').slice(0, 60);
+  const accesos = destinoSnap.data().accesos || {};
+  for (const id of compartir) {
+    accesos[id] = {
+      expira,
+      por: yo,
+      token: null, // acceso directo: no nació de un enlace
+      evento: limpio,
+      porNombre: usuario.nombre || '',
+      porApellido: usuario.apellido || '',
+      creado: admin.firestore.Timestamp.now(),
+    };
+  }
+  await db.doc(`usuarios/${uid}`).set({ accesos }, { merge: true });
+
+  // El correo es el aviso; si falla, el acceso ya quedó dado y no se deshace.
+  let avisado = false;
+  const destino = destinoSnap.data();
+  if (destino.email) {
+    try {
+      const nombres = [];
+      for (const id of compartir) {
+        const d = await db.doc(`dispositivos/${id}`).get();
+        nombres.push((d.exists && d.data().nombre) || id);
+      }
+      const vence = ms == null ? '' : new Date(expira.toMillis())
+        .toLocaleString('es-VE', { timeZone: 'America/Caracas', dateStyle: 'long', timeStyle: 'short' });
+      const { asunto, html, texto } = plantillaAccesoDado({
+        anfitrion: [usuario.nombre, usuario.apellido].filter(Boolean).join(' ') || 'Un vecino',
+        dispositivos: nombres,
+        evento: limpio,
+        vence,
+      });
+      await enviarCorreo({ apiKey: RESEND_API_KEY.value(), para: destino.email, asunto, html, texto });
+      avisado = true;
+    } catch (err) {
+      console.error('No se pudo avisar del acceso:', err.message);
+    }
+  }
+  return { ok: true, avisado };
+});
 
 // Genera un enlace de pase con los dispositivos y la duración elegidos.
 exports.crearPase = onCall(async (request) => {

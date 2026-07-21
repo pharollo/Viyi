@@ -87,6 +87,35 @@ function plantillaResetClave(enlace) {
   };
 }
 
+// Aviso de que alguien te dio acceso directo, sin enlace de por medio. Existe
+// porque el enlace de WhatsApp no solo daba acceso: también avisaba. Sin este
+// correo, el invitado no se enteraría de que ya puede abrir.
+function plantillaAccesoDado({ anfitrion, dispositivos, evento, vence }) {
+  const cuales = dispositivos.join(', ');
+  const linea = evento
+    ? `<strong>${esc(anfitrion)}</strong> te invitó a <strong>${esc(evento)}</strong> y te dio acceso a ${esc(cuales)}.`
+    : `<strong>${esc(anfitrion)}</strong> te dio acceso a ${esc(cuales)}.`;
+  const plazo = vence ? `Tu acceso vence el ${esc(vence)}.` : 'Tu acceso no tiene fecha de vencimiento.';
+  return {
+    asunto: evento ? `${anfitrion} te invitó a ${evento}` : `${anfitrion} te dio acceso en ViYi`,
+    html: maqueta({
+      titulo: 'Tienes un acceso nuevo en ViYi',
+      cuerpo: '<p style="margin:0 0 14px;">Hola!</p>'
+        + `<p style="margin:0 0 14px;">${linea}</p>`
+        + '<p style="margin:0;">Abre ViYi y ya lo vas a ver disponible.</p>',
+      textoBoton: 'Abrir ViYi',
+      enlace: 'https://www.viyi.ai/',
+      cierre: `<p style="margin:0 0 22px;">${plazo}</p>`
+        + '<p style="margin:0 0 10px;">Saludos,</p>'
+        + '<p style="margin:0;">Soporte ViYi</p>',
+    }),
+    texto: `Hola!\n\n${anfitrion} te dio acceso a ${cuales}`
+      + `${evento ? ` para ${evento}` : ''}.\n\n`
+      + `Abre ViYi: https://www.viyi.ai/\n\n${vence ? `Tu acceso vence el ${vence}.` : 'Tu acceso no tiene fecha de vencimiento.'}`
+      + '\n\nSaludos,\n\nSoporte ViYi',
+  };
+}
+
 // Manda el correo por la API de Resend. Node 20 ya trae fetch global.
 async function enviar({ apiKey, para, asunto, html, texto }) {
   const resp = await fetch('https://api.resend.com/emails', {
@@ -105,4 +134,4 @@ async function enviar({ apiKey, para, asunto, html, texto }) {
   return resp.json().catch(() => ({}));
 }
 
-module.exports = { plantillaResetClave, enviar, REMITENTE };
+module.exports = { plantillaResetClave, plantillaAccesoDado, enviar, REMITENTE };
