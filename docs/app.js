@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=156';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=157';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -129,6 +129,31 @@ async function iniciar() {
       return w.charAt(0).toLocaleUpperCase() + w.slice(1);
     })
     .join(' ');
+  // Misma lógica que nombrePropio en las Functions, para que lo que ves en el
+  // campo sea exactamente lo que se guarda. `autocapitalize="words"` no sirve
+  // aquí: es solo una pista para el teclado del móvil y en computadora no hace
+  // nada, así que se aplica al salir del campo.
+  const MENORES_NOMBRE = new Set([
+    'de', 'del', 'la', 'las', 'los', 'y', 'e', 'da', 'das', 'do', 'dos',
+    'van', 'von', 'der', 'den', 'ter', 'di', 'du', 'le', 'bin', 'ibn', 'san',
+  ]);
+  const nombrePropio = (s) => String(s == null ? '' : s)
+    .trim().replace(/\s+/g, ' ').slice(0, 60)
+    .split(' ')
+    .map((p, i) => {
+      if (!p) return p;
+      const min = p.toLocaleLowerCase('es');
+      if (i > 0 && MENORES_NOMBRE.has(min)) return min;
+      // La mayúscula interna se respeta: es intencional (McDonald, DeLuca).
+      const base = (p === min || p === p.toLocaleUpperCase('es')) ? min : p;
+      return base.charAt(0).toLocaleUpperCase('es') + base.slice(1);
+    })
+    .join(' ');
+  // Deja un campo de nombre en Title Case al salir de él.
+  const autoNombre = (input) => input.addEventListener('blur', () => {
+    input.value = nombrePropio(input.value);
+  });
+
   const TIPO_INMUEBLE_TXT = {
     conjunto: 'Conjunto Residencial',
     residencias: 'Residencias',
@@ -1721,7 +1746,10 @@ async function iniciar() {
     const u = existente || {};
     const iNombre = entrada(u.nombre);
     const iApellido = entrada(u.apellido);
-    [iNombre, iApellido].forEach((i) => i.setAttribute('autocapitalize', 'words'));
+    [iNombre, iApellido].forEach((i) => {
+      i.setAttribute('autocapitalize', 'words'); // pista para el teclado móvil
+      autoNombre(i); // y el Title Case de verdad, que también sirve en escritorio
+    });
     const iEmail = entrada(u.email, 'correo@ejemplo.com', 'email');
     if (!esNuevo) iEmail.disabled = true;
     const iPass = entrada('', esNuevo ? 'Mínimo 6 caracteres' : 'Dejar vacío para no cambiarla', 'password');
@@ -1998,6 +2026,10 @@ async function iniciar() {
   });
   // Evento en Title Case al salir del campo (no en cada tecla: reescribir el
   // value mientras se escribe rompe el teclado en móviles y cortaba el texto).
+  // Nombres y apellidos en Title Case al salir del campo, en las tres pantallas
+  // fijas. Los del editor de admin se enganchan al crearse.
+  ['reg-nombre', 'reg-apellido', 'perfil-nombre', 'perfil-apellido'].forEach((id) => autoNombre($(id)));
+
   $('pase-evento').addEventListener('blur', () => {
     $('pase-evento').value = tituloCase($('pase-evento').value);
   });
