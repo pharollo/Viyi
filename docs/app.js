@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=154';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=155';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2129,7 +2129,7 @@ async function iniciar() {
   function aplicarModoPase() {
     const frec = paseModo === 'frecuentes';
     $('pase-invitados-lista').classList.toggle('oculto', !frec);
-    $('btn-generar-pase').textContent = frec ? 'Dar acceso' : 'Generar';
+    $('btn-generar-pase').textContent = frec ? 'Invitar' : 'Generar';
     document.querySelector('.pase-multi').classList.toggle('oculto', frec);
     document.querySelectorAll('#pase-modo .chip-scope').forEach((c) =>
       c.classList.toggle('activa', (c.dataset.modo === 'frecuentes') === frec));
@@ -2143,7 +2143,7 @@ async function iniciar() {
     if (!aQuienes.length) { toast('Elige al menos un invitado.', 'error'); return; }
     const boton = $('btn-generar-pase');
     boton.disabled = true;
-    boton.textContent = 'Dando acceso…';
+    boton.textContent = 'Invitando…';
     try {
       const evento = tituloCase($('pase-evento').value.trim());
       const res = await darAcceso({
@@ -2152,15 +2152,15 @@ async function iniciar() {
       const d = (res.data && res.data.dados) || 0;
       const a = (res.data && res.data.avisados) || 0;
       toast(d === a
-        ? `Acceso dado a ${d}. Les llegó el correo.`
-        : `Acceso dado a ${d}. Se avisó a ${a} por correo.`, 'ok');
+        ? `Invitaste a ${d}. Les llegó el correo.`
+        : `Invitaste a ${d}. Se avisó a ${a} por correo.`, 'ok');
       document.querySelectorAll('#pase-invitados-lista input:checked').forEach((i) => { i.checked = false; });
       cargarMisPases();
     } catch (err) {
       toast((err && err.message) || 'No se pudo dar el acceso.', 'error');
     } finally {
       boton.disabled = false;
-      boton.textContent = 'Dar acceso';
+      boton.textContent = 'Invitar';
     }
   }
 
