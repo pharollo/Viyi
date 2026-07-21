@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=149';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=150';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -264,6 +264,11 @@ async function iniciar() {
       // Con un enlace de pase: pedir el correo primero (email-first) y según si
       // ya tiene cuenta, mostrar login o crear cuenta. Si no, login normal.
       mostrarVista(paseTokenPendiente ? 'vista-email' : 'vista-login');
+      // El "Volver" solo tiene sentido llegando con un pase: es lo único que
+      // muestra la pantalla del correo antes. Al vecino fijo, que entra directo
+      // al login, no hay adónde devolverlo.
+      $('btn-volver-login').classList.toggle('oculto', !paseTokenPendiente);
+      $('btn-volver-reg').classList.toggle('oculto', !paseTokenPendiente);
       // Mostrar al invitado a qué evento lo invitan (si el pase tiene evento).
       if (paseTokenPendiente) {
         verificarEmail({ token: paseTokenPendiente })
@@ -498,6 +503,24 @@ async function iniciar() {
       boton.textContent = 'Entrar';
     }
   });
+
+  // "Volver": regresa a la pantalla del correo. Sin esto, quien elegía el
+  // camino de la clave quedaba atrapado ahí: no podía cambiarse a Google ni
+  // corregir el correo si lo escribió mal.
+  function volverAlCorreo(desde) {
+    const em = $(desde).value.trim();
+    if (em) $('pase-email').value = em;
+    // Se reinician las banderas para que la pantalla vuelva a decidir con qué
+    // botones recibirlo; si Google no aplica, su propio error lo reencamina.
+    forzarEmailPase = false;
+    cuentaConClave = false;
+    soloGoogle = false;
+    $('error-email').classList.add('oculto');
+    actualizarBotonPase();
+    mostrarVista('vista-email');
+  }
+  $('btn-volver-login').addEventListener('click', () => volverAlCorreo('campo-email'));
+  $('btn-volver-reg').addEventListener('click', () => volverAlCorreo('reg-email'));
 
   // "Ya tengo cuenta": ir al login conservando el pase pendiente y el correo.
   $('btn-ir-login').addEventListener('click', () => {
