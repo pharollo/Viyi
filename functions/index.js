@@ -996,8 +996,12 @@ exports.misInvitados = onCall(async (request) => {
       }
     }
   });
-  // Del más frecuente al menos; a igual número de veces, primero el más reciente.
-  const lista = [...porUid.values()].sort((a, b) => b.veces - a.veces || b.ultima - a.ultima);
+  // Del más frecuente al menos; a igual número de veces, primero el más
+  // reciente. El conteo se usa solo para ordenar y no se devuelve: mostrarle a
+  // alguien cuántas veces ha invitado a otro se siente invasivo.
+  const lista = [...porUid.values()]
+    .sort((a, b) => b.veces - a.veces || b.ultima - a.ultima)
+    .map(({ uid, nombre, apellido, email }) => ({ uid, nombre, apellido, email }));
   return { invitados: lista };
 });
 

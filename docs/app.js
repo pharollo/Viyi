@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=153';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=154';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2116,8 +2116,7 @@ async function iniciar() {
         const lab = document.createElement('label');
         lab.className = 'pase-casilla';
         lab.innerHTML = `<input type="checkbox" value="${escapar(inv.uid)}">`
-          + `<span>${escapar(nombre)}</span>`
-          + `<em class="veces">${inv.veces} ${inv.veces === 1 ? 'vez' : 'veces'}</em>`;
+          + `<span>${escapar(nombre)}</span>`;
         cont.appendChild(lab);
       }
     } catch (err) {

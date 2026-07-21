@@ -149,16 +149,6 @@ code {
   border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-/* Cuántas veces se le ha compartido a cada invitado frecuente. */
-.pase-casilla .veces {
-  margin-left: auto;
-  padding-left: 10px;
-  color: var(--texto-suave);
-  font-size: 12px;
-  font-style: normal;
-  white-space: nowrap;
-}
-
 /* Cómo entra cada vecino (Google / clave), en la lista de gestión. */
 .como-entra {
   margin-left: 8px;
