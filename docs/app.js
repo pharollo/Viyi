@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=152';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=153';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2130,7 +2130,7 @@ async function iniciar() {
   function aplicarModoPase() {
     const frec = paseModo === 'frecuentes';
     $('pase-invitados-lista').classList.toggle('oculto', !frec);
-    $('btn-generar-pase').textContent = frec ? 'Dar acceso' : 'Generar enlace';
+    $('btn-generar-pase').textContent = frec ? 'Dar acceso' : 'Generar';
     document.querySelector('.pase-multi').classList.toggle('oculto', frec);
     document.querySelectorAll('#pase-modo .chip-scope').forEach((c) =>
       c.classList.toggle('activa', (c.dataset.modo === 'frecuentes') === frec));
@@ -2183,7 +2183,7 @@ async function iniciar() {
       toast((err && err.message) || 'No se pudo generar el enlace.', 'error');
     } finally {
       boton.disabled = false;
-      boton.textContent = 'Generar enlace';
+      boton.textContent = 'Generar';
     }
   }
 
