@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=151';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=152';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -1980,7 +1980,12 @@ async function iniciar() {
     document.querySelectorAll('#pase-duracion .chip-dur').forEach((c) => c.classList.toggle('activa', c === b));
   });
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
-  $('pase-destino').addEventListener('change', alCambiarDestino);
+  $('pase-modo').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip-scope');
+    if (!b) return;
+    paseModo = b.dataset.modo;
+    aplicarModoPase();
+  });
   $('btn-refrescar-pases').addEventListener('click', cargarMisPases);
   // Toggle admin: ver solo mis pases o todos los del condominio.
   $('pase-scope').addEventListener('click', (e) => {
@@ -2080,7 +2085,7 @@ async function iniciar() {
     $('pase-mis').classList.toggle('oculto', !puedeCompartir);
     if (!puedeCompartir) return;
     cargarMisInvitados(); // sin await: el generador no espera por la lista
-    alCambiarDestino();
+    aplicarModoPase();
     const cont = $('pase-dispositivos');
     cont.textContent = '';
     for (const d of compartibles) {
@@ -2094,51 +2099,63 @@ async function iniciar() {
     cargarMisPases();
   }
 
-  // Llena el selector con mis invitados frecuentes: la gente que ya canjeó
-  // algún pase mío. Si aún no hay ninguno, el selector ni se muestra — no tiene
-  // sentido ofrecer una lista vacía a quien todavía no ha compartido nada.
+  let paseModo = 'enlace';
+
+  // Mis invitados frecuentes: quienes ya canjearon algún pase mío, del que más
+  // veces al que menos. Si no hay ninguno, ni se ofrece la pestaña — no tiene
+  // sentido mostrarle una lista vacía a quien todavía no ha compartido nada.
   async function cargarMisInvitados() {
-    const sel = $('pase-destino');
+    const cont = $('pase-invitados-lista');
     try {
       const res = await misInvitados();
       const lista = (res.data && res.data.invitados) || [];
-      sel.classList.toggle('oculto', !lista.length);
-      while (sel.options.length > 1) sel.remove(1);
+      $('pase-modo').classList.toggle('oculto', !lista.length);
+      cont.textContent = '';
       for (const inv of lista) {
-        const o = document.createElement('option');
-        o.value = inv.uid;
-        o.textContent = [inv.nombre, inv.apellido].filter(Boolean).join(' ') || inv.email;
-        sel.appendChild(o);
+        const nombre = [inv.nombre, inv.apellido].filter(Boolean).join(' ') || inv.email;
+        const lab = document.createElement('label');
+        lab.className = 'pase-casilla';
+        lab.innerHTML = `<input type="checkbox" value="${escapar(inv.uid)}">`
+          + `<span>${escapar(nombre)}</span>`
+          + `<em class="veces">${inv.veces} ${inv.veces === 1 ? 'vez' : 'veces'}</em>`;
+        cont.appendChild(lab);
       }
     } catch (err) {
-      sel.classList.add('oculto');
+      $('pase-modo').classList.add('oculto');
     }
   }
 
-  // El selector decide el modo: sin destino se genera un enlace para compartir;
-  // con destino se le da el acceso directo a esa persona. "Multiuso" solo
-  // aplica a los enlaces, así que se esconde.
-  function alCambiarDestino() {
-    const directo = !!$('pase-destino').value;
-    $('btn-generar-pase').textContent = directo ? 'Dar acceso' : 'Generar enlace';
-    document.querySelector('.pase-multi').classList.toggle('oculto', directo);
-    if (directo) $('pase-resultado').classList.add('oculto');
+  // Los dos modos comparten dispositivos, evento y duración; solo cambia a
+  // quién va. "Multiuso" se esconde en frecuentes porque solo aplica a enlaces.
+  function aplicarModoPase() {
+    const frec = paseModo === 'frecuentes';
+    $('pase-invitados-lista').classList.toggle('oculto', !frec);
+    $('btn-generar-pase').textContent = frec ? 'Dar acceso' : 'Generar enlace';
+    document.querySelector('.pase-multi').classList.toggle('oculto', frec);
+    document.querySelectorAll('#pase-modo .chip-scope').forEach((c) =>
+      c.classList.toggle('activa', (c.dataset.modo === 'frecuentes') === frec));
+    if (frec) $('pase-resultado').classList.add('oculto');
   }
 
   async function darAccesoDirecto() {
     const seleccion = [...document.querySelectorAll('#pase-dispositivos input:checked')].map((i) => i.value);
     if (!seleccion.length) { toast('Elige al menos un dispositivo.', 'error'); return; }
+    const aQuienes = [...document.querySelectorAll('#pase-invitados-lista input:checked')].map((i) => i.value);
+    if (!aQuienes.length) { toast('Elige al menos un invitado.', 'error'); return; }
     const boton = $('btn-generar-pase');
     boton.disabled = true;
     boton.textContent = 'Dando acceso…';
     try {
       const evento = tituloCase($('pase-evento').value.trim());
       const res = await darAcceso({
-        uid: $('pase-destino').value, dispositivos: seleccion, duracion: paseDuracionSel, evento,
+        uids: aQuienes, dispositivos: seleccion, duracion: paseDuracionSel, evento,
       });
-      toast(res.data && res.data.avisado
-        ? 'Acceso dado. Le llegó un correo con el aviso.'
-        : 'Acceso dado, pero no se le pudo avisar por correo.', 'ok');
+      const d = (res.data && res.data.dados) || 0;
+      const a = (res.data && res.data.avisados) || 0;
+      toast(d === a
+        ? `Acceso dado a ${d}. Les llegó el correo.`
+        : `Acceso dado a ${d}. Se avisó a ${a} por correo.`, 'ok');
+      document.querySelectorAll('#pase-invitados-lista input:checked').forEach((i) => { i.checked = false; });
       cargarMisPases();
     } catch (err) {
       toast((err && err.message) || 'No se pudo dar el acceso.', 'error');
@@ -2149,7 +2166,7 @@ async function iniciar() {
   }
 
   async function generarEnlacePase() {
-    if ($('pase-destino').value) return darAccesoDirecto();
+    if (paseModo === 'frecuentes') return darAccesoDirecto();
     const seleccion = [...document.querySelectorAll('#pase-dispositivos input:checked')].map((i) => i.value);
     if (!seleccion.length) { toast('Elige al menos un dispositivo.', 'error'); return; }
     const boton = $('btn-generar-pase');

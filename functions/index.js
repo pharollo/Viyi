@@ -976,18 +976,28 @@ exports.misInvitados = onCall(async (request) => {
       if (!inv || !inv.uid || inv.uid === request.auth.uid) continue;
       const cuando = inv.cuando && inv.cuando.toMillis ? inv.cuando.toMillis() : 0;
       const previo = porUid.get(inv.uid);
-      if (!previo || cuando > previo.ultima) {
+      if (!previo) {
         porUid.set(inv.uid, {
           uid: inv.uid,
           nombre: inv.nombre || '',
           apellido: inv.apellido || '',
           email: inv.email || '',
+          veces: 1,
           ultima: cuando,
         });
+      } else {
+        previo.veces += 1;
+        if (cuando > previo.ultima) {
+          previo.ultima = cuando;
+          previo.nombre = inv.nombre || previo.nombre;
+          previo.apellido = inv.apellido || previo.apellido;
+          previo.email = inv.email || previo.email;
+        }
       }
     }
   });
-  const lista = [...porUid.values()].sort((a, b) => b.ultima - a.ultima);
+  // Del más frecuente al menos; a igual número de veces, primero el más reciente.
+  const lista = [...porUid.values()].sort((a, b) => b.veces - a.veces || b.ultima - a.ultima);
   return { invitados: lista };
 });
 
@@ -999,8 +1009,10 @@ exports.darAcceso = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
     throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
   }
   const yo = request.auth.uid;
-  const { uid, dispositivos, duracion, evento } = request.data || {};
-  if (!uid || typeof uid !== 'string' || uid === yo) {
+  const { uids, dispositivos, duracion, evento } = request.data || {};
+  const destinos = [...new Set((Array.isArray(uids) ? uids : [])
+    .filter((u) => typeof u === 'string' && u && u !== yo))];
+  if (!destinos.length) {
     throw new HttpsError('invalid-argument', 'Elige a quién darle acceso.');
   }
   if (!Array.isArray(dispositivos) || !dispositivos.length) {
@@ -1024,62 +1036,69 @@ exports.darAcceso = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
     throw new HttpsError('permission-denied', 'No puedes compartir esos dispositivos.');
   }
 
-  // Solo se le puede dar acceso a alguien que ya canjeó un pase mío: si no,
-  // esto sería una puerta para repartir accesos a cualquier uid del sistema.
+  // Solo se le puede dar acceso a quien ya canjeó un pase mío: si no, esto
+  // sería una puerta para repartir accesos a cualquier uid del sistema.
   const pasesMios = await db.collection('pases').where('por', '==', yo).get();
-  const esInvitadoMio = pasesMios.docs.some((s) =>
-    (s.data().invitados || []).some((i) => i && i.uid === uid));
-  if (!esInvitadoMio) {
+  const mios = new Set();
+  pasesMios.forEach((s) => {
+    for (const i of (s.data().invitados || [])) if (i && i.uid) mios.add(i.uid);
+  });
+  if (destinos.some((u) => !mios.has(u))) {
     throw new HttpsError('permission-denied', 'Esa persona no está en tus invitados.');
-  }
-
-  const destinoSnap = await db.doc(`usuarios/${uid}`).get();
-  if (!destinoSnap.exists || destinoSnap.data().activo === false) {
-    throw new HttpsError('not-found', 'Esa persona ya no tiene cuenta activa.');
   }
 
   const ms = msDeDuracion(duracion);
   const expira = ms == null ? FIN_INDEFINIDO : admin.firestore.Timestamp.fromMillis(Date.now() + ms);
   const limpio = (typeof evento === 'string' ? evento.trim() : '').slice(0, 60);
-  const accesos = destinoSnap.data().accesos || {};
-  for (const id of compartir) {
-    accesos[id] = {
-      expira,
-      por: yo,
-      token: null, // acceso directo: no nació de un enlace
-      evento: limpio,
-      porNombre: usuario.nombre || '',
-      porApellido: usuario.apellido || '',
-      creado: admin.firestore.Timestamp.now(),
-    };
-  }
-  await db.doc(`usuarios/${uid}`).set({ accesos }, { merge: true });
+  const vence = ms == null ? '' : new Date(expira.toMillis())
+    .toLocaleString('es-VE', { timeZone: 'America/Caracas', dateStyle: 'long', timeStyle: 'short' });
 
-  // El correo es el aviso; si falla, el acceso ya quedó dado y no se deshace.
-  let avisado = false;
-  const destino = destinoSnap.data();
-  if (destino.email) {
-    try {
-      const nombres = [];
-      for (const id of compartir) {
-        const d = await db.doc(`dispositivos/${id}`).get();
-        nombres.push((d.exists && d.data().nombre) || id);
-      }
-      const vence = ms == null ? '' : new Date(expira.toMillis())
-        .toLocaleString('es-VE', { timeZone: 'America/Caracas', dateStyle: 'long', timeStyle: 'short' });
-      const { asunto, html, texto } = plantillaAccesoDado({
-        anfitrion: [usuario.nombre, usuario.apellido].filter(Boolean).join(' ') || 'Un vecino',
-        dispositivos: nombres,
+  const nombresDisp = [];
+  for (const id of compartir) {
+    const d = await db.doc(`dispositivos/${id}`).get();
+    nombresDisp.push((d.exists && d.data().nombre) || id);
+  }
+  const anfitrion = [usuario.nombre, usuario.apellido].filter(Boolean).join(' ') || 'Un vecino';
+
+  let dados = 0;
+  let avisados = 0;
+  for (const destinoUid of destinos) {
+    const destinoSnap = await db.doc(`usuarios/${destinoUid}`).get();
+    // A uno inactivo se le salta sin tumbar a los demás del lote.
+    if (!destinoSnap.exists || destinoSnap.data().activo === false) continue;
+
+    const accesos = destinoSnap.data().accesos || {};
+    for (const id of compartir) {
+      accesos[id] = {
+        expira,
+        por: yo,
+        token: null, // acceso directo: no nació de un enlace
         evento: limpio,
-        vence,
+        porNombre: usuario.nombre || '',
+        porApellido: usuario.apellido || '',
+        creado: admin.firestore.Timestamp.now(),
+      };
+    }
+    await db.doc(`usuarios/${destinoUid}`).set({ accesos }, { merge: true });
+    dados += 1;
+
+    // El correo es el aviso; si falla, el acceso ya quedó dado y no se deshace.
+    const email = destinoSnap.data().email;
+    if (!email) continue;
+    try {
+      const { asunto, html, texto } = plantillaAccesoDado({
+        anfitrion, dispositivos: nombresDisp, evento: limpio, vence,
       });
-      await enviarCorreo({ apiKey: RESEND_API_KEY.value(), para: destino.email, asunto, html, texto });
-      avisado = true;
+      await enviarCorreo({ apiKey: RESEND_API_KEY.value(), para: email, asunto, html, texto });
+      avisados += 1;
     } catch (err) {
       console.error('No se pudo avisar del acceso:', err.message);
     }
   }
-  return { ok: true, avisado };
+  if (!dados) {
+    throw new HttpsError('not-found', 'Esas personas ya no tienen cuenta activa.');
+  }
+  return { ok: true, dados, avisados };
 });
 
 // Genera un enlace de pase con los dispositivos y la duración elegidos.

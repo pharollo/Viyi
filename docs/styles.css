@@ -141,18 +141,22 @@ code {
   gap: 8px;
 }
 
-/* Selector de a quién compartir: enlace o un invitado frecuente. */
-.pase-destino {
-  width: 100%;
-  margin-bottom: 12px;
-  padding: 11px 12px;
-  border: none;
-  border-radius: 12px;
-  background: var(--fondo);
-  color: var(--texto);
-  font-family: inherit;
-  font-size: 15px;
-  box-shadow: inset 3px 3px 7px var(--sombra-oscura), inset -3px -3px 7px var(--sombra-clara);
+/* Con la lista de invitados visible, separar la de dispositivos: pegadas se
+   leen como un solo grupo de casillas. */
+#pase-invitados-lista:not(.oculto) + #pase-dispositivos {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Cuántas veces se le ha compartido a cada invitado frecuente. */
+.pase-casilla .veces {
+  margin-left: auto;
+  padding-left: 10px;
+  color: var(--texto-suave);
+  font-size: 12px;
+  font-style: normal;
+  white-space: nowrap;
 }
 
 /* Cómo entra cada vecino (Google / clave), en la lista de gestión. */
