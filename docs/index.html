@@ -10,8 +10,12 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=157">
+  <!-- La fuente NO bloquea el dibujo: se carga como "print" (que el navegador
+       no espera) y al llegar se aplica con onload. La app aparece de una con la
+       fuente del sistema y la propia entra cuando baja. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
+  <link rel="stylesheet" href="styles.css?v=158">
 </head>
 <body>
   <header>
@@ -224,6 +228,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=157"></script>
+  <script type="module" src="app.js?v=158"></script>
 </body>
 </html>

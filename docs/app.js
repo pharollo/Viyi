@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=157';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=158';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -28,17 +28,27 @@ if (!firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith('PEGA_')) {
 }
 
 async function iniciar() {
-  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+  // Los cuatro módulos de Firebase bajan EN PARALELO, no en fila: antes cada
+  // await esperaba a que terminara el anterior, cuatro viajes al CDN apilados.
+  // Con señal mala (un celular en un estacionamiento) esa suma se notaba.
+  const B = 'https://www.gstatic.com/firebasejs/10.12.2/';
+  const [appMod, authMod, fsMod, fnMod] = await Promise.all([
+    import(`${B}firebase-app.js`),
+    import(`${B}firebase-auth.js`),
+    import(`${B}firebase-firestore.js`),
+    import(`${B}firebase-functions.js`),
+  ]);
+  const { initializeApp } = appMod;
   const {
     getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail,
     createUserWithEmailAndPassword, updateProfile,
     updatePassword, reauthenticateWithCredential, EmailAuthProvider,
     GoogleAuthProvider, signInWithPopup,
-  } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+  } = authMod;
   const {
     getFirestore, doc, getDoc, collection, query, where, orderBy, limit, getDocs,
-  } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-  const { getFunctions, httpsCallable } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+  } = fsMod;
+  const { getFunctions, httpsCallable } = fnMod;
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
@@ -308,7 +318,23 @@ async function iniciar() {
       }
       return;
     }
-    mostrarVista('vista-cargando');
+    // Botón al instante: si este usuario ya entró antes en este teléfono, se
+    // pintan los controles guardados ANTES de tocar la red, y luego se
+    // verifican contra Firestore y se corrigen si algo cambió. Tocar un botón
+    // viejo no abre nada indebido: el backend valida activo + permiso en cada
+    // acción. No aplica llegando con un pase: ese flujo crea/modifica el perfil.
+    const cacheKey = `viyi-disp-${user.uid}`;
+    let yaEnPanel = false;
+    if (!paseTokenPendiente) {
+      try {
+        const guardado = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+        if (guardado && guardado.usuario && Array.isArray(guardado.dispositivos)) {
+          pintarControles(guardado.usuario, guardado.dispositivos, true);
+          yaEnPanel = true;
+        }
+      } catch (e) { /* caché corrupta: se ignora y carga normal */ }
+    }
+    if (!yaEnPanel) mostrarVista('vista-cargando');
     try {
       // Canjear un pase pendiente antes de cargar el perfil (lo puede crear).
       if (paseTokenPendiente) {
@@ -333,32 +359,32 @@ async function iniciar() {
 
       const perfilSnap = await getDoc(doc(db, 'usuarios', user.uid));
       if (!perfilSnap.exists() || perfilSnap.data().activo === false) {
+        try { localStorage.removeItem(cacheKey); } catch (e) { /* nada */ }
         mostrarVista('vista-sin-acceso');
         return;
       }
       const usuario = perfilSnap.data();
-      usuarioActual = usuario;
-      $('nombre-usuario').textContent = nombreCompleto(usuario);
-      $('info-usuario').classList.remove('oculto');
-
       const dispositivos = await cargarDispositivos(usuario);
-      misDispositivos = dispositivos;
-      renderDispositivos(dispositivos);
-      prepararGeneradorPases();
+      // Repinta con lo fresco (idempotente); solo cambia de vista si no venía
+      // ya pintado desde la caché, para no sacar al usuario de otra pestaña.
+      pintarControles(usuario, dispositivos, !yaEnPanel);
+      // Guardar para el próximo arranque instantáneo.
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({ usuario, dispositivos }));
+      } catch (e) { /* almacenamiento lleno o bloqueado: no es crítico */ }
 
-      const esAdmin = usuario.rol === 'admin';
-      $('btn-menu').classList.remove('oculto');
-      document.querySelectorAll('.solo-admin').forEach((el) => el.classList.toggle('oculto', !esAdmin));
-      if (esAdmin) {
+      if (usuario.rol === 'admin') {
         cargarGestion();
         cargarRegistros();
       }
-      mostrarTab('tab-controles');
-      mostrarVista('vista-panel');
     } catch (err) {
       console.error(err);
-      toast('Error cargando tus datos. Recarga la página.', 'error');
-      mostrarVista('vista-sin-acceso');
+      // Si ya se pintó desde la caché, un fallo de red no debe botar al usuario
+      // a "sin acceso": se queda con lo que tiene y el backend valida al tocar.
+      if (!yaEnPanel) {
+        toast('Error cargando tus datos. Recarga la página.', 'error');
+        mostrarVista('vista-sin-acceso');
+      }
     }
   });
 
@@ -609,6 +635,27 @@ async function iniciar() {
     el.classList.toggle('urgente', rem > 0 && rem < 3600000);
     el.classList.toggle('vencido', rem <= 0);
     txt.textContent = rem <= 0 ? 'venció' : restanteTexto(rem);
+  }
+
+  // Deja el panel con los controles listos para tocar. Idempotente: se llama al
+  // instante con lo que había en caché y otra vez con lo fresco de Firestore,
+  // sin duplicar (renderDispositivos y prepararGeneradorPases limpian antes).
+  // `mostrar` cambia de vista solo la primera vez, para no sacar al usuario de
+  // la pestaña donde esté si repinta un segundo después.
+  function pintarControles(usuario, dispositivos, mostrar) {
+    usuarioActual = usuario;
+    misDispositivos = dispositivos;
+    $('nombre-usuario').textContent = nombreCompleto(usuario);
+    $('info-usuario').classList.remove('oculto');
+    renderDispositivos(dispositivos);
+    prepararGeneradorPases();
+    const esAdmin = usuario.rol === 'admin';
+    $('btn-menu').classList.remove('oculto');
+    document.querySelectorAll('.solo-admin').forEach((el) => el.classList.toggle('oculto', !esAdmin));
+    if (mostrar) {
+      mostrarTab('tab-controles');
+      mostrarVista('vista-panel');
+    }
   }
 
   function renderDispositivos(dispositivos) {
