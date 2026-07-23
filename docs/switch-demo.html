@@ -10,23 +10,35 @@
   .modulo{background:#0a0a0b;border-radius:20px;padding:22px 26px 18px;display:flex;
     flex-direction:column;align-items:center;gap:6px;box-shadow:0 10px 30px rgba(0,0,0,.5);}
   .titulo{font-size:12px;letter-spacing:2px;color:#8d9297;text-transform:uppercase;margin-bottom:4px;}
-  .switch{position:relative;width:210px;height:400px;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent;}
+  /* --jet-s = escala del switch. Cambia solo este número para agrandar/achicar. */
+  .switch{--jet-s:0.75;position:relative;
+    width:calc(210px*var(--jet-s));height:calc(400px*var(--jet-s));
+    cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent;}
   .capa{position:absolute;inset:0;background-repeat:no-repeat;transition:opacity .13s ease;}
   .c-cerrado{background-image:url('jet-cerrado-src.png');
-    background-size:354px 708px;background-position:-72px -159px;}
+    background-size:calc(354px*var(--jet-s)) calc(708px*var(--jet-s));
+    background-position:calc(-72px*var(--jet-s)) calc(-159px*var(--jet-s));}
   .c-armado{background-image:url('jet-3estados.png');
-    background-size:1284px 729px;background-position:-532px -251px;opacity:0;}
+    background-size:calc(1284px*var(--jet-s)) calc(729px*var(--jet-s));
+    background-position:calc(-532px*var(--jet-s)) calc(-251px*var(--jet-s));opacity:0;}
   .c-abierto{background-image:url('jet-dos-src.png');
-    background-size:413px 827px;background-position:-2px -272px;opacity:0;}
+    background-size:calc(413px*var(--jet-s)) calc(827px*var(--jet-s));
+    background-position:calc(-2px*var(--jet-s)) calc(-272px*var(--jet-s));opacity:0;}
+  /* Bomba de búnker, blanca sólida, justo sobre "ENGAGE". */
+  .bunker{position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);color:#fff;line-height:0;}
+  .bunker svg{width:calc(64px*var(--jet-s));height:calc(64px*var(--jet-s));stroke:#fff;stroke-width:3.4;}
+  .bunker svg circle{fill:#fff;}
   .estado{font-size:18px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#f09595;min-height:24px;}
   .hint{font-size:12px;color:#8d9297;min-height:16px;text-align:center;letter-spacing:.4px;}
 </style>
 </head>
 <body>
   <div class="modulo">
-    <div class="titulo">Portón Principal</div>
+    <div class="titulo">Búnker</div>
     <div class="switch" id="sw">
-      <div class="capa c-cerrado" id="cerrado"></div>
+      <div class="capa c-cerrado" id="cerrado">
+        <div class="bunker"><svg viewBox="-4 0.5 40 40" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="25" r="10.5"/><path d="M12.8 15V12Q12.8 10.7 14.1 10.7H17.9Q19.2 10.7 19.2 12V15"/><path d="M16 10.7C15.5 6.5 22 5.5 23.5 9.2"/><path d="M23.5 9.2L27.2 6.9M23.5 9.2L28.2 10.1M23.5 9.2L25.1 5.5M23.5 9.2L25.5 12.8"/></svg></div>
+      </div>
       <div class="capa c-armado" id="armado"></div>
       <div class="capa c-abierto" id="abierto"></div>
     </div>
