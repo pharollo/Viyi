@@ -184,7 +184,15 @@ async function ejecutarHomebridge(dispositivo, config, { accion, valor, data }) 
 const dormir = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Duraciones de los pases (acceso temporal compartido).
-const DURACIONES_MS = { '1h': 3600000, '24h': 86400000, '7d': 604800000 };
+const DURACIONES_MS = {
+  '30m': 1800000, '1h': 3600000, '2h': 7200000, '3h': 10800000,
+  '6h': 21600000, '12h': 43200000, '24h': 86400000,
+  '2d': 172800000, '3d': 259200000, '7d': 604800000,
+};
+// Tokens válidos = los del mapa + 'indef'. Se valida contra esto en crearPase y
+// darAcceso: un token desconocido NO debe pasar, porque msDeDuracion devolvería
+// null y se interpretaría como "sin vencimiento" por error.
+const DURACIONES_VALIDAS = new Set([...Object.keys(DURACIONES_MS), 'indef']);
 const msDeDuracion = (d) => (d === 'indef' ? null : DURACIONES_MS[d] || null);
 // Sentinela "sin vencimiento" (fácil de comparar en reglas y backend).
 const FIN_INDEFINIDO = admin.firestore.Timestamp.fromDate(new Date('9999-12-31T00:00:00Z'));
@@ -1031,7 +1039,7 @@ exports.darAcceso = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
   if (!Array.isArray(dispositivos) || !dispositivos.length) {
     throw new HttpsError('invalid-argument', 'Elige al menos un dispositivo.');
   }
-  if (!['1h', '24h', '7d', 'indef'].includes(duracion)) {
+  if (!DURACIONES_VALIDAS.has(duracion)) {
     throw new HttpsError('invalid-argument', 'La duración no es válida.');
   }
 
@@ -1124,7 +1132,7 @@ exports.crearPase = onCall(async (request) => {
   if (!Array.isArray(dispositivos) || !dispositivos.length) {
     throw new HttpsError('invalid-argument', 'Elige al menos un dispositivo para compartir.');
   }
-  if (!['1h', '24h', '7d', 'indef'].includes(duracion)) {
+  if (!DURACIONES_VALIDAS.has(duracion)) {
     throw new HttpsError('invalid-argument', 'La duración no es válida.');
   }
   const snap = await db.doc(`usuarios/${uid}`).get();

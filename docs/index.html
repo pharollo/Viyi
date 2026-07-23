@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=173">
+  <link rel="stylesheet" href="styles.css?v=174">
 </head>
 <body>
   <header>
@@ -123,10 +123,9 @@
           <div id="pase-dispositivos" class="pase-disp"></div>
           <input type="text" id="pase-evento" class="pase-evento" maxlength="60" autocapitalize="words" placeholder="Evento (Parrilla, Mahjong)" aria-label="Evento">
           <div class="pase-duracion" id="pase-duracion">
-            <button type="button" class="chip-dur" data-dur="1h">1 h</button>
-            <button type="button" class="chip-dur activa" data-dur="24h">24 h</button>
-            <button type="button" class="chip-dur" data-dur="7d">7 d</button>
-            <button type="button" class="chip-dur" data-dur="indef">Indefinido</button>
+            <button type="button" class="dur-paso" id="dur-menos" aria-label="Menos tiempo">−</button>
+            <span class="dur-valor" id="dur-valor" aria-live="polite">24 h</span>
+            <button type="button" class="dur-paso" id="dur-mas" aria-label="Más tiempo">+</button>
           </div>
           <label class="pase-multi"><input type="checkbox" id="pase-multiuso"> Enlace Multiuso</label>
           <button id="btn-generar-pase" type="button" class="btn-primario">Generar</button>
@@ -228,6 +227,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=173"></script>
+  <script type="module" src="app.js?v=174"></script>
 </body>
 </html>
