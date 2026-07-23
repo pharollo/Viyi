@@ -43,19 +43,22 @@
       NOMBRE=['Cerrado','Armado','Abierto'],
       HINT=['Desliza la tapa hacia arriba','Desliza la palanca arriba para abrir · o la tapa abajo para cerrar','Abriendo…'];
 
-  // Sonidos con elementos <audio> (HTMLAudio). Cada sonido se reproduce DIRECTO
-  // dentro de su propio gesto (pointerup) — así es como iOS desbloquea el audio,
-  // sin "cebado" previo (que fallaba con el archivo grande del toggle si aún no
-  // había terminado de cargar). Se fuerza .load() para tenerlos listos.
-  var aTapa=new Audio('click-tapa.mp3?v=3'), aToggle=new Audio('click-toggle.mp3?v=3');
-  aTapa.preload='auto'; aToggle.preload='auto';
-  try{ aTapa.load(); aToggle.load(); }catch(e){}
-  function tocar(a){ try{ a.currentTime=0; var p=a.play(); if(p&&p.catch)p.catch(function(){}); }catch(e){} }
-  function sonTapa(){ tocar(aTapa); }
+  // UN SOLO elemento <audio> para todo. En iPhone, cuando hay varios elementos,
+  // a veces solo se "desbloquea" el primero que suena (la tapa) y el segundo (el
+  // toggle) queda mudo. Con uno solo: se desbloquea con la tapa y se reutiliza
+  // para el toggle cambiándole la fuente — ya desbloqueado, suena para ambos.
+  var SND_TAPA='click-tapa.mp3?v=3', SND_TOGGLE='click-toggle.mp3?v=3';
+  try{ var pa=new Audio(SND_TAPA); pa.preload='auto'; var pt=new Audio(SND_TOGGLE); pt.preload='auto'; }catch(e){} // calienta el caché
+  var snd=new Audio(); snd.preload='auto'; var srcActual='';
+  function tocar(url){
+    try{ if(srcActual!==url){ snd.src=url; srcActual=url; } snd.currentTime=0;
+      var p=snd.play(); if(p&&p.catch)p.catch(function(){}); }catch(e){}
+  }
+  function sonTapa(){ tocar(SND_TAPA); }
   // El archivo del toggle ya trae los dos clicks (subir ~0s, bajar ~0.89s), así
   // que un solo play cubre el pulso: suena al abrir y el 2º click cae justo
   // cuando el momentary vuelve (~1s).
-  function sonTogglePulso(){ tocar(aToggle); }
+  function sonTogglePulso(){ tocar(SND_TOGGLE); }
 
   var idx=0,momentaryTimer=null;
   function pintar(){
