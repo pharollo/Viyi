@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=165';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=166';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -658,6 +658,139 @@ async function iniciar() {
     }
   }
 
+  // Dimmer a lo ancho, con slider HORIZONTAL. Va fuera del carrusel (que scrollea
+  // horizontal) y usa gesto horizontal, que no pelea ni con el carrusel ni con el
+  // gesto vertical de inicio de iOS — por eso no necesita zona muerta abajo.
+  function controlDimmer(dispositivo) {
+    const cont = document.createElement('div');
+    cont.className = 'control-dimmer';
+
+    const cab = document.createElement('div');
+    cab.className = 'dimmer-cab';
+    const btnIcono = document.createElement('button');
+    btnIcono.type = 'button';
+    btnIcono.className = 'dimmer-icono';
+    btnIcono.innerHTML = ICONOS.luz;
+    btnIcono.setAttribute('aria-label', `Encender o apagar ${dispositivo.nombre}`);
+    const nombre = document.createElement('span');
+    nombre.className = 'dimmer-nombre';
+    nombre.textContent = dispositivo.nombre;
+    const valTxt = document.createElement('span');
+    valTxt.className = 'dimmer-valor';
+    cab.append(btnIcono, nombre, valTxt);
+
+    const pista = document.createElement('div');
+    pista.className = 'dimmer-pista';
+    pista.setAttribute('role', 'slider');
+    pista.setAttribute('aria-label', `Brillo de ${dispositivo.nombre}`);
+    pista.setAttribute('aria-valuemin', '0');
+    pista.setAttribute('aria-valuemax', '100');
+    const fill = document.createElement('div');
+    fill.className = 'dimmer-fill';
+    pista.appendChild(fill);
+
+    cont.append(cab, pista);
+
+    let valor = 0;
+    let enviando = false;
+    let ultimoDetente = -1;
+    let ultimoBrillo = 100;
+    let animId = null;
+
+    const pintar = (v, sonar) => {
+      valor = Math.max(0, Math.min(100, Math.round(v)));
+      fill.style.width = `${valor}%`;
+      valTxt.textContent = `${valor}%`;
+      cont.classList.toggle('encendido', valor > 0);
+      pista.setAttribute('aria-valuenow', String(valor));
+      if (sonar) {
+        const detente = Math.round(valor / 4);
+        if (detente !== ultimoDetente) { tic(); ultimoDetente = detente; }
+      }
+    };
+    pintar(0);
+
+    const valorDesde = (e) => {
+      const r = pista.getBoundingClientRect();
+      return Math.max(0, Math.min(100, ((e.clientX - r.left) / r.width) * 100));
+    };
+
+    async function enviarBrillo(extra) {
+      if (enviando) return;
+      enviando = true;
+      try {
+        await ejecutarComando({ dispositivoId: dispositivo.id, accion: 'brillo', valor, ...(extra || {}) });
+      } catch (err) {
+        toast(err.message || 'No se pudo enviar el comando.', 'error');
+      } finally {
+        enviando = false;
+      }
+    }
+
+    function animarA(destino) {
+      if (animId) cancelAnimationFrame(animId);
+      const inicio = valor;
+      const t0 = performance.now();
+      const dur = 900;
+      const paso = (t) => {
+        const k = Math.min(1, (t - t0) / dur);
+        const suave = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        pintar(inicio + (destino - inicio) * suave);
+        animId = k < 1 ? requestAnimationFrame(paso) : null;
+      };
+      animId = requestAnimationFrame(paso);
+    }
+
+    // Arrastre HORIZONTAL sobre la pista. touch-action: pan-y (en el CSS) deja el
+    // scroll vertical de la página al navegador y captura el horizontal para el
+    // brillo; si el gesto sale vertical, llega pointercancel y no se cambia nada.
+    let activo = false;
+    let cambiado = false;
+    const alMover = (e) => { if (!activo) return; pintar(valorDesde(e), true); cambiado = true; e.preventDefault(); };
+    const finGesto = (e, cancelado) => {
+      if (!activo) return;
+      activo = false;
+      window.removeEventListener('pointermove', alMover);
+      window.removeEventListener('pointerup', alSoltar);
+      window.removeEventListener('pointercancel', alCancelar);
+      if (cancelado) return;
+      if (!cambiado) pintar(valorDesde(e), true); // toque directo: fija ese punto
+      if (valor > 0) ultimoBrillo = valor;
+      enviarBrillo();
+    };
+    const alSoltar = (e) => finGesto(e, false);
+    const alCancelar = () => finGesto(null, true);
+    pista.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button > 0) return;
+      if (animId) { cancelAnimationFrame(animId); animId = null; }
+      activo = true;
+      cambiado = false;
+      window.addEventListener('pointermove', alMover);
+      window.addEventListener('pointerup', alSoltar);
+      window.addEventListener('pointercancel', alCancelar);
+    });
+
+    // Tap en el bulbo: apaga (fade out) o enciende al último brillo (fade in).
+    btnIcono.addEventListener('click', () => {
+      const destino = valor > 0 ? 0 : (ultimoBrillo || 100);
+      const desde = valor;
+      animarA(destino);
+      enviarBrillo({ valor: destino, desde, fade: true });
+    });
+
+    (async () => {
+      try {
+        const res = await consultarEstado({ dispositivoId: dispositivo.id });
+        const d = res.data || {};
+        if (typeof d.brillo === 'number') pintar(d.brillo);
+        const mem = typeof d.brilloMemoria === 'number' ? d.brilloMemoria : d.brillo;
+        if (typeof mem === 'number' && mem > 0) ultimoBrillo = mem;
+      } catch (err) { /* sin estado disponible */ }
+    })();
+
+    return cont;
+  }
+
   function renderDispositivos(dispositivos) {
     const contenedor = $('lista-dispositivos');
     contenedor.textContent = '';
@@ -678,13 +811,22 @@ async function iniciar() {
       titulo.className = 'titulo-grupo';
       titulo.textContent = tipo.titulo;
       contenedor.appendChild(titulo);
-      const fila = document.createElement('div');
-      fila.className = 'grupo-controles carrusel';
-      for (const dispositivo of grupo) {
-        fila.appendChild(tarjetaDispositivo(dispositivo));
+      // Los dimmers van aparte, a lo ancho (slider horizontal). El resto va en
+      // el carrusel como siempre.
+      const enCarrusel = grupo.filter((d) => d.modo !== 'dimmer');
+      const dimmers = grupo.filter((d) => d.modo === 'dimmer');
+      if (enCarrusel.length) {
+        const fila = document.createElement('div');
+        fila.className = 'grupo-controles carrusel';
+        for (const dispositivo of enCarrusel) {
+          fila.appendChild(tarjetaDispositivo(dispositivo));
+        }
+        contenedor.appendChild(fila);
+        activarCarrusel(fila);
       }
-      contenedor.appendChild(fila);
-      activarCarrusel(fila);
+      for (const dispositivo of dimmers) {
+        contenedor.appendChild(controlDimmer(dispositivo));
+      }
     }
   }
 

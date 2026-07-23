@@ -98,10 +98,9 @@ header h1 {
 main {
   max-width: 640px;
   margin: 0 auto;
-  /* Zona muerta abajo (safe-area del home bar + margen) para que los controles
-     de arrastre —sobre todo los dimmers— no queden en el borde inferior, donde
-     iOS reserva el gesto de inicio/cambio de app y ganaría el sistema. */
-  padding: 16px 16px calc(120px + env(safe-area-inset-bottom));
+  /* Sin zona muerta grande: el dimmer ahora es horizontal y no pelea con el
+     gesto de inicio de iOS. Solo se respeta el área segura del home bar. */
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
 }
 
 .centrado {
@@ -826,6 +825,80 @@ button:disabled {
   color: var(--texto-suave);
   text-align: center;
   max-width: 150px;
+}
+
+/* Dimmer a lo ancho con slider horizontal (fuera del carrusel). */
+.control-dimmer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--superficie);
+  border-radius: 18px;
+  padding: 16px 18px;
+  margin: 0 auto 14px;
+  max-width: 380px;
+  box-shadow: 6px 6px 14px var(--sombra-oscura), -6px -6px 14px var(--sombra-clara);
+}
+
+.dimmer-cab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dimmer-icono {
+  display: flex;
+  padding: 2px;
+  background: transparent;
+  border: none;
+  color: var(--texto-suave);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s;
+}
+
+.dimmer-icono svg {
+  width: 26px;
+  height: 26px;
+}
+
+.dimmer-nombre {
+  flex: 1;
+  font-size: 15px;
+  color: var(--texto);
+}
+
+.dimmer-valor {
+  font-size: 14px;
+  color: var(--texto-suave);
+  font-variant-numeric: tabular-nums;
+}
+
+.control-dimmer.encendido .dimmer-icono,
+.control-dimmer.encendido .dimmer-valor {
+  color: var(--primario);
+}
+
+.dimmer-pista {
+  position: relative;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--fondo);
+  overflow: hidden;
+  cursor: pointer;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
+}
+
+.dimmer-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-radius: 14px;
+  background: var(--primario);
 }
 
 /* Control "Jet Switch": tapa de seguridad roja + palanca, sobre módulo negro.
