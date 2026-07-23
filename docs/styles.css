@@ -846,7 +846,8 @@ button:disabled {
   width: calc(210px * var(--jet-s));
   height: calc(400px * var(--jet-s));
   background: #0a0a0b;
-  border-radius: 20px;
+  border-radius: calc(46px * var(--jet-s));
+  overflow: hidden;
   cursor: grab;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
