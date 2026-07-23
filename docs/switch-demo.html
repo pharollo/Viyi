@@ -50,7 +50,7 @@
   // El WAV del toggle ya trae los dos clicks (subir ~0s, bajar ~0.89s): un solo
   // play cubre el pulso — suena al abrir y el 2º click cae cuando vuelve (~1s).
   var aTapa=new Audio('click-tapa.mp3?v=3'); aTapa.preload='auto';
-  var aToggle=new Audio('click-toggle.wav?v=1'); aToggle.preload='auto';
+  var aToggle=new Audio('click-toggle.wav?v=2'); aToggle.preload='auto';
   function tocar(a){ try{ a.currentTime=0; var p=a.play(); if(p&&p.catch)p.catch(function(){}); }catch(e){} }
   function sonTapa(){ tocar(aTapa); }
   function sonTogglePulso(){ tocar(aToggle); }
