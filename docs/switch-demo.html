@@ -45,21 +45,29 @@
       NOMBRE=['Cerrado','Armado','Abierto'],
       HINT=['Desliza la tapa hacia arriba','Desliza la palanca arriba para abrir · o la tapa abajo para cerrar','Abriendo…'];
 
-  // Sonidos reales (archivos). Se precargan y se clonan al sonar, para que un
-  // toque rápido no espere a que termine el anterior. En iOS hay que "cebarlos"
-  // con un play/pause dentro del primer gesto, si no el navegador los bloquea.
-  var audioTapa=new Audio('click-tapa.mp3'), audioToggle=new Audio('click-toggle.mp3');
-  audioTapa.preload='auto'; audioToggle.preload='auto';
-  var cebado=false;
-  function cebar(){
-    if(cebado)return; cebado=true;
-    [audioTapa,audioToggle].forEach(function(a){
-      a.play().then(function(){a.pause();a.currentTime=0;}).catch(function(){});
-    });
+  // Sonidos reales, reproduciendo SEGMENTOS con Web Audio. El archivo del toggle
+  // trae dos clicks (subir ~0s, bajar ~0.88s); se usa cada uno para su momento,
+  // así el momentary no se encima. Se decodifican al cargar; el AudioContext se
+  // desbloquea (resume) en el primer gesto, como exige iOS.
+  var AC=null,master=null,bufTapa=null,bufToggle=null;
+  function ac(){
+    if(!AC){AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=1;master.connect(AC.destination);}
+    if(AC.state==='suspended')AC.resume();
+    return AC;
   }
-  function reproducir(a){ try{var c=a.cloneNode();c.volume=1;c.play().catch(function(){});}catch(e){} }
-  function sonTapa(){ reproducir(audioTapa); }
-  function sonToggle(){ reproducir(audioToggle); }
+  (function precargar(){
+    var c=ac();
+    fetch('click-tapa.mp3').then(function(r){return r.arrayBuffer();}).then(function(b){return c.decodeAudioData(b);}).then(function(x){bufTapa=x;}).catch(function(){});
+    fetch('click-toggle.mp3').then(function(r){return r.arrayBuffer();}).then(function(b){return c.decodeAudioData(b);}).then(function(x){bufToggle=x;}).catch(function(){});
+  })();
+  function seg(buf,offset,dur){
+    if(!buf)return;
+    try{var c=ac();var s=c.createBufferSource();s.buffer=buf;s.connect(master);
+      if(dur)s.start(0,offset,dur);else s.start(0,offset);}catch(e){}
+  }
+  function sonTapa(){ seg(bufTapa,0); }                 // click corto entero
+  function sonToggleUp(){ seg(bufToggle,0,0.42); }      // primer click: subir
+  function sonToggleDown(){ seg(bufToggle,0.86,0.42); } // segundo click: bajar
 
   var idx=0,momentaryTimer=null;
   function pintar(){
@@ -69,10 +77,10 @@
   }
   // Cambia de estado, con el sonido/vibración de la pieza que se movió.
   function ir(nuevo){
-    var lo=Math.min(idx,nuevo),hi=Math.max(idx,nuevo);
-    idx=nuevo;
-    if(lo===0&&hi===1){ sonTapa(); if(navigator.vibrate)navigator.vibrate(15); }        // tapa
-    else if(lo===1&&hi===2){ sonToggle(); if(navigator.vibrate)navigator.vibrate([25,15,40]); } // toggle
+    var prev=idx; idx=nuevo;
+    if((prev===0&&nuevo===1)||(prev===1&&nuevo===0)){ sonTapa(); if(navigator.vibrate)navigator.vibrate(15); }      // tapa (subir o bajar)
+    else if(prev===1&&nuevo===2){ sonToggleUp(); if(navigator.vibrate)navigator.vibrate([25,15,40]); }             // toggle sube: abrir
+    else if(prev===2&&nuevo===1){ sonToggleDown(); if(navigator.vibrate)navigator.vibrate(20); }                   // toggle vuelve solo
     pintar();
   }
   // El toggle es MOMENTARY: al subirlo dispara "Abierto" y vuelve solo a Armado
@@ -92,7 +100,7 @@
 
   // Gesto de deslizar (touch y mouse). Arriba abre, abajo cierra la tapa.
   var y0=null;
-  sw.addEventListener('pointerdown',function(e){ y0=e.clientY; cebar(); sw.setPointerCapture&&sw.setPointerCapture(e.pointerId); });
+  sw.addEventListener('pointerdown',function(e){ y0=e.clientY; ac(); sw.setPointerCapture&&sw.setPointerCapture(e.pointerId); });
   sw.addEventListener('pointerup',function(e){
     if(y0===null)return; var dy=e.clientY-y0; y0=null;
     if(dy<-22)deslizarArriba();
