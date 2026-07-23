@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jet Switch · prueba</title>
+<style>
+  body{margin:0;background:#141517;min-height:100vh;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:20px;font-family:system-ui,sans-serif;}
+  .modulo{background:#0a0a0b;border-radius:20px;padding:22px 26px 18px;display:flex;
+    flex-direction:column;align-items:center;gap:6px;box-shadow:0 10px 30px rgba(0,0,0,.5);}
+  .titulo{font-size:12px;letter-spacing:2px;color:#8d9297;text-transform:uppercase;margin-bottom:4px;}
+  .switch{position:relative;width:210px;height:400px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .capa{position:absolute;inset:0;background-repeat:no-repeat;transition:opacity .13s ease;}
+  .c-cerrado{background-image:url('364FD124-918A-4954-A882-BCD8DA4B8F1E.PNG');
+    background-size:354px 708px;background-position:-72px -159px;}
+  .c-armado{background-image:url('18CE9F8A-7548-4B45-A309-9CDF6DCBAFFC.PNG');
+    background-size:416px 832px;background-position:-208px -277px;opacity:0;}
+  .c-abierto{background-image:url('18CE9F8A-7548-4B45-A309-9CDF6DCBAFFC.PNG');
+    background-size:413px 827px;background-position:-2px -272px;opacity:0;}
+  .estado{font-size:18px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#f09595;min-height:24px;}
+  .hint{font-size:12px;color:#8d9297;min-height:16px;text-align:center;letter-spacing:.4px;}
+  .pop{animation:pop .18s ease;}
+  @keyframes pop{50%{transform:scale(1.04)}}
+</style>
+</head>
+<body>
+  <div class="modulo">
+    <div class="titulo">Portón Principal</div>
+    <div class="switch" id="sw">
+      <div class="capa c-cerrado" id="cerrado"></div>
+      <div class="capa c-armado" id="armado"></div>
+      <div class="capa c-abierto" id="abierto"></div>
+    </div>
+  </div>
+  <div class="estado" id="est">Cerrado</div>
+  <div class="hint" id="hnt">Toca la tapa para levantarla</div>
+
+<script>
+(function(){
+  var sw=document.getElementById('sw'),
+      cerrado=document.getElementById('cerrado'),armado=document.getElementById('armado'),abierto=document.getElementById('abierto'),
+      est=document.getElementById('est'),hnt=document.getElementById('hnt');
+  var armadoOn=false,abiertoOn=false;
+  function pintar(){
+    cerrado.style.opacity=(!armadoOn&&!abiertoOn)?1:0;
+    armado.style.opacity=(armadoOn&&!abiertoOn)?1:0;
+    abierto.style.opacity=abiertoOn?1:0;
+    est.textContent=abiertoOn?'Abierto':'Cerrado';
+    est.style.color=abiertoOn?'#a5ff2e':'#f09595';
+    hnt.textContent=!armadoOn?'Toca la tapa para levantarla':(!abiertoOn?'Flipea la palanca para abrir · o baja la tapa':'Flipea la palanca para cerrar');
+    sw.classList.remove('pop');void sw.offsetWidth;sw.classList.add('pop');
+  }
+  sw.addEventListener('click',function(){
+    if(!armadoOn){armadoOn=true;pintar();return;}
+    if(!abiertoOn&&armadoOn&&!abiertoOn){
+      // con tapa arriba: primer toque abre; si ya está abierto, cierra
+    }
+    if(!abiertoOn){abiertoOn=true;if(navigator.vibrate)navigator.vibrate([30,20,50]);pintar();return;}
+    // estaba abierto -> cerrar palanca (queda armado)
+    abiertoOn=false;pintar();
+  });
+})();
+</script>
+</body>
+</html>
