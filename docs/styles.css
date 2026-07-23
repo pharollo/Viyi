@@ -1463,48 +1463,86 @@ button:disabled {
 
 .pase-duracion {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 14px;
 }
 
-/* Botones − / + del stepper de duración. */
-.dur-paso {
+.chip-dur {
+  flex: 1 1 30%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--superficie);
+  color: var(--texto-suave);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 3px 3px 7px var(--sombra-oscura), -3px -3px 7px var(--sombra-clara);
+}
+
+.chip-dur.activa {
+  color: var(--primario);
+  box-shadow: inset 3px 3px 6px var(--sombra-oscura), inset -3px -3px 6px var(--sombra-clara), inset 0 0 0 1.5px var(--primario);
+}
+
+/* Chip "corto" ajustable: su propia fila, con − valor + adentro. */
+.chip-dur-ajust {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: var(--superficie);
+  cursor: pointer;
+  box-shadow: 3px 3px 7px var(--sombra-oscura), -3px -3px 7px var(--sombra-clara);
+}
+
+.chip-dur-ajust.activa {
+  box-shadow: inset 3px 3px 6px var(--sombra-oscura), inset -3px -3px 6px var(--sombra-clara), inset 0 0 0 1.5px var(--primario);
+}
+
+.chip-dur-ajust.activa .corto-valor {
+  color: var(--primario);
+}
+
+.corto-valor {
+  flex: 1;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--texto-suave);
+  font-variant-numeric: tabular-nums;
+}
+
+.corto-paso {
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   border: none;
   border-radius: 50%;
   background: var(--superficie);
   color: var(--texto-suave);
   font-family: inherit;
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 3px 3px 7px var(--sombra-oscura), -3px -3px 7px var(--sombra-clara);
+  box-shadow: 2px 2px 5px var(--sombra-oscura), -2px -2px 5px var(--sombra-clara);
 }
 
-.dur-paso:not(:disabled):active {
+.corto-paso:not(:disabled):active {
   color: var(--primario);
-  box-shadow: inset 3px 3px 6px var(--sombra-oscura), inset -3px -3px 6px var(--sombra-clara);
+  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara);
 }
 
-.dur-paso:disabled {
+.corto-paso:disabled {
   opacity: 0.3;
   cursor: default;
-}
-
-.dur-valor {
-  min-width: 96px;
-  text-align: center;
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--texto);
-  font-variant-numeric: tabular-nums;
 }
 
 /* Toggle admin "Míos / Todos" en Mis pases. */

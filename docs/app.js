@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=174';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=175';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2307,29 +2307,40 @@ async function iniciar() {
   // ---- Pases: generar / listar / revocar ----
   const escapar = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  // Duración del pase como stepper − / +: se recorre una lista ordenada, del
-  // más corto al indefinido. Los tokens deben coincidir con DURACIONES_MS del
-  // backend (crearPase / darAcceso).
-  const DUR_PASOS = [
-    ['30m', '30 min'], ['1h', '1 h'], ['2h', '2 h'], ['3h', '3 h'],
-    ['6h', '6 h'], ['12h', '12 h'], ['24h', '24 h'],
-    ['2d', '2 d'], ['3d', '3 d'], ['7d', '7 d'], ['indef', 'Indefinido'],
+  // Duración del pase: chips fijos (24 h, 7 d, Indefinido) + un chip "corto"
+  // ajustable con − / + (de 30 min a 12 h). Los tokens coinciden con
+  // DURACIONES_MS del backend (crearPase / darAcceso).
+  const DUR_CORTO = [
+    ['30m', '30 min'], ['1h', '1 h'], ['2h', '2 h'],
+    ['3h', '3 h'], ['6h', '6 h'], ['12h', '12 h'],
   ];
-  let paseDurIdx = DUR_PASOS.findIndex(([t]) => t === '24h'); // arranca en 24 h
-  let paseDuracionSel = DUR_PASOS[paseDurIdx][0];
-  function pintarDuracion() {
-    paseDuracionSel = DUR_PASOS[paseDurIdx][0];
-    $('dur-valor').textContent = DUR_PASOS[paseDurIdx][1];
-    $('dur-menos').disabled = paseDurIdx === 0;
-    $('dur-mas').disabled = paseDurIdx === DUR_PASOS.length - 1;
+  let cortoIdx = DUR_CORTO.findIndex(([t]) => t === '1h'); // el chip corto arranca en 1 h
+  let paseDuracionSel = '24h'; // por defecto queda activo el chip de 24 h
+
+  function marcarDuracion(el) {
+    $('chip-corto').classList.toggle('activa', el === 'corto');
+    document.querySelectorAll('#pase-duracion .chip-dur').forEach((c) => c.classList.toggle('activa', c === el));
   }
-  $('dur-menos').addEventListener('click', () => {
-    if (paseDurIdx > 0) { paseDurIdx -= 1; pintarDuracion(); }
+  function pintarCorto() {
+    $('corto-valor').textContent = DUR_CORTO[cortoIdx][1];
+    $('corto-menos').disabled = cortoIdx === 0;
+    $('corto-mas').disabled = cortoIdx === DUR_CORTO.length - 1;
+  }
+  function elegirCorto() {
+    paseDuracionSel = DUR_CORTO[cortoIdx][0];
+    marcarDuracion('corto');
+  }
+  $('corto-menos').addEventListener('click', () => { if (cortoIdx > 0) { cortoIdx -= 1; pintarCorto(); } elegirCorto(); });
+  $('corto-mas').addEventListener('click', () => { if (cortoIdx < DUR_CORTO.length - 1) { cortoIdx += 1; pintarCorto(); } elegirCorto(); });
+  // Tocar el chip corto (fuera de los botones − / +) también lo selecciona.
+  $('chip-corto').addEventListener('click', (e) => { if (!e.target.closest('.corto-paso')) elegirCorto(); });
+  $('pase-duracion').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip-dur');
+    if (!b) return;
+    paseDuracionSel = b.dataset.dur;
+    marcarDuracion(b);
   });
-  $('dur-mas').addEventListener('click', () => {
-    if (paseDurIdx < DUR_PASOS.length - 1) { paseDurIdx += 1; pintarDuracion(); }
-  });
-  pintarDuracion();
+  pintarCorto();
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   $('pase-modo').addEventListener('click', (e) => {
     const b = e.target.closest('.chip-scope');
