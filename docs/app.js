@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=177';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=178';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2307,41 +2307,81 @@ async function iniciar() {
   // ---- Pases: generar / listar / revocar ----
   const escapar = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  // Duración del pase: chips fijos (24 h, 7 d, Indefinido) + un chip "corto"
-  // ajustable con − / + (de 30 min a 12 h). Los tokens coinciden con
-  // DURACIONES_MS del backend (crearPase / darAcceso).
-  const DUR_CORTO = [
+  // Duración del pase: rueda horizontal con scroll para las duraciones cortas
+  // (se ven los valores de al lado, con fade en los bordes) + chips 24h/7d/
+  // Indefinido. Los tokens coinciden con DURACIONES_MS del backend.
+  const DUR_RUEDA = [
     ['1h', '1 h'], ['2h', '2 h'], ['3h', '3 h'], ['4h', '4 h'],
     ['5h', '5 h'], ['6h', '6 h'], ['12h', '12 h'],
   ];
-  let cortoIdx = DUR_CORTO.findIndex(([t]) => t === '5h'); // arranca en 5 h
-  let paseDuracionSel = DUR_CORTO[cortoIdx][0]; // por defecto el chip corto activo en 3 h
+  let paseDuracionSel = '5h'; // por defecto la rueda en 5 h
+  const elRueda = $('dur-rueda');
+  const opsRueda = Array.from(elRueda.querySelectorAll('.dur-op'));
+  let ruedaCentrando = false;
+  let ruedaCentTmr = null;
+  let ruedaTmr = null;
 
+  function idxCentradoRueda() {
+    const cr = elRueda.getBoundingClientRect();
+    const centro = cr.left + cr.width / 2;
+    let best = 0;
+    let bestD = Infinity;
+    opsRueda.forEach((op, i) => {
+      const r = op.getBoundingClientRect();
+      const d = Math.abs(r.left + r.width / 2 - centro);
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    return best;
+  }
+  function pintarCentroRueda() {
+    const i = idxCentradoRueda();
+    opsRueda.forEach((op, k) => op.classList.toggle('centro', k === i));
+    return i;
+  }
   function marcarDuracion(el) {
-    $('chip-corto').classList.toggle('activa', el === 'corto');
+    $('dur-rueda-wrap').classList.toggle('activa', el === 'rueda');
     document.querySelectorAll('#pase-duracion .chip-dur').forEach((c) => c.classList.toggle('activa', c === el));
   }
-  function pintarCorto() {
-    $('corto-valor').textContent = DUR_CORTO[cortoIdx][1];
-    $('corto-menos').disabled = cortoIdx === 0;
-    $('corto-mas').disabled = cortoIdx === DUR_CORTO.length - 1;
+  function centrarRueda(idx, suave) {
+    const op = opsRueda[idx];
+    if (!op) return;
+    const cr = elRueda.getBoundingClientRect();
+    const or = op.getBoundingClientRect();
+    const delta = (or.left + or.width / 2) - (cr.left + cr.width / 2);
+    if (Math.abs(delta) < 1) { pintarCentroRueda(); return; }
+    ruedaCentrando = true; // no cambiar la selección durante el scroll programático
+    clearTimeout(ruedaCentTmr);
+    ruedaCentTmr = setTimeout(() => { ruedaCentrando = false; }, suave ? 500 : 180);
+    elRueda.scrollTo({ left: elRueda.scrollLeft + delta, behavior: suave ? 'smooth' : 'auto' });
   }
-  function elegirCorto() {
-    paseDuracionSel = DUR_CORTO[cortoIdx][0];
-    marcarDuracion('corto');
+  // Re-centrar en el valor actual cuando el panel se hace visible (oculto mide
+  // 0 y el centrado falla). Lo llama prepararGeneradorPases al abrir Pases.
+  function recentrarRueda() {
+    let i = DUR_RUEDA.findIndex(([t]) => t === paseDuracionSel);
+    if (i < 0) i = DUR_RUEDA.findIndex(([t]) => t === '5h');
+    centrarRueda(i, false);
   }
-  $('corto-menos').addEventListener('click', () => { if (cortoIdx > 0) { cortoIdx -= 1; pintarCorto(); } elegirCorto(); });
-  $('corto-mas').addEventListener('click', () => { if (cortoIdx < DUR_CORTO.length - 1) { cortoIdx += 1; pintarCorto(); } elegirCorto(); });
-  // Tocar el chip corto (fuera de los botones − / +) también lo selecciona.
-  $('chip-corto').addEventListener('click', (e) => { if (!e.target.closest('.corto-paso')) elegirCorto(); });
+  elRueda.addEventListener('scroll', () => {
+    pintarCentroRueda();
+    if (ruedaCentrando) return;
+    clearTimeout(ruedaTmr);
+    ruedaTmr = setTimeout(() => {
+      paseDuracionSel = DUR_RUEDA[idxCentradoRueda()][0];
+      marcarDuracion('rueda');
+    }, 100);
+  });
+  opsRueda.forEach((op, i) => op.addEventListener('click', () => {
+    centrarRueda(i, true);
+    paseDuracionSel = DUR_RUEDA[i][0];
+    marcarDuracion('rueda');
+  }));
   $('pase-duracion').addEventListener('click', (e) => {
     const b = e.target.closest('.chip-dur');
     if (!b) return;
     paseDuracionSel = b.dataset.dur;
     marcarDuracion(b);
   });
-  pintarCorto();
-  marcarDuracion('corto'); // por defecto arranca activo el chip corto (3 h)
+  marcarDuracion('rueda'); // por defecto la rueda (5 h) es la selección
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   $('pase-modo').addEventListener('click', (e) => {
     const b = e.target.closest('.chip-scope');
@@ -2464,6 +2504,9 @@ async function iniciar() {
     $('pase-evento').value = '';
     $('pase-resultado').classList.add('oculto');
     cargarMisPases();
+    // La rueda de duración necesita centrarse ya con el panel visible (oculto
+    // mide 0). En el frame siguiente ya hay layout.
+    requestAnimationFrame(recentrarRueda);
   }
 
   let paseModo = 'enlace';

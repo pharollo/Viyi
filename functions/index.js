@@ -1123,7 +1123,10 @@ exports.darAcceso = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
 });
 
 // Genera un enlace de pase con los dispositivos y la duración elegidos.
-exports.crearPase = onCall(async (request) => {
+// cpu: 0.5 (concurrency 1, obligatoria con <1 CPU) para que la revisión con
+// las duraciones nuevas (4h/5h) quepa en la cuota de Cloud Run. Función de
+// tráfico bajo. Restaurar (quitar estas opciones) al subir la cuota.
+exports.crearPase = onCall({ cpu: 0.5, concurrency: 1 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
   }

@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=177">
+  <link rel="stylesheet" href="styles.css?v=178">
 </head>
 <body>
   <header>
@@ -123,10 +123,16 @@
           <div id="pase-dispositivos" class="pase-disp"></div>
           <input type="text" id="pase-evento" class="pase-evento" maxlength="60" autocapitalize="words" placeholder="Evento (Parrilla, Mahjong)" aria-label="Evento">
           <div class="pase-duracion" id="pase-duracion">
-            <div class="chip-dur-ajust activa" id="chip-corto">
-              <button type="button" class="corto-paso" id="corto-menos" aria-label="Menos tiempo">−</button>
-              <span class="corto-valor" id="corto-valor" aria-live="polite">5 h</span>
-              <button type="button" class="corto-paso" id="corto-mas" aria-label="Más tiempo">+</button>
+            <div class="dur-rueda-wrap activa" id="dur-rueda-wrap">
+              <div class="dur-rueda" id="dur-rueda">
+                <button type="button" class="dur-op" data-dur="1h">1 h</button>
+                <button type="button" class="dur-op" data-dur="2h">2 h</button>
+                <button type="button" class="dur-op" data-dur="3h">3 h</button>
+                <button type="button" class="dur-op" data-dur="4h">4 h</button>
+                <button type="button" class="dur-op" data-dur="5h">5 h</button>
+                <button type="button" class="dur-op" data-dur="6h">6 h</button>
+                <button type="button" class="dur-op" data-dur="12h">12 h</button>
+              </div>
             </div>
             <button type="button" class="chip-dur" data-dur="24h">24 h</button>
             <button type="button" class="chip-dur" data-dur="7d">7 d</button>
@@ -232,6 +238,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=177"></script>
+  <script type="module" src="app.js?v=178"></script>
 </body>
 </html>

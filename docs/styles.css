@@ -1487,62 +1487,72 @@ button:disabled {
   box-shadow: inset 3px 3px 6px var(--sombra-oscura), inset -3px -3px 6px var(--sombra-clara), inset 0 0 0 1.5px var(--primario);
 }
 
-/* Chip "corto" ajustable: su propia fila, con − valor + adentro. */
-.chip-dur-ajust {
+/* Rueda de duración corta: su propia fila, scroll horizontal con snap. Se ven
+   los valores de al lado (fade en los bordes) y el del centro es el elegido. */
+.dur-rueda-wrap {
   flex: 1 1 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  position: relative;
   border-radius: 12px;
   background: var(--superficie);
-  cursor: pointer;
-  box-shadow: 3px 3px 7px var(--sombra-oscura), -3px -3px 7px var(--sombra-clara);
+  box-shadow: inset 3px 3px 7px var(--sombra-oscura), inset -3px -3px 7px var(--sombra-clara);
+  overflow: hidden;
 }
 
-.chip-dur-ajust.activa {
-  box-shadow: inset 3px 3px 6px var(--sombra-oscura), inset -3px -3px 6px var(--sombra-clara), inset 0 0 0 1.5px var(--primario);
+/* Ventana central que enmarca el valor elegido (verde cuando la rueda manda). */
+.dur-rueda-wrap::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 64px;
+  height: 38px;
+  transform: translate(-50%, -50%);
+  border-radius: 9px;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+  z-index: 2;
 }
 
-.chip-dur-ajust.activa .corto-valor {
-  color: var(--primario);
+.dur-rueda-wrap.activa::before {
+  box-shadow: inset 0 0 0 1.5px var(--primario);
 }
 
-.corto-valor {
-  flex: 1;
-  text-align: center;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--texto-suave);
-  font-variant-numeric: tabular-nums;
+.dur-rueda {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  padding: 9px calc(50% - 34px);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 24%, #000 76%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 24%, #000 76%, transparent);
 }
 
-.corto-paso {
-  flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
+.dur-rueda::-webkit-scrollbar {
+  display: none;
+}
+
+.dur-op {
+  flex: 0 0 68px;
+  scroll-snap-align: center;
   border: none;
-  border-radius: 50%;
-  background: var(--superficie);
+  background: none;
   color: var(--texto-suave);
   font-family: inherit;
-  font-size: 18px;
-  line-height: 1;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 6px 0;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 2px 2px 5px var(--sombra-oscura), -2px -2px 5px var(--sombra-clara);
+  font-variant-numeric: tabular-nums;
+  transition: color 0.12s ease, font-size 0.12s ease;
 }
 
-.corto-paso:not(:disabled):active {
+.dur-op.centro {
+  color: var(--texto);
+  font-size: 17px;
+}
+
+.dur-rueda-wrap.activa .dur-op.centro {
   color: var(--primario);
-  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara);
-}
-
-.corto-paso:disabled {
-  opacity: 0.3;
-  cursor: default;
 }
 
 /* Toggle admin "Míos / Todos" en Mis pases. */
