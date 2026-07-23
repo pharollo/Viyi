@@ -876,6 +876,21 @@ button:disabled {
   opacity: 0;
 }
 
+/* Bomba de búnker sobre "ENGAGE" en la tapa roja (solo subtipo búnker). */
+.jet-bunker {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  transform: translateX(-50%);
+  color: #fff;
+  line-height: 0;
+}
+
+.jet-bunker svg {
+  width: 30px;
+  height: 30px;
+}
+
 .boton-circular {
   border-radius: 50%;
   display: flex;

@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=158';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=159';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -757,6 +757,15 @@ async function iniciar() {
       + '<div class="jet-capa jet-armado"></div>'
       + '<div class="jet-capa jet-abierto"></div>';
     const capas = [sw.querySelector('.jet-cerrado'), sw.querySelector('.jet-armado'), sw.querySelector('.jet-abierto')];
+
+    // Búnker: la bomba en la tapa roja, sobre "ENGAGE". Va dentro de la capa
+    // cerrada, así solo se ve con la tapa abajo (que es donde está "ENGAGE").
+    if (dispositivo.subtipo === 'bunker') {
+      const bomba = document.createElement('div');
+      bomba.className = 'jet-bunker';
+      bomba.innerHTML = ICONOS.bunker;
+      capas[0].appendChild(bomba);
+    }
 
     control.append(titulo, sw);
 
