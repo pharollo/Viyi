@@ -66,10 +66,11 @@
     try{var c=ac();var s=c.createBufferSource();s.buffer=buf;s.connect(master);
       if(dur)s.start(0,offset,dur);else s.start(0,offset);}catch(e){}
   }
-  // Solo el primer golpe de cada archivo, para que no suene doble.
-  function sonTapa(){ seg(bufTapa,0,0.06); }            // click de la tapa (corta antes del 2º golpe en 70ms)
-  function sonToggleUp(){ seg(bufToggle,0,0.16); }      // primer click del toggle: subir
-  function sonToggleDown(){ seg(bufToggle,0.87,0.16); } // segundo click del toggle: bajar
+  // Cada sonido con su cola natural, pero cortando ANTES del segundo golpe del
+  // toggle (que está en ~0.89s) para que no suene doble.
+  function sonTapa(){ seg(bufTapa,0); }                 // click de la tapa, entero (326ms)
+  function sonToggleUp(){ seg(bufToggle,0,0.42); }      // primer click del toggle: subir, con cola
+  function sonToggleDown(){ seg(bufToggle,0.87,0.5); }  // segundo click del toggle: bajar, con cola
 
   var idx=0,momentaryTimer=null;
   function pintar(){
