@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=166';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=167';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -187,7 +187,7 @@ async function iniciar() {
   // Subcategorías por tipo: segundo dropdown en el editor. Búnker es una
   // subcategoría de "puerta" (mismo grupo, pero con icono de bomba).
   const SUBTIPOS = {
-    puerta: [['', 'Peatones'], ['porton', 'Vehículos'], ['bunker', 'Búnker']],
+    puerta: [['', 'Peatones'], ['porton', 'Vehículos'], ['bunker', 'Búnker'], ['argentina', 'Argentina']],
   };
 
   // Subtipos que traen su propio icono (cuadrado). Los demás usan el del tipo.
@@ -985,11 +985,17 @@ async function iniciar() {
       anillo.className = 'anillo';
       boton = document.createElement('button');
       boton.type = 'button';
-      const iconoSub = ICONO_SUBTIPO[dispositivo.subtipo];
-      const iconoCuadrado = !!iconoSub || dispositivo.tipo === 'ascensor';
-      boton.className = 'boton-circular grande' + (iconoCuadrado ? ' cuadrado' : '');
-      boton.innerHTML = iconoSub ? ICONOS[iconoSub]
-        : (dispositivo.tipo === 'ascensor' ? ICONOS.ascensor : ICONOS.candados);
+      if (dispositivo.subtipo === 'argentina') {
+        // Escudo de la selección de Argentina como logo del botón (imagen).
+        boton.className = 'boton-circular grande boton-imagen';
+        boton.innerHTML = '<img src="argentina.jpg?v=1" alt="" class="boton-logo">';
+      } else {
+        const iconoSub = ICONO_SUBTIPO[dispositivo.subtipo];
+        const iconoCuadrado = !!iconoSub || dispositivo.tipo === 'ascensor';
+        boton.className = 'boton-circular grande' + (iconoCuadrado ? ' cuadrado' : '');
+        boton.innerHTML = iconoSub ? ICONOS[iconoSub]
+          : (dispositivo.tipo === 'ascensor' ? ICONOS.ascensor : ICONOS.candados);
+      }
       boton.setAttribute('aria-label', `${dispositivo.etiquetaBoton || 'Abrir'} ${dispositivo.nombre}`);
       boton.addEventListener('click', () => pulsar(boton, dispositivo));
       nombreEnBoton(boton, dispositivo.nombre);

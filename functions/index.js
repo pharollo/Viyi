@@ -627,7 +627,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
       : 'Falta el Device ID de Tuya.');
   }
   let tipoFinal = ['puerta', 'cortina', 'ascensor', 'luz', 'termostato', 'rele', 'otro'].includes(tipo) ? tipo : 'otro';
-  let subFinal = ['bunker', 'porton'].includes(subtipo) ? subtipo : '';
+  let subFinal = ['bunker', 'porton', 'argentina'].includes(subtipo) ? subtipo : '';
   if (tipo === 'bunker') { tipoFinal = 'puerta'; subFinal = 'bunker'; } // compat con el tipo viejo
   if (tipoFinal !== 'puerta') subFinal = '';                            // el subtipo solo aplica a puerta
   await db.doc(`dispositivos/${id}`).set({

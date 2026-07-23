@@ -1036,6 +1036,21 @@ button:disabled {
   height: 168px;
 }
 
+/* Botón con imagen de logo (p. ej. escudo de Argentina) en vez de icono SVG. */
+.boton-imagen {
+  overflow: hidden;
+}
+
+.boton-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 50%;
+  display: block;
+  pointer-events: none;
+}
+
 .boton-circular.grande svg {
   width: 108px;
   height: auto;
