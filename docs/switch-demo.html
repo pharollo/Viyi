@@ -43,46 +43,36 @@
       NOMBRE=['Cerrado','Armado','Abierto'],
       HINT=['Desliza la tapa hacia arriba','Desliza la palanca arriba para abrir · o la tapa abajo para cerrar','Abriendo…'];
 
-  // Sonidos reales, reproduciendo SEGMENTOS con Web Audio. El archivo del toggle
-  // trae dos clicks (subir ~0s, bajar ~0.88s); se usa cada uno para su momento,
-  // así el momentary no se encima. Se decodifican al cargar; el AudioContext se
-  // desbloquea (resume) en el primer gesto, como exige iOS.
-  var AC=null,master=null,bufTapa=null,bufToggle=null;
-  function ac(){
-    if(!AC){AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=1;master.connect(AC.destination);}
-    if(AC.state==='suspended')AC.resume();
-    return AC;
+  // Sonidos con elementos <audio> (HTMLAudio), NO con Web Audio. En iPhone,
+  // Web Audio a veces no se desbloquea (aunque YouTube sí suene); HTMLAudio se
+  // comporta como el audio de YouTube y es más confiable. Se "ceban" con un
+  // play/pause dentro del primer gesto para desbloquearlos en iOS.
+  var aTapa=new Audio('click-tapa.mp3?v=3'), aToggle=new Audio('click-toggle.mp3?v=3');
+  aTapa.preload='auto'; aToggle.preload='auto';
+  var cebado=false;
+  function cebar(){
+    if(cebado)return; cebado=true;
+    [aTapa,aToggle].forEach(function(a){ var p=a.play(); if(p&&p.then)p.then(function(){a.pause();a.currentTime=0;}).catch(function(){}); });
   }
-  // ?v= para que el CDN no siga sirviendo los MP3 viejos al recortarlos. Súbelo
-  // cada vez que cambien los archivos de sonido.
-  var VSND='3';
-  (function precargar(){
-    var c=ac();
-    fetch('click-tapa.mp3?v='+VSND).then(function(r){return r.arrayBuffer();}).then(function(b){return c.decodeAudioData(b);}).then(function(x){bufTapa=x;}).catch(function(){});
-    fetch('click-toggle.mp3?v='+VSND).then(function(r){return r.arrayBuffer();}).then(function(b){return c.decodeAudioData(b);}).then(function(x){bufToggle=x;}).catch(function(){});
-  })();
-  function seg(buf,offset,dur){
-    if(!buf)return;
-    try{var c=ac();var s=c.createBufferSource();s.buffer=buf;s.connect(master);
-      if(dur)s.start(0,offset,dur);else s.start(0,offset);}catch(e){}
-  }
-  // Cada sonido con su cola natural, pero cortando ANTES del segundo golpe del
-  // toggle (que está en ~0.89s) para que no suene doble.
-  function sonTapa(){ seg(bufTapa,0); }                 // click de la tapa, entero (326ms)
-  function sonToggleUp(){ seg(bufToggle,0,0.42); }      // primer click del toggle: subir, con cola
-  function sonToggleDown(){ seg(bufToggle,0.87,0.5); }  // segundo click del toggle: bajar, con cola
+  function tocar(a){ try{ a.currentTime=0; var p=a.play(); if(p&&p.catch)p.catch(function(){}); }catch(e){} }
+  function sonTapa(){ tocar(aTapa); }
+  // El archivo del toggle ya trae los dos clicks (subir ~0s, bajar ~0.89s), así
+  // que un solo play cubre el pulso: suena al abrir y el 2º click cae justo
+  // cuando el momentary vuelve (~1s).
+  function sonTogglePulso(){ tocar(aToggle); }
 
   var idx=0,momentaryTimer=null;
   function pintar(){
     for(var k=0;k<3;k++)capas[k].style.opacity=(k===idx)?1:0;
     est.textContent=NOMBRE[idx];est.style.color=COLOR[idx];hnt.textContent=HINT[idx];
   }
-  // Cambia de estado, con el sonido/vibración de la pieza que se movió.
+  // Cambia de estado con el sonido de la pieza que se movió. (Sin vibración:
+  // iPhone no la soporta desde web y aquí no aporta.)
   function ir(nuevo){
     var prev=idx; idx=nuevo;
-    if((prev===0&&nuevo===1)||(prev===1&&nuevo===0)){ sonTapa(); if(navigator.vibrate)navigator.vibrate(15); }      // tapa (subir o bajar)
-    else if(prev===1&&nuevo===2){ sonToggleUp(); if(navigator.vibrate)navigator.vibrate([25,15,40]); }             // toggle sube: abrir
-    else if(prev===2&&nuevo===1){ sonToggleDown(); if(navigator.vibrate)navigator.vibrate(20); }                   // toggle vuelve solo
+    if((prev===0&&nuevo===1)||(prev===1&&nuevo===0)){ sonTapa(); }        // tapa (subir o bajar)
+    else if(prev===1&&nuevo===2){ sonTogglePulso(); }                    // toggle: pulso completo (sube y baja)
+    // prev===2 -> 1 (el resorte): sin sonido, el archivo ya trae el click de bajar
     pintar();
   }
   // El toggle es MOMENTARY: al subirlo dispara "Abierto" y vuelve solo a Armado
@@ -102,7 +92,7 @@
 
   // Gesto de deslizar (touch y mouse). Arriba abre, abajo cierra la tapa.
   var y0=null;
-  sw.addEventListener('pointerdown',function(e){ y0=e.clientY; ac(); sw.setPointerCapture&&sw.setPointerCapture(e.pointerId); });
+  sw.addEventListener('pointerdown',function(e){ y0=e.clientY; cebar(); sw.setPointerCapture&&sw.setPointerCapture(e.pointerId); });
   sw.addEventListener('pointerup',function(e){
     if(y0===null)return; var dy=e.clientY-y0; y0=null;
     if(dy<-22)deslizarArriba();
