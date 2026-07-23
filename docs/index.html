@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=178">
+  <link rel="stylesheet" href="styles.css?v=179">
 </head>
 <body>
   <header>
@@ -125,18 +125,15 @@
           <div class="pase-duracion" id="pase-duracion">
             <div class="dur-rueda-wrap activa" id="dur-rueda-wrap">
               <div class="dur-rueda" id="dur-rueda">
-                <button type="button" class="dur-op" data-dur="1h">1 h</button>
-                <button type="button" class="dur-op" data-dur="2h">2 h</button>
+                <span class="dur-esp" aria-hidden="true"></span>
                 <button type="button" class="dur-op" data-dur="3h">3 h</button>
-                <button type="button" class="dur-op" data-dur="4h">4 h</button>
-                <button type="button" class="dur-op" data-dur="5h">5 h</button>
                 <button type="button" class="dur-op" data-dur="6h">6 h</button>
-                <button type="button" class="dur-op" data-dur="12h">12 h</button>
+                <button type="button" class="dur-op" data-dur="24h">24 h</button>
+                <button type="button" class="dur-op" data-dur="7d">7 d</button>
+                <button type="button" class="dur-op" data-dur="indef">Indefinido</button>
+                <span class="dur-esp" aria-hidden="true"></span>
               </div>
             </div>
-            <button type="button" class="chip-dur" data-dur="24h">24 h</button>
-            <button type="button" class="chip-dur" data-dur="7d">7 d</button>
-            <button type="button" class="chip-dur" data-dur="indef">Indefinido</button>
           </div>
           <label class="pase-multi"><input type="checkbox" id="pase-multiuso"> Enlace Multiuso</label>
           <button id="btn-generar-pase" type="button" class="btn-primario">Generar</button>
@@ -238,6 +235,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=178"></script>
+  <script type="module" src="app.js?v=179"></script>
 </body>
 </html>

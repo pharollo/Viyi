@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=178';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=179';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2307,14 +2307,13 @@ async function iniciar() {
   // ---- Pases: generar / listar / revocar ----
   const escapar = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  // Duración del pase: rueda horizontal con scroll para las duraciones cortas
-  // (se ven los valores de al lado, con fade en los bordes) + chips 24h/7d/
-  // Indefinido. Los tokens coinciden con DURACIONES_MS del backend.
+  // Duración del pase: una sola rueda horizontal con scroll (3h · 6h · 24h ·
+  // 7d · Indefinido). Se ve un valor faded a cada lado y el del centro es el
+  // elegido. Los tokens coinciden con DURACIONES_MS del backend.
   const DUR_RUEDA = [
-    ['1h', '1 h'], ['2h', '2 h'], ['3h', '3 h'], ['4h', '4 h'],
-    ['5h', '5 h'], ['6h', '6 h'], ['12h', '12 h'],
+    ['3h', '3 h'], ['6h', '6 h'], ['24h', '24 h'], ['7d', '7 d'], ['indef', 'Indefinido'],
   ];
-  let paseDuracionSel = '5h'; // por defecto la rueda en 5 h
+  let paseDuracionSel = '6h'; // por defecto la rueda en 6 h
   const elRueda = $('dur-rueda');
   const opsRueda = Array.from(elRueda.querySelectorAll('.dur-op'));
   let ruedaCentrando = false;
@@ -2338,10 +2337,6 @@ async function iniciar() {
     opsRueda.forEach((op, k) => op.classList.toggle('centro', k === i));
     return i;
   }
-  function marcarDuracion(el) {
-    $('dur-rueda-wrap').classList.toggle('activa', el === 'rueda');
-    document.querySelectorAll('#pase-duracion .chip-dur').forEach((c) => c.classList.toggle('activa', c === el));
-  }
   function centrarRueda(idx, suave) {
     const op = opsRueda[idx];
     if (!op) return;
@@ -2358,7 +2353,7 @@ async function iniciar() {
   // 0 y el centrado falla). Lo llama prepararGeneradorPases al abrir Pases.
   function recentrarRueda() {
     let i = DUR_RUEDA.findIndex(([t]) => t === paseDuracionSel);
-    if (i < 0) i = DUR_RUEDA.findIndex(([t]) => t === '5h');
+    if (i < 0) i = DUR_RUEDA.findIndex(([t]) => t === '6h');
     centrarRueda(i, false);
   }
   elRueda.addEventListener('scroll', () => {
@@ -2367,21 +2362,12 @@ async function iniciar() {
     clearTimeout(ruedaTmr);
     ruedaTmr = setTimeout(() => {
       paseDuracionSel = DUR_RUEDA[idxCentradoRueda()][0];
-      marcarDuracion('rueda');
     }, 100);
   });
   opsRueda.forEach((op, i) => op.addEventListener('click', () => {
     centrarRueda(i, true);
     paseDuracionSel = DUR_RUEDA[i][0];
-    marcarDuracion('rueda');
   }));
-  $('pase-duracion').addEventListener('click', (e) => {
-    const b = e.target.closest('.chip-dur');
-    if (!b) return;
-    paseDuracionSel = b.dataset.dur;
-    marcarDuracion(b);
-  });
-  marcarDuracion('rueda'); // por defecto la rueda (5 h) es la selección
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   $('pase-modo').addEventListener('click', (e) => {
     const b = e.target.closest('.chip-scope');

@@ -1487,8 +1487,10 @@ button:disabled {
   box-shadow: inset 3px 3px 6px var(--sombra-oscura), inset -3px -3px 6px var(--sombra-clara), inset 0 0 0 1.5px var(--primario);
 }
 
-/* Rueda de duración corta: su propia fila, scroll horizontal con snap. Se ven
-   los valores de al lado (fade en los bordes) y el del centro es el elegido. */
+/* Rueda de duración: una sola fila con scroll horizontal y snap. Se ve un
+   valor faded a cada lado (3 visibles) y el del centro es el elegido. Los
+   ítems miden 1/3 del ancho y el padding lateral es de 1/3 para que el primero
+   y el último puedan centrarse. */
 .dur-rueda-wrap {
   flex: 1 1 100%;
   position: relative;
@@ -1498,14 +1500,14 @@ button:disabled {
   overflow: hidden;
 }
 
-/* Ventana central que enmarca el valor elegido (verde cuando la rueda manda). */
+/* Ventana central que enmarca el valor elegido. */
 .dur-rueda-wrap::before {
   content: '';
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 64px;
-  height: 38px;
+  width: 30%;
+  height: 40px;
   transform: translate(-50%, -50%);
   border-radius: 9px;
   box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.06);
@@ -1522,33 +1524,41 @@ button:disabled {
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  padding: 9px calc(50% - 34px);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 24%, #000 76%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 24%, #000 76%, transparent);
+  padding: 9px 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 34%, #000 66%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 34%, #000 66%, transparent);
 }
 
 .dur-rueda::-webkit-scrollbar {
   display: none;
 }
 
+/* Espaciadores de 1/3 al inicio y al final: permiten centrar el primer y el
+   último valor. Van sin padding en la rueda para que el 33.33% de cada ítem
+   se mida sobre el ancho completo (si no, el padding % encoge el basis %). */
+.dur-esp {
+  flex: 0 0 33.3333%;
+}
+
 .dur-op {
-  flex: 0 0 68px;
+  flex: 0 0 33.3333%;
   scroll-snap-align: center;
   border: none;
   background: none;
   color: var(--texto-suave);
   font-family: inherit;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   padding: 6px 0;
   cursor: pointer;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
   transition: color 0.12s ease, font-size 0.12s ease;
 }
 
 .dur-op.centro {
   color: var(--texto);
-  font-size: 17px;
+  font-size: 16px;
 }
 
 .dur-rueda-wrap.activa .dur-op.centro {
