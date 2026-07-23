@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=163';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=164';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -738,7 +738,21 @@ async function iniciar() {
   // separados: la tapa en MP3, el toggle en WAV (su MP3 no sonaba en iPhone).
   const jetTapa = new Audio('click-tapa.mp3?v=3'); jetTapa.preload = 'auto';
   const jetToggle = new Audio('click-toggle.wav?v=2'); jetToggle.preload = 'auto';
-  const jetSonar = (a) => { try { a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } };
+  const jetSonar = (a) => { try { a.muted = false; a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } };
+  // Desbloqueo de iOS al primer toque (pointerdown): reproduce ambos audios en
+  // silencio y los pausa, para que suenen aunque la acción salte en el
+  // movimiento del dedo (que iOS a veces no cuenta como gesto válido).
+  let jetDesbloqueado = false;
+  const jetDesbloquear = () => {
+    if (jetDesbloqueado) return; jetDesbloqueado = true;
+    [jetTapa, jetToggle].forEach((a) => {
+      try {
+        a.muted = true; const p = a.play();
+        if (p && p.then) p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
+        else { a.pause(); a.muted = false; }
+      } catch (e) { /* ignore */ }
+    });
+  };
 
   // Control tipo "Jet Switch": tapa de seguridad roja + palanca. Se desliza la
   // tapa hacia arriba (armar) y luego la palanca (abrir). Es MOMENTARY como un
@@ -802,7 +816,7 @@ async function iniciar() {
 
     // Gesto de deslizar; la acción salta al cruzar el umbral en el movimiento.
     let y0 = null, actuado = false;
-    sw.addEventListener('pointerdown', (e) => { y0 = e.clientY; actuado = false; if (sw.setPointerCapture) sw.setPointerCapture(e.pointerId); });
+    sw.addEventListener('pointerdown', (e) => { y0 = e.clientY; actuado = false; jetDesbloquear(); if (sw.setPointerCapture) sw.setPointerCapture(e.pointerId); });
     sw.addEventListener('pointermove', (e) => {
       if (y0 === null || actuado) return;
       const dy = e.clientY - y0;

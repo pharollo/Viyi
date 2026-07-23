@@ -63,7 +63,21 @@
   // play cubre el pulso — suena al abrir y el 2º click cae cuando vuelve (~1s).
   var aTapa=new Audio('click-tapa.mp3?v=3'); aTapa.preload='auto';
   var aToggle=new Audio('click-toggle.wav?v=2'); aToggle.preload='auto';
-  function tocar(a){ try{ a.currentTime=0; var p=a.play(); if(p&&p.catch)p.catch(function(){}); }catch(e){} }
+  // Desbloqueo de iOS: al PRIMER toque (pointerdown, un gesto siempre válido)
+  // se reproducen los dos audios en silencio y se pausan, para que después
+  // suenen aunque la acción se dispare en el movimiento del dedo (que iOS a
+  // veces no cuenta como gesto válido para desbloquear).
+  var desbloqueado=false;
+  function desbloquear(){
+    if(desbloqueado)return; desbloqueado=true;
+    [aTapa,aToggle].forEach(function(a){
+      try{ a.muted=true; var p=a.play();
+        if(p&&p.then)p.then(function(){ a.pause(); a.currentTime=0; a.muted=false; }).catch(function(){ a.muted=false; });
+        else { a.pause(); a.muted=false; }
+      }catch(e){}
+    });
+  }
+  function tocar(a){ try{ a.muted=false; a.currentTime=0; var p=a.play(); if(p&&p.catch)p.catch(function(){}); }catch(e){} }
   function sonTapa(){ tocar(aTapa); }
   function sonTogglePulso(){ tocar(aToggle); }
 
@@ -101,7 +115,7 @@
   // (no al soltar), para que el sonido arranque antes y compense la latencia
   // del <audio> — así el click cae justo cuando la pieza se mueve.
   var y0=null, actuado=false;
-  sw.addEventListener('pointerdown',function(e){ y0=e.clientY; actuado=false; sw.setPointerCapture&&sw.setPointerCapture(e.pointerId); });
+  sw.addEventListener('pointerdown',function(e){ y0=e.clientY; actuado=false; desbloquear(); sw.setPointerCapture&&sw.setPointerCapture(e.pointerId); });
   sw.addEventListener('pointermove',function(e){
     if(y0===null||actuado)return;
     var dy=e.clientY-y0;
