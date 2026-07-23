@@ -43,17 +43,13 @@
       NOMBRE=['Cerrado','Armado','Abierto'],
       HINT=['Desliza la tapa hacia arriba','Desliza la palanca arriba para abrir · o la tapa abajo para cerrar','Abriendo…'];
 
-  // Sonidos con elementos <audio> (HTMLAudio), NO con Web Audio. En iPhone,
-  // Web Audio a veces no se desbloquea (aunque YouTube sí suene); HTMLAudio se
-  // comporta como el audio de YouTube y es más confiable. Se "ceban" con un
-  // play/pause dentro del primer gesto para desbloquearlos en iOS.
+  // Sonidos con elementos <audio> (HTMLAudio). Cada sonido se reproduce DIRECTO
+  // dentro de su propio gesto (pointerup) — así es como iOS desbloquea el audio,
+  // sin "cebado" previo (que fallaba con el archivo grande del toggle si aún no
+  // había terminado de cargar). Se fuerza .load() para tenerlos listos.
   var aTapa=new Audio('click-tapa.mp3?v=3'), aToggle=new Audio('click-toggle.mp3?v=3');
   aTapa.preload='auto'; aToggle.preload='auto';
-  var cebado=false;
-  function cebar(){
-    if(cebado)return; cebado=true;
-    [aTapa,aToggle].forEach(function(a){ var p=a.play(); if(p&&p.then)p.then(function(){a.pause();a.currentTime=0;}).catch(function(){}); });
-  }
+  try{ aTapa.load(); aToggle.load(); }catch(e){}
   function tocar(a){ try{ a.currentTime=0; var p=a.play(); if(p&&p.catch)p.catch(function(){}); }catch(e){} }
   function sonTapa(){ tocar(aTapa); }
   // El archivo del toggle ya trae los dos clicks (subir ~0s, bajar ~0.89s), así
@@ -92,7 +88,7 @@
 
   // Gesto de deslizar (touch y mouse). Arriba abre, abajo cierra la tapa.
   var y0=null;
-  sw.addEventListener('pointerdown',function(e){ y0=e.clientY; cebar(); sw.setPointerCapture&&sw.setPointerCapture(e.pointerId); });
+  sw.addEventListener('pointerdown',function(e){ y0=e.clientY; sw.setPointerCapture&&sw.setPointerCapture(e.pointerId); });
   sw.addEventListener('pointerup',function(e){
     if(y0===null)return; var dy=e.clientY-y0; y0=null;
     if(dy<-22)deslizarArriba();
