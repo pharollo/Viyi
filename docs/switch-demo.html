@@ -44,6 +44,32 @@
   var COLOR=['#f09595','#f2c94c','#a5ff2e'],
       NOMBRE=['Cerrado','Armado','Abierto'],
       HINT=['Toca la tapa para levantarla','Flipea la palanca para abrir · o baja la tapa','Flipea la palanca para cerrar'];
+
+  // Sonidos sintetizados con Web Audio (sin archivos). El AudioContext se crea
+  // en el primer toque porque los navegadores no dejan sonar antes de un gesto.
+  var AC=null;
+  function ac(){
+    if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==='suspended')AC.resume();
+    return AC;
+  }
+  function ruido(c,dur,tipo,freq,q,vol){
+    var n=Math.max(1,Math.floor(c.sampleRate*dur)),buf=c.createBuffer(1,n,c.sampleRate),d=buf.getChannelData(0);
+    for(var i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2);
+    var s=c.createBufferSource();s.buffer=buf;
+    var f=c.createBiquadFilter();f.type=tipo;f.frequency.value=freq;f.Q.value=q;
+    var g=c.createGain();g.gain.value=vol;
+    s.connect(f);f.connect(g);g.connect(c.destination);s.start();
+  }
+  function tono(c,freq,dur,tipo,vol){
+    var o=c.createOscillator();o.type=tipo;var g=c.createGain(),t=c.currentTime;
+    o.frequency.setValueAtTime(freq,t);o.frequency.exponentialRampToValueAtTime(Math.max(40,freq*0.55),t+dur);
+    g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+dur);
+  }
+  function sonTapa(){ try{var c=ac();ruido(c,0.045,'highpass',2600,1,0.32);tono(c,1500,0.05,'triangle',0.16);}catch(e){} }
+  function sonToggle(){ try{var c=ac();ruido(c,0.06,'bandpass',560,2,0.3);tono(c,230,0.085,'square',0.22);tono(c,150,0.11,'sine',0.14);}catch(e){} }
+
   var idx=0,dir=1;
   function pintar(){
     for(var k=0;k<3;k++)capas[k].style.opacity=(k===idx)?1:0;
@@ -51,9 +77,12 @@
     sw.classList.remove('pop');void sw.offsetWidth;sw.classList.add('pop');
   }
   sw.addEventListener('click',function(){
+    var prev=idx;
     idx+=dir;
     if(idx>=2){idx=2;dir=-1;}else if(idx<=0){idx=0;dir=1;}
-    if(idx===2&&navigator.vibrate)navigator.vibrate([30,20,50]);
+    var lo=Math.min(prev,idx),hi=Math.max(prev,idx);
+    if(lo===0&&hi===1){ sonTapa(); if(navigator.vibrate)navigator.vibrate(15); }        // se movió la tapa
+    else if(lo===1&&hi===2){ sonToggle(); if(navigator.vibrate)navigator.vibrate([25,15,40]); } // se movió el toggle
     pintar();
   });
   pintar();
