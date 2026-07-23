@@ -10,7 +10,7 @@
   .modulo{background:#0a0a0b;border-radius:20px;padding:22px 26px 18px;display:flex;
     flex-direction:column;align-items:center;gap:6px;box-shadow:0 10px 30px rgba(0,0,0,.5);}
   .titulo{font-size:12px;letter-spacing:2px;color:#8d9297;text-transform:uppercase;margin-bottom:4px;}
-  .switch{position:relative;width:210px;height:400px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .switch{position:relative;width:210px;height:400px;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent;}
   .capa{position:absolute;inset:0;background-repeat:no-repeat;transition:opacity .13s ease;}
   .c-cerrado{background-image:url('jet-cerrado-src.png');
     background-size:354px 708px;background-position:-72px -159px;}
@@ -43,7 +43,7 @@
       est=document.getElementById('est'),hnt=document.getElementById('hnt');
   var COLOR=['#f09595','#f2c94c','#a5ff2e'],
       NOMBRE=['Cerrado','Armado','Abierto'],
-      HINT=['Toca la tapa para levantarla','Flipea la palanca para abrir · o baja la tapa','Flipea la palanca para cerrar'];
+      HINT=['Desliza la tapa hacia arriba','Desliza la palanca arriba para abrir · o la tapa abajo para cerrar','Abriendo…'];
 
   // Sonidos sintetizados con Web Audio (sin archivos). El AudioContext se crea
   // en el primer toque porque los navegadores no dejan sonar antes de un gesto.
@@ -70,21 +70,45 @@
   function sonTapa(){ try{var c=ac();ruido(c,0.045,'highpass',2600,1,0.32);tono(c,1500,0.05,'triangle',0.16);}catch(e){} }
   function sonToggle(){ try{var c=ac();ruido(c,0.06,'bandpass',560,2,0.3);tono(c,230,0.085,'square',0.22);tono(c,150,0.11,'sine',0.14);}catch(e){} }
 
-  var idx=0,dir=1;
+  var idx=0,momentaryTimer=null;
   function pintar(){
     for(var k=0;k<3;k++)capas[k].style.opacity=(k===idx)?1:0;
     est.textContent=NOMBRE[idx];est.style.color=COLOR[idx];hnt.textContent=HINT[idx];
     sw.classList.remove('pop');void sw.offsetWidth;sw.classList.add('pop');
   }
-  sw.addEventListener('click',function(){
-    var prev=idx;
-    idx+=dir;
-    if(idx>=2){idx=2;dir=-1;}else if(idx<=0){idx=0;dir=1;}
-    var lo=Math.min(prev,idx),hi=Math.max(prev,idx);
-    if(lo===0&&hi===1){ sonTapa(); if(navigator.vibrate)navigator.vibrate(15); }        // se movió la tapa
-    else if(lo===1&&hi===2){ sonToggle(); if(navigator.vibrate)navigator.vibrate([25,15,40]); } // se movió el toggle
+  // Cambia de estado, con el sonido/vibración de la pieza que se movió.
+  function ir(nuevo){
+    var lo=Math.min(idx,nuevo),hi=Math.max(idx,nuevo);
+    idx=nuevo;
+    if(lo===0&&hi===1){ sonTapa(); if(navigator.vibrate)navigator.vibrate(15); }        // tapa
+    else if(lo===1&&hi===2){ sonToggle(); if(navigator.vibrate)navigator.vibrate([25,15,40]); } // toggle
     pintar();
+  }
+  // El toggle es MOMENTARY: al subirlo dispara "Abierto" y vuelve solo a Armado
+  // al segundo, con su click de retorno — como un portón, que es un pulso.
+  function deslizarArriba(){
+    if(momentaryTimer)return;             // esperando el resorte, no aceptar más
+    if(idx===0){ ir(1); return; }         // tapa: cerrado -> armado
+    if(idx===1){                          // toggle: armado -> abierto (pulso)
+      ir(2);
+      momentaryTimer=setTimeout(function(){ ir(1); momentaryTimer=null; },1000);
+    }
+  }
+  function deslizarAbajo(){
+    if(momentaryTimer)return;
+    if(idx===1){ ir(0); }                 // tapa: armado -> cerrado
+  }
+
+  // Gesto de deslizar (touch y mouse). Arriba abre, abajo cierra la tapa.
+  var y0=null;
+  sw.addEventListener('pointerdown',function(e){ y0=e.clientY; sw.setPointerCapture&&sw.setPointerCapture(e.pointerId); });
+  sw.addEventListener('pointerup',function(e){
+    if(y0===null)return; var dy=e.clientY-y0; y0=null;
+    if(dy<-22)deslizarArriba();
+    else if(dy>22)deslizarAbajo();
+    else deslizarArriba();                // un toque suave también abre, para no frustrar
   });
+  sw.addEventListener('pointercancel',function(){ y0=null; });
   pintar();
 })();
 </script>
