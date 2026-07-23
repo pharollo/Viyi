@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=175';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=176';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2311,11 +2311,10 @@ async function iniciar() {
   // ajustable con − / + (de 30 min a 12 h). Los tokens coinciden con
   // DURACIONES_MS del backend (crearPase / darAcceso).
   const DUR_CORTO = [
-    ['30m', '30 min'], ['1h', '1 h'], ['2h', '2 h'],
-    ['3h', '3 h'], ['6h', '6 h'], ['12h', '12 h'],
+    ['1h', '1 h'], ['2h', '2 h'], ['3h', '3 h'], ['6h', '6 h'], ['12h', '12 h'],
   ];
-  let cortoIdx = DUR_CORTO.findIndex(([t]) => t === '1h'); // el chip corto arranca en 1 h
-  let paseDuracionSel = '24h'; // por defecto queda activo el chip de 24 h
+  let cortoIdx = DUR_CORTO.findIndex(([t]) => t === '3h'); // arranca en 3 h
+  let paseDuracionSel = DUR_CORTO[cortoIdx][0]; // por defecto el chip corto activo en 3 h
 
   function marcarDuracion(el) {
     $('chip-corto').classList.toggle('activa', el === 'corto');
@@ -2341,6 +2340,7 @@ async function iniciar() {
     marcarDuracion(b);
   });
   pintarCorto();
+  marcarDuracion('corto'); // por defecto arranca activo el chip corto (3 h)
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   $('pase-modo').addEventListener('click', (e) => {
     const b = e.target.closest('.chip-scope');
