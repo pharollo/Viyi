@@ -880,15 +880,17 @@ button:disabled {
 .jet-bunker {
   position: absolute;
   left: 50%;
-  top: 34%;
-  transform: translateX(-50%);
+  top: 40%;
+  transform: translate(-50%, -100%);
   color: #fff;
   line-height: 0;
 }
 
 .jet-bunker svg {
-  width: 30px;
-  height: 30px;
+  width: 62px;
+  height: 62px;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.55));
 }
 
 .boton-circular {
