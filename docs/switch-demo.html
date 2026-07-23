@@ -12,11 +12,11 @@
   .titulo{font-size:12px;letter-spacing:2px;color:#8d9297;text-transform:uppercase;margin-bottom:4px;}
   .switch{position:relative;width:210px;height:400px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
   .capa{position:absolute;inset:0;background-repeat:no-repeat;transition:opacity .13s ease;}
-  .c-cerrado{background-image:url('364FD124-918A-4954-A882-BCD8DA4B8F1E.PNG');
+  .c-cerrado{background-image:url('jet-cerrado-src.png');
     background-size:354px 708px;background-position:-72px -159px;}
-  .c-armado{background-image:url('18CE9F8A-7548-4B45-A309-9CDF6DCBAFFC.PNG');
-    background-size:416px 832px;background-position:-208px -277px;opacity:0;}
-  .c-abierto{background-image:url('18CE9F8A-7548-4B45-A309-9CDF6DCBAFFC.PNG');
+  .c-armado{background-image:url('jet-3estados.png');
+    background-size:1284px 729px;background-position:-532px -251px;opacity:0;}
+  .c-abierto{background-image:url('jet-dos-src.png');
     background-size:413px 827px;background-position:-2px -272px;opacity:0;}
   .estado{font-size:18px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#f09595;min-height:24px;}
   .hint{font-size:12px;color:#8d9297;min-height:16px;text-align:center;letter-spacing:.4px;}
@@ -39,27 +39,24 @@
 <script>
 (function(){
   var sw=document.getElementById('sw'),
-      cerrado=document.getElementById('cerrado'),armado=document.getElementById('armado'),abierto=document.getElementById('abierto'),
+      capas={0:document.getElementById('cerrado'),1:document.getElementById('armado'),2:document.getElementById('abierto')},
       est=document.getElementById('est'),hnt=document.getElementById('hnt');
-  var armadoOn=false,abiertoOn=false;
+  var COLOR=['#f09595','#f2c94c','#a5ff2e'],
+      NOMBRE=['Cerrado','Armado','Abierto'],
+      HINT=['Toca la tapa para levantarla','Flipea la palanca para abrir · o baja la tapa','Flipea la palanca para cerrar'];
+  var idx=0,dir=1;
   function pintar(){
-    cerrado.style.opacity=(!armadoOn&&!abiertoOn)?1:0;
-    armado.style.opacity=(armadoOn&&!abiertoOn)?1:0;
-    abierto.style.opacity=abiertoOn?1:0;
-    est.textContent=abiertoOn?'Abierto':'Cerrado';
-    est.style.color=abiertoOn?'#a5ff2e':'#f09595';
-    hnt.textContent=!armadoOn?'Toca la tapa para levantarla':(!abiertoOn?'Flipea la palanca para abrir · o baja la tapa':'Flipea la palanca para cerrar');
+    for(var k=0;k<3;k++)capas[k].style.opacity=(k===idx)?1:0;
+    est.textContent=NOMBRE[idx];est.style.color=COLOR[idx];hnt.textContent=HINT[idx];
     sw.classList.remove('pop');void sw.offsetWidth;sw.classList.add('pop');
   }
   sw.addEventListener('click',function(){
-    if(!armadoOn){armadoOn=true;pintar();return;}
-    if(!abiertoOn&&armadoOn&&!abiertoOn){
-      // con tapa arriba: primer toque abre; si ya está abierto, cierra
-    }
-    if(!abiertoOn){abiertoOn=true;if(navigator.vibrate)navigator.vibrate([30,20,50]);pintar();return;}
-    // estaba abierto -> cerrar palanca (queda armado)
-    abiertoOn=false;pintar();
+    idx+=dir;
+    if(idx>=2){idx=2;dir=-1;}else if(idx<=0){idx=0;dir=1;}
+    if(idx===2&&navigator.vibrate)navigator.vibrate([30,20,50]);
+    pintar();
   });
+  pintar();
 })();
 </script>
 </body>
