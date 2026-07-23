@@ -43,25 +43,17 @@
       NOMBRE=['Cerrado','Armado','Abierto'],
       HINT=['Desliza la tapa hacia arriba','Desliza la palanca arriba para abrir · o la tapa abajo para cerrar','Abriendo…'];
 
-  // UN SOLO elemento <audio> para todo. En iPhone, cuando hay varios elementos,
-  // a veces solo se "desbloquea" el primero que suena (la tapa) y el segundo (el
-  // toggle) queda mudo. Con uno solo: se desbloquea con la tapa y se reutiliza
-  // para el toggle cambiándole la fuente — ya desbloqueado, suena para ambos.
-  // El toggle va en WAV (no MP3): el MP3 del toggle no sonaba en iPhone —Safari
-  // no lo reproducía—, y el WAV es un formato que iOS acepta siempre. La tapa
-  // sigue en MP3 porque ese sí funciona.
-  var SND_TAPA='click-tapa.mp3?v=3', SND_TOGGLE='click-toggle.wav?v=1';
-  try{ var pa=new Audio(SND_TAPA); pa.preload='auto'; var ptg=new Audio(SND_TOGGLE); ptg.preload='auto'; }catch(e){} // calienta el caché
-  var snd=new Audio(); snd.preload='auto'; var srcActual='';
-  function tocar(url){
-    try{ if(srcActual!==url){ snd.src=url; srcActual=url; } snd.currentTime=0;
-      var p=snd.play(); if(p&&p.catch)p.catch(function(){}); }catch(e){}
-  }
-  function sonTapa(){ tocar(SND_TAPA); }
-  // El archivo del toggle ya trae los dos clicks (subir ~0s, bajar ~0.89s), así
-  // que un solo play cubre el pulso: suena al abrir y el 2º click cae justo
-  // cuando el momentary vuelve (~1s).
-  function sonTogglePulso(){ tocar(SND_TOGGLE); }
+  // Dos elementos <audio> separados, cada uno con su fuente ya puesta y
+  // precargada (así la tapa se desbloquea y suena, como venía funcionando).
+  // El TOGGLE va en WAV: su MP3 no sonaba en iPhone —Safari no lo reproducía—;
+  // el WAV es un formato que iOS acepta siempre. La tapa sigue en MP3 (funciona).
+  // El WAV del toggle ya trae los dos clicks (subir ~0s, bajar ~0.89s): un solo
+  // play cubre el pulso — suena al abrir y el 2º click cae cuando vuelve (~1s).
+  var aTapa=new Audio('click-tapa.mp3?v=3'); aTapa.preload='auto';
+  var aToggle=new Audio('click-toggle.wav?v=1'); aToggle.preload='auto';
+  function tocar(a){ try{ a.currentTime=0; var p=a.play(); if(p&&p.catch)p.catch(function(){}); }catch(e){} }
+  function sonTapa(){ tocar(aTapa); }
+  function sonTogglePulso(){ tocar(aToggle); }
 
   var idx=0,momentaryTimer=null;
   function pintar(){
