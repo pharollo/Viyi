@@ -55,19 +55,23 @@
     if(AC.state==='suspended')AC.resume();
     return AC;
   }
+  // ?v= para que el CDN no siga sirviendo los MP3 viejos al recortarlos. Súbelo
+  // cada vez que cambien los archivos de sonido.
+  var VSND='3';
   (function precargar(){
     var c=ac();
-    fetch('click-tapa.mp3').then(function(r){return r.arrayBuffer();}).then(function(b){return c.decodeAudioData(b);}).then(function(x){bufTapa=x;}).catch(function(){});
-    fetch('click-toggle.mp3').then(function(r){return r.arrayBuffer();}).then(function(b){return c.decodeAudioData(b);}).then(function(x){bufToggle=x;}).catch(function(){});
+    fetch('click-tapa.mp3?v='+VSND).then(function(r){return r.arrayBuffer();}).then(function(b){return c.decodeAudioData(b);}).then(function(x){bufTapa=x;}).catch(function(){});
+    fetch('click-toggle.mp3?v='+VSND).then(function(r){return r.arrayBuffer();}).then(function(b){return c.decodeAudioData(b);}).then(function(x){bufToggle=x;}).catch(function(){});
   })();
   function seg(buf,offset,dur){
     if(!buf)return;
     try{var c=ac();var s=c.createBufferSource();s.buffer=buf;s.connect(master);
       if(dur)s.start(0,offset,dur);else s.start(0,offset);}catch(e){}
   }
-  function sonTapa(){ seg(bufTapa,0); }                 // click corto entero
-  function sonToggleUp(){ seg(bufToggle,0,0.42); }      // primer click: subir
-  function sonToggleDown(){ seg(bufToggle,0.86,0.42); } // segundo click: bajar
+  // Solo el primer golpe de cada archivo, para que no suene doble.
+  function sonTapa(){ seg(bufTapa,0,0.06); }            // click de la tapa (corta antes del 2º golpe en 70ms)
+  function sonToggleUp(){ seg(bufToggle,0,0.16); }      // primer click del toggle: subir
+  function sonToggleDown(){ seg(bufToggle,0.87,0.16); } // segundo click del toggle: bajar
 
   var idx=0,momentaryTimer=null;
   function pintar(){
