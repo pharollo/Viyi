@@ -734,7 +734,84 @@ async function iniciar() {
     boton.classList.add('con-nombre');
   }
 
+  // Audios del Jet Switch, compartidos por todos sus controles. Dos elementos
+  // separados: la tapa en MP3, el toggle en WAV (su MP3 no sonaba en iPhone).
+  const jetTapa = new Audio('click-tapa.mp3?v=3'); jetTapa.preload = 'auto';
+  const jetToggle = new Audio('click-toggle.wav?v=2'); jetToggle.preload = 'auto';
+  const jetSonar = (a) => { try { a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } };
+
+  // Control tipo "Jet Switch": tapa de seguridad roja + palanca. Se desliza la
+  // tapa hacia arriba (armar) y luego la palanca (abrir). Es MOMENTARY como un
+  // portón: al abrir dispara el pulso y la palanca vuelve sola a Armado en 1 s.
+  function controlJet(dispositivo) {
+    const control = document.createElement('div');
+    control.className = 'control control-jet';
+
+    const titulo = document.createElement('span');
+    titulo.className = 'jet-titulo';
+    titulo.textContent = dispositivo.nombre;
+
+    const sw = document.createElement('div');
+    sw.className = 'jet-switch';
+    sw.innerHTML = '<div class="jet-capa jet-cerrado"></div>'
+      + '<div class="jet-capa jet-armado"></div>'
+      + '<div class="jet-capa jet-abierto"></div>';
+    const capas = [sw.querySelector('.jet-cerrado'), sw.querySelector('.jet-armado'), sw.querySelector('.jet-abierto')];
+
+    control.append(titulo, sw);
+
+    let idx = 0, momentaryTimer = null, enviando = false;
+    const pintar = () => { for (let k = 0; k < 3; k++) capas[k].style.opacity = (k === idx) ? 1 : 0; };
+
+    const ir = (nuevo) => {
+      const prev = idx; idx = nuevo;
+      if ((prev === 0 && nuevo === 1) || (prev === 1 && nuevo === 0)) jetSonar(jetTapa); // tapa
+      else if (prev === 1 && nuevo === 2) jetSonar(jetToggle);                            // toggle (pulso)
+      pintar();
+    };
+
+    // Dispara el comando real al abrir; la palanca es momentary y vuelve sola.
+    async function disparar() {
+      ir(2);
+      momentaryTimer = setTimeout(() => { ir(1); momentaryTimer = null; }, 1000);
+      if (enviando) return;
+      enviando = true;
+      try {
+        await ejecutarComando({ dispositivoId: dispositivo.id });
+      } catch (err) {
+        toast(err.message || 'No se pudo abrir.', 'error');
+      } finally {
+        enviando = false;
+      }
+    }
+    const arriba = () => {
+      if (momentaryTimer) return;
+      if (idx === 0) ir(1);          // tapa: cerrado -> armado
+      else if (idx === 1) disparar(); // toggle: armado -> abierto (pulso)
+    };
+    const abajo = () => { if (!momentaryTimer && idx === 1) ir(0); }; // tapa: armado -> cerrado
+
+    // Gesto de deslizar; la acción salta al cruzar el umbral en el movimiento.
+    let y0 = null, actuado = false;
+    sw.addEventListener('pointerdown', (e) => { y0 = e.clientY; actuado = false; if (sw.setPointerCapture) sw.setPointerCapture(e.pointerId); });
+    sw.addEventListener('pointermove', (e) => {
+      if (y0 === null || actuado) return;
+      const dy = e.clientY - y0;
+      if (dy < -22) { actuado = true; arriba(); }
+      else if (dy > 22) { actuado = true; abajo(); }
+    });
+    sw.addEventListener('pointerup', () => { const m = actuado; y0 = null; actuado = false; if (!m) arriba(); });
+    sw.addEventListener('pointercancel', () => { y0 = null; actuado = false; });
+
+    pintar();
+    return control;
+  }
+
   function tarjetaDispositivo(dispositivo) {
+    // Puerta de pulso con aspecto Jet: interruptor con tapa de seguridad.
+    if (dispositivo.modo === 'pulso' && dispositivo.aspecto === 'jet') {
+      return controlJet(dispositivo);
+    }
     const control = document.createElement('div');
     control.className = 'control';
     let boton;
@@ -1511,9 +1588,18 @@ async function iniciar() {
     const sTipo = selector([['puerta', 'Puerta'], ['cortina', 'Cortina / persiana'], ['ascensor', 'Ascensor'], ['luz', 'Luz'], ['termostato', 'Termostato'], ['rele', 'Relé / equipo'], ['otro', 'Otro']], d.tipo || 'puerta');
     const sSub = selector(SUBTIPOS.puerta, d.subtipo || '');
     const campoSub = campo('Subcategoría', sSub);
-    const actualizarSub = () => campoSub.classList.toggle('oculto', sTipo.value !== 'puerta');
+    // Aspecto del control: normal, o el Jet Switch con tapa de seguridad. Solo
+    // se ofrece para puertas de pulso (portones), donde la tapa evita aperturas
+    // accidentales; en otros casos se oculta y no aplica.
+    const sAspecto = selector([['normal', 'Normal'], ['jet', 'Jet Switch (tapa de seguridad)']], d.aspecto || 'normal');
+    const campoAspecto = campo('Aspecto', sAspecto);
+    const actualizarSub = () => {
+      campoSub.classList.toggle('oculto', sTipo.value !== 'puerta');
+      campoAspecto.classList.toggle('oculto', !(sTipo.value === 'puerta' && sModo.value === 'pulso'));
+    };
     sTipo.addEventListener('change', actualizarSub);
-    actualizarSub();
+    // (sModo aún no existe aquí; el cambio de modo y la llamada inicial van más
+    // abajo, cuando sModo ya está definido.)
     const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (perilla de apertura)'], ['dimmer', 'Dimmer (perilla de brillo)'], ['termostato', 'Termostato (temperatura)']], d.modo || 'pulso');
     const campoModo = campo('Modo', sModo);
     // Un termostato solo tiene el modo termostato: al elegir ese tipo se
@@ -1659,8 +1745,10 @@ async function iniciar() {
     };
     sProveedor.addEventListener('change', actualizarCampos);
     sModo.addEventListener('change', actualizarCampos);
+    sModo.addEventListener('change', actualizarSub); // el aspecto Jet solo aplica a pulso
     actualizarCampos();
     sincronizarModoTipo();
+    actualizarSub();
 
     const acciones = [
       botonForm('Guardar', 'btn-primario', async (ev) => {
@@ -1672,6 +1760,7 @@ async function iniciar() {
             nombre: iNombre.value.trim(),
             tipo: sTipo.value,
             subtipo: sTipo.value === 'puerta' ? sSub.value : '',
+            aspecto: (sTipo.value === 'puerta' && sModo.value === 'pulso') ? sAspecto.value : 'normal',
             modo: sModo.value,
             proveedor: sProveedor.value,
             orden: Number(iOrden.value) || 99,
@@ -1716,6 +1805,7 @@ async function iniciar() {
       campo('Tipo', sTipo),
       campoSub,
       campoModo,
+      campoAspecto,
       campo('Proveedor', sProveedor),
       campo('Orden (menor = primero)', iOrden),
       cActivo.label,

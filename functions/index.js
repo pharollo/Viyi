@@ -609,7 +609,7 @@ exports.adminEliminarUsuario = onCall(async (request) => {
 exports.adminGuardarDispositivo = onCall(async (request) => {
   await exigirAdmin(request);
   const {
-    id, nombre, tipo, subtipo, modo, etiquetaBoton, orden, activo,
+    id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, orden, activo,
     proveedor, tuyaDeviceId, codigo, pulsoMs, codigoBrillo, brilloMax,
     codigoPosicion, codigoPosicionEstado, posicionInvertida,
     accesorioId, caracteristica,
@@ -637,6 +637,9 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     modo: ['interruptor', 'cortina', 'dimmer', 'termostato'].includes(modo) ? modo : 'pulso',
     proveedor: provFinal,
     etiquetaBoton: etiquetaBoton || '',
+    // Aspecto del control: 'jet' = interruptor con tapa de seguridad (solo tiene
+    // sentido en puertas de pulso); cualquier otra cosa = control normal.
+    aspecto: aspecto === 'jet' ? 'jet' : 'normal',
     orden: Number(orden) || 99,
     activo: activo !== false,
   }, { merge: true });

@@ -823,6 +823,59 @@ button:disabled {
   max-width: 150px;
 }
 
+/* Control "Jet Switch": tapa de seguridad roja + palanca, sobre módulo negro.
+   Los recortes de imagen (background-size/position) están calculados para un
+   switch de 210px de ancho; no cambiar sin recalcular. */
+.control-jet {
+  gap: 10px;
+}
+
+.jet-titulo {
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.jet-switch {
+  position: relative;
+  width: 210px;
+  height: 400px;
+  background: #0a0a0b;
+  border-radius: 20px;
+  cursor: grab;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 6px 6px 16px var(--sombra-oscura), -6px -6px 16px var(--sombra-clara);
+}
+
+.jet-capa {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  transition: opacity 0.13s ease;
+}
+
+.jet-cerrado {
+  background-image: url('jet-cerrado-src.png');
+  background-size: 354px 708px;
+  background-position: -72px -159px;
+}
+
+.jet-armado {
+  background-image: url('jet-3estados.png');
+  background-size: 1284px 729px;
+  background-position: -532px -251px;
+  opacity: 0;
+}
+
+.jet-abierto {
+  background-image: url('jet-dos-src.png');
+  background-size: 413px 827px;
+  background-position: -2px -272px;
+  opacity: 0;
+}
+
 .boton-circular {
   border-radius: 50%;
   display: flex;
