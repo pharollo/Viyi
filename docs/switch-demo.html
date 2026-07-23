@@ -45,35 +45,21 @@
       NOMBRE=['Cerrado','Armado','Abierto'],
       HINT=['Desliza la tapa hacia arriba','Desliza la palanca arriba para abrir · o la tapa abajo para cerrar','Abriendo…'];
 
-  // Sonidos sintetizados con Web Audio (sin archivos). El AudioContext se crea
-  // en el primer toque porque los navegadores no dejan sonar antes de un gesto.
-  var AC=null,master=null;
-  function ac(){
-    if(!AC){
-      AC=new (window.AudioContext||window.webkitAudioContext)();
-      master=AC.createGain();master.gain.value=1;master.connect(AC.destination);
-      // Desbloqueo de iOS: reproducir un buffer silencioso dentro del gesto.
-      try{var b=AC.createBuffer(1,1,22050),s=AC.createBufferSource();s.buffer=b;s.connect(AC.destination);s.start(0);}catch(e){}
-    }
-    if(AC.state==='suspended')AC.resume();
-    return AC;
+  // Sonidos reales (archivos). Se precargan y se clonan al sonar, para que un
+  // toque rápido no espere a que termine el anterior. En iOS hay que "cebarlos"
+  // con un play/pause dentro del primer gesto, si no el navegador los bloquea.
+  var audioTapa=new Audio('click-tapa.mp3'), audioToggle=new Audio('click-toggle.mp3');
+  audioTapa.preload='auto'; audioToggle.preload='auto';
+  var cebado=false;
+  function cebar(){
+    if(cebado)return; cebado=true;
+    [audioTapa,audioToggle].forEach(function(a){
+      a.play().then(function(){a.pause();a.currentTime=0;}).catch(function(){});
+    });
   }
-  function ruido(c,dur,tipo,freq,q,vol){
-    var n=Math.max(1,Math.floor(c.sampleRate*dur)),buf=c.createBuffer(1,n,c.sampleRate),d=buf.getChannelData(0);
-    for(var i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2);
-    var s=c.createBufferSource();s.buffer=buf;
-    var f=c.createBiquadFilter();f.type=tipo;f.frequency.value=freq;f.Q.value=q;
-    var g=c.createGain();g.gain.value=vol;
-    s.connect(f);f.connect(g);g.connect(master);s.start();
-  }
-  function tono(c,freq,dur,tipo,vol){
-    var o=c.createOscillator();o.type=tipo;var g=c.createGain(),t=c.currentTime;
-    o.frequency.setValueAtTime(freq,t);o.frequency.exponentialRampToValueAtTime(Math.max(40,freq*0.55),t+dur);
-    g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-    o.connect(g);g.connect(master);o.start(t);o.stop(t+dur);
-  }
-  function sonTapa(){ try{var c=ac();ruido(c,0.05,'highpass',2600,1,0.7);tono(c,1500,0.055,'triangle',0.42);}catch(e){} }
-  function sonToggle(){ try{var c=ac();ruido(c,0.07,'bandpass',560,2,0.65);tono(c,230,0.09,'square',0.55);tono(c,150,0.12,'sine',0.35);}catch(e){} }
+  function reproducir(a){ try{var c=a.cloneNode();c.volume=1;c.play().catch(function(){});}catch(e){} }
+  function sonTapa(){ reproducir(audioTapa); }
+  function sonToggle(){ reproducir(audioToggle); }
 
   var idx=0,momentaryTimer=null;
   function pintar(){
@@ -106,7 +92,7 @@
 
   // Gesto de deslizar (touch y mouse). Arriba abre, abajo cierra la tapa.
   var y0=null;
-  sw.addEventListener('pointerdown',function(e){ y0=e.clientY; try{ac();}catch(_){} sw.setPointerCapture&&sw.setPointerCapture(e.pointerId); });
+  sw.addEventListener('pointerdown',function(e){ y0=e.clientY; cebar(); sw.setPointerCapture&&sw.setPointerCapture(e.pointerId); });
   sw.addEventListener('pointerup',function(e){
     if(y0===null)return; var dy=e.clientY-y0; y0=null;
     if(dy<-22)deslizarArriba();
