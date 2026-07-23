@@ -28,7 +28,9 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 18px 22px;
+  /* Con viewport-fit=cover el contenido llega a los bordes; se respeta el área
+     segura de arriba (notch) y los lados. */
+  padding: calc(18px + env(safe-area-inset-top)) calc(22px + env(safe-area-inset-right)) 18px calc(22px + env(safe-area-inset-left));
   background: transparent;
   max-width: 640px;
   margin: 0 auto;
@@ -96,7 +98,10 @@ header h1 {
 main {
   max-width: 640px;
   margin: 0 auto;
-  padding: 16px 16px 90px;
+  /* Zona muerta abajo (safe-area del home bar + margen) para que los controles
+     de arrastre —sobre todo los dimmers— no queden en el borde inferior, donde
+     iOS reserva el gesto de inicio/cambio de app y ganaría el sistema. */
+  padding: 16px 16px calc(120px + env(safe-area-inset-bottom));
 }
 
 .centrado {
@@ -488,7 +493,7 @@ button:disabled {
   max-width: 80vw;
   z-index: 50;
   background: var(--fondo);
-  padding: 34px 16px 22px;
+  padding: calc(34px + env(safe-area-inset-top)) 16px calc(22px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1138,7 +1143,7 @@ button:disabled {
 #toast {
   position: fixed;
   left: 50%;
-  bottom: 26px;
+  bottom: calc(26px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   padding: 13px 22px;
   border-radius: 16px;
