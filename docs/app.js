@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=176';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=177';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2311,9 +2311,10 @@ async function iniciar() {
   // ajustable con − / + (de 30 min a 12 h). Los tokens coinciden con
   // DURACIONES_MS del backend (crearPase / darAcceso).
   const DUR_CORTO = [
-    ['1h', '1 h'], ['2h', '2 h'], ['3h', '3 h'], ['6h', '6 h'], ['12h', '12 h'],
+    ['1h', '1 h'], ['2h', '2 h'], ['3h', '3 h'], ['4h', '4 h'],
+    ['5h', '5 h'], ['6h', '6 h'], ['12h', '12 h'],
   ];
-  let cortoIdx = DUR_CORTO.findIndex(([t]) => t === '3h'); // arranca en 3 h
+  let cortoIdx = DUR_CORTO.findIndex(([t]) => t === '5h'); // arranca en 5 h
   let paseDuracionSel = DUR_CORTO[cortoIdx][0]; // por defecto el chip corto activo en 3 h
 
   function marcarDuracion(el) {

@@ -186,8 +186,8 @@ const dormir = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // Duraciones de los pases (acceso temporal compartido).
 const DURACIONES_MS = {
   '30m': 1800000, '1h': 3600000, '2h': 7200000, '3h': 10800000,
-  '6h': 21600000, '12h': 43200000, '24h': 86400000,
-  '2d': 172800000, '3d': 259200000, '7d': 604800000,
+  '4h': 14400000, '5h': 18000000, '6h': 21600000, '12h': 43200000,
+  '24h': 86400000, '2d': 172800000, '3d': 259200000, '7d': 604800000,
 };
 // Tokens válidos = los del mapa + 'indef'. Se valida contra esto en crearPase y
 // darAcceso: un token desconocido NO debe pasar, porque msDeDuracion devolvería
