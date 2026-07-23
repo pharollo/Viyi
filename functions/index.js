@@ -627,7 +627,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
       : 'Falta el Device ID de Tuya.');
   }
   let tipoFinal = ['puerta', 'cortina', 'ascensor', 'luz', 'termostato', 'rele', 'otro'].includes(tipo) ? tipo : 'otro';
-  let subFinal = ['bunker', 'porton', 'argentina'].includes(subtipo) ? subtipo : '';
+  let subFinal = ['bunker', 'porton'].includes(subtipo) ? subtipo : '';
   if (tipo === 'bunker') { tipoFinal = 'puerta'; subFinal = 'bunker'; } // compat con el tipo viejo
   if (tipoFinal !== 'puerta') subFinal = '';                            // el subtipo solo aplica a puerta
   await db.doc(`dispositivos/${id}`).set({
@@ -637,9 +637,10 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     modo: ['interruptor', 'cortina', 'dimmer', 'termostato'].includes(modo) ? modo : 'pulso',
     proveedor: provFinal,
     etiquetaBoton: etiquetaBoton || '',
-    // Aspecto del control: 'jet' = interruptor con tapa de seguridad (solo tiene
-    // sentido en puertas de pulso); cualquier otra cosa = control normal.
-    aspecto: aspecto === 'jet' ? 'jet' : 'normal',
+    // Aspecto del control (solo tiene sentido en puertas de pulso):
+    // 'jet' = interruptor con tapa de seguridad; 'argentina' = botón con el
+    // escudo de la selección; cualquier otra cosa = control normal.
+    aspecto: ['jet', 'argentina'].includes(aspecto) ? aspecto : 'normal',
     orden: Number(orden) || 99,
     activo: activo !== false,
   }, { merge: true });
