@@ -837,10 +837,14 @@ button:disabled {
   color: var(--texto-suave);
 }
 
+/* --jet-s = factor de escala del switch. Los recortes de imagen están
+   calculados para 210px de ancho; con calc() todo escala junto, así basta
+   cambiar este número para agrandarlo o achicarlo. */
 .jet-switch {
+  --jet-s: 0.75;
   position: relative;
-  width: 210px;
-  height: 400px;
+  width: calc(210px * var(--jet-s));
+  height: calc(400px * var(--jet-s));
   background: #0a0a0b;
   border-radius: 20px;
   cursor: grab;
@@ -858,21 +862,21 @@ button:disabled {
 
 .jet-cerrado {
   background-image: url('jet-cerrado-src.png');
-  background-size: 354px 708px;
-  background-position: -72px -159px;
+  background-size: calc(354px * var(--jet-s)) calc(708px * var(--jet-s));
+  background-position: calc(-72px * var(--jet-s)) calc(-159px * var(--jet-s));
 }
 
 .jet-armado {
   background-image: url('jet-3estados.png');
-  background-size: 1284px 729px;
-  background-position: -532px -251px;
+  background-size: calc(1284px * var(--jet-s)) calc(729px * var(--jet-s));
+  background-position: calc(-532px * var(--jet-s)) calc(-251px * var(--jet-s));
   opacity: 0;
 }
 
 .jet-abierto {
   background-image: url('jet-dos-src.png');
-  background-size: 413px 827px;
-  background-position: -2px -272px;
+  background-size: calc(413px * var(--jet-s)) calc(827px * var(--jet-s));
+  background-position: calc(-2px * var(--jet-s)) calc(-272px * var(--jet-s));
   opacity: 0;
 }
 
@@ -887,8 +891,8 @@ button:disabled {
 }
 
 .jet-bunker svg {
-  width: 64px;
-  height: 64px;
+  width: calc(64px * var(--jet-s));
+  height: calc(64px * var(--jet-s));
   stroke: #fff;
   stroke-width: 3.4;
 }
