@@ -47,8 +47,11 @@
   // a veces solo se "desbloquea" el primero que suena (la tapa) y el segundo (el
   // toggle) queda mudo. Con uno solo: se desbloquea con la tapa y se reutiliza
   // para el toggle cambiándole la fuente — ya desbloqueado, suena para ambos.
-  var SND_TAPA='click-tapa.mp3?v=3', SND_TOGGLE='click-toggle.mp3?v=3';
-  try{ var pa=new Audio(SND_TAPA); pa.preload='auto'; var pt=new Audio(SND_TOGGLE); pt.preload='auto'; }catch(e){} // calienta el caché
+  // El toggle va en WAV (no MP3): el MP3 del toggle no sonaba en iPhone —Safari
+  // no lo reproducía—, y el WAV es un formato que iOS acepta siempre. La tapa
+  // sigue en MP3 porque ese sí funciona.
+  var SND_TAPA='click-tapa.mp3?v=3', SND_TOGGLE='click-toggle.wav?v=1';
+  try{ var pa=new Audio(SND_TAPA); pa.preload='auto'; var ptg=new Audio(SND_TOGGLE); ptg.preload='auto'; }catch(e){} // calienta el caché
   var snd=new Audio(); snd.preload='auto'; var srcActual='';
   function tocar(url){
     try{ if(srcActual!==url){ snd.src=url; srcActual=url; } snd.currentTime=0;
