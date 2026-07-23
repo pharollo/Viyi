@@ -606,7 +606,11 @@ exports.adminEliminarUsuario = onCall(async (request) => {
   return { ok: true, pasesRevocados: pases.size };
 });
 
-exports.adminGuardarDispositivo = onCall(async (request) => {
+// cpu: 0.5 (con concurrency baja, obligatoria para <1 CPU) reduce a la mitad
+// lo que esta revisión pide de la cuota de Cloud Run, para que quepa mientras
+// suben la cuota del proyecto. Es una función de admin, de tráfico bajo.
+// Restaurar (quitar estas opciones) cuando la cuota del proyecto suba.
+exports.adminGuardarDispositivo = onCall({ cpu: 0.5, concurrency: 4 }, async (request) => {
   await exigirAdmin(request);
   const {
     id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, orden, activo,
