@@ -880,17 +880,23 @@ button:disabled {
 .jet-bunker {
   position: absolute;
   left: 50%;
-  top: 40%;
+  top: 50%;
   transform: translate(-50%, -100%);
   color: #fff;
   line-height: 0;
 }
 
 .jet-bunker svg {
-  width: 62px;
-  height: 62px;
-  stroke-width: 3;
-  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.55));
+  width: 64px;
+  height: 64px;
+  stroke: #fff;
+  stroke-width: 3.4;
+}
+
+/* Cuerpo de la bomba relleno de blanco para que lea sólida como "ENGAGE",
+   no un aro gris. */
+.jet-bunker svg circle {
+  fill: #fff;
 }
 
 .boton-circular {
