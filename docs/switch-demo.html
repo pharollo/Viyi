@@ -87,15 +87,22 @@
   }
 
   // Gesto de deslizar (touch y mouse). Arriba abre, abajo cierra la tapa.
-  var y0=null;
-  sw.addEventListener('pointerdown',function(e){ y0=e.clientY; sw.setPointerCapture&&sw.setPointerCapture(e.pointerId); });
-  sw.addEventListener('pointerup',function(e){
-    if(y0===null)return; var dy=e.clientY-y0; y0=null;
-    if(dy<-22)deslizarArriba();
-    else if(dy>22)deslizarAbajo();
-    else deslizarArriba();                // un toque suave también abre, para no frustrar
+  // La acción se dispara EN CUANTO se cruza el umbral durante el movimiento
+  // (no al soltar), para que el sonido arranque antes y compense la latencia
+  // del <audio> — así el click cae justo cuando la pieza se mueve.
+  var y0=null, actuado=false;
+  sw.addEventListener('pointerdown',function(e){ y0=e.clientY; actuado=false; sw.setPointerCapture&&sw.setPointerCapture(e.pointerId); });
+  sw.addEventListener('pointermove',function(e){
+    if(y0===null||actuado)return;
+    var dy=e.clientY-y0;
+    if(dy<-22){ actuado=true; deslizarArriba(); }
+    else if(dy>22){ actuado=true; deslizarAbajo(); }
   });
-  sw.addEventListener('pointercancel',function(){ y0=null; });
+  sw.addEventListener('pointerup',function(e){
+    if(y0===null)return; var movido=actuado; y0=null; actuado=false;
+    if(!movido)deslizarArriba();           // toque suave (sin arrastre) también abre
+  });
+  sw.addEventListener('pointercancel',function(){ y0=null; actuado=false; });
   pintar();
 })();
 </script>
