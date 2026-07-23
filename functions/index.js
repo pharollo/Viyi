@@ -1315,9 +1315,12 @@ exports.revocarPase = onCall(async (request) => {
 });
 
 exports.consultarEstado = onCall(
-  // minInstances: 1 mantiene una instancia despierta 24/7 para evitar el cold
-  // start al cargar la app tras inactividad (tiene costo: instancia siempre on).
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB], minInstances: 1 },
+  // minInstances iba en 1 (una instancia 24/7 para evitar el cold start al
+  // cargar la app), pero esa instancia reserva 1 CPU fija y agota la cuota de
+  // Cloud Run del proyecto, tumbando los despliegues. Se desactiva hasta subir
+  // la cuota; el costo es ~1-2s de arranque en la primera consulta de estado
+  // tras inactividad. Para reactivar: volver a poner minInstances: 1.
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
