@@ -20,8 +20,6 @@
     background-size:413px 827px;background-position:-2px -272px;opacity:0;}
   .estado{font-size:18px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#f09595;min-height:24px;}
   .hint{font-size:12px;color:#8d9297;min-height:16px;text-align:center;letter-spacing:.4px;}
-  .pop{animation:pop .18s ease;}
-  @keyframes pop{50%{transform:scale(1.04)}}
 </style>
 </head>
 <body>
@@ -77,7 +75,6 @@
   function pintar(){
     for(var k=0;k<3;k++)capas[k].style.opacity=(k===idx)?1:0;
     est.textContent=NOMBRE[idx];est.style.color=COLOR[idx];hnt.textContent=HINT[idx];
-    sw.classList.remove('pop');void sw.offsetWidth;sw.classList.add('pop');
   }
   // Cambia de estado, con el sonido/vibración de la pieza que se movió.
   function ir(nuevo){
