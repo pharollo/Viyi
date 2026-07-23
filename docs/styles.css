@@ -1060,9 +1060,13 @@ button:disabled {
 
 .boton-imagen .nombre-boton {
   position: absolute;
-  left: 6px;
-  right: 6px;
+  left: 0;
+  right: 0;
   bottom: 18px;
+  /* El .nombre-boton base trae max-width: 82%, que con left/right absolutos
+     empuja la caja a la izquierda y descentra el texto. Lo anulamos para que
+     ocupe todo el ancho y quede centrado. */
+  max-width: none;
   z-index: 1;
   /* Sombra sutil para despegar el gris del escudo, sin cambiar color ni peso. */
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
