@@ -614,12 +614,7 @@ exports.adminEliminarUsuario = onCall(async (request) => {
   return { ok: true, pasesRevocados: pases.size };
 });
 
-// cpu: 0.5 reduce a la mitad lo que esta revisión pide de la cuota de Cloud
-// Run, para que quepa mientras suben la cuota del proyecto. Con CPU < 1 la
-// concurrency DEBE ser 1 (regla de Cloud Run); es una función de admin de
-// tráfico bajo, así que no molesta. Restaurar (quitar estas opciones) al subir
-// la cuota del proyecto.
-exports.adminGuardarDispositivo = onCall({ cpu: 0.5, concurrency: 1 }, async (request) => {
+exports.adminGuardarDispositivo = onCall(async (request) => {
   await exigirAdmin(request);
   const {
     id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, orden, activo,
@@ -1131,10 +1126,7 @@ exports.darAcceso = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
 });
 
 // Genera un enlace de pase con los dispositivos y la duración elegidos.
-// cpu: 0.5 (concurrency 1, obligatoria con <1 CPU) para que la revisión con
-// las duraciones nuevas (4h/5h) quepa en la cuota de Cloud Run. Función de
-// tráfico bajo. Restaurar (quitar estas opciones) al subir la cuota.
-exports.crearPase = onCall({ cpu: 0.5, concurrency: 1 }, async (request) => {
+exports.crearPase = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
   }
@@ -1339,12 +1331,9 @@ exports.revocarPase = onCall(async (request) => {
 });
 
 exports.consultarEstado = onCall(
-  // minInstances iba en 1 (una instancia 24/7 para evitar el cold start al
-  // cargar la app), pero esa instancia reserva 1 CPU fija y agota la cuota de
-  // Cloud Run del proyecto, tumbando los despliegues. Se desactiva hasta subir
-  // la cuota; el costo es ~1-2s de arranque en la primera consulta de estado
-  // tras inactividad. Para reactivar: volver a poner minInstances: 1.
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB] },
+  // minInstances: 1 mantiene una instancia despierta 24/7 para evitar el cold
+  // start al cargar la app tras inactividad (tiene costo: instancia siempre on).
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB], minInstances: 1 },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
