@@ -1844,15 +1844,21 @@ input:checked ~ .pase-tgl::before {
 
 .btn-info {
   flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
+  /* Flex para centrar la "i" ópticamente dentro del círculo: con line-height
+     sola la itálica queda descuadrada. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  padding: 0;
   border: none;
   border-radius: 50%;
   background: var(--superficie);
   color: var(--texto-suave);
   font-family: Georgia, "Times New Roman", serif;
   font-style: italic;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
