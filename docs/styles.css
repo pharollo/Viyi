@@ -1085,12 +1085,22 @@ button:disabled {
 @keyframes girar-bordado {
   to { transform: rotate(360deg); }
 }
-/* El nombre se desvanece mientras gira y reaparece al parar. */
-.boton-bordado .nombre-boton {
+/* Nombre DEBAJO del botón (fuera del anillo) para los botones con foto
+   (Argentina, Bordado): no tapa la imagen, se limita para no salirse de los
+   lados (una línea con "…"), y se desvanece mientras el botón está activo. */
+.nombre-anillo {
+  max-width: 190px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--texto-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: opacity 0.25s ease;
 }
-.boton-bordado.enviando .nombre-boton,
-.boton-bordado.exito .nombre-boton {
+.control:has(.boton-imagen.enviando) .nombre-anillo,
+.control:has(.boton-imagen.exito) .nombre-anillo {
   opacity: 0;
 }
 

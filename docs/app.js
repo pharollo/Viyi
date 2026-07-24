@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=199';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=200';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -1010,9 +1010,19 @@ async function iniciar() {
       }
       boton.setAttribute('aria-label', `${dispositivo.etiquetaBoton || 'Abrir'} ${dispositivo.nombre}`);
       boton.addEventListener('click', () => pulsar(boton, dispositivo));
-      nombreEnBoton(boton, dispositivo.nombre);
       anillo.appendChild(boton);
       control.appendChild(anillo);
+      if (boton.classList.contains('boton-imagen')) {
+        // Botones con foto (Argentina, Bordado): el nombre va DEBAJO del botón
+        // (fuera del anillo) para no tapar la imagen; se limita para no salirse
+        // y se desvanece mientras el botón está activo (CSS).
+        const nom = document.createElement('div');
+        nom.className = 'nombre-anillo';
+        nom.textContent = dispositivo.nombre;
+        control.appendChild(nom);
+      } else {
+        nombreEnBoton(boton, dispositivo.nombre);
+      }
     } else if (dispositivo.modo === 'cortina') {
       control.appendChild(perillaCortina(dispositivo));
     } else if (dispositivo.modo === 'dimmer') {
