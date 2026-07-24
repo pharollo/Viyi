@@ -1074,27 +1074,6 @@ button:disabled {
 .boton-camiseta.mostrar-atras .cara-atras {
   opacity: 1;
 }
-/* Capa frosted sobre el botón (frente): desenfoca y tinta suave el escudo para
-   que el nombre se lea. Al voltear a Messi (mostrar-atras) se desvanece, así la
-   estampita se ve NÍTIDA en el reveal. Va sobre las imágenes y bajo el texto. */
-.boton-camiseta::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.28);
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
-  pointer-events: none;
-  z-index: 1;
-  transition: opacity 0.18s ease;
-}
-.boton-camiseta.mostrar-atras::after {
-  opacity: 0;
-}
-.boton-camiseta.boton-imagen .nombre-boton {
-  z-index: 2;
-}
 
 .boton-imagen .nombre-boton {
   position: absolute;
