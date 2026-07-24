@@ -1025,6 +1025,7 @@ button:disabled {
 }
 
 .anillo {
+  position: relative;
   border-radius: 50%;
   padding: 26px;
   background: var(--superficie);
@@ -1085,22 +1086,27 @@ button:disabled {
 @keyframes girar-bordado {
   to { transform: rotate(360deg); }
 }
-/* Nombre DEBAJO del botón (fuera del anillo) para los botones con foto
-   (Argentina, Bordado): no tapa la imagen, se limita para no salirse de los
-   lados (una línea con "…"), y se desvanece mientras el botón está activo. */
+/* Nombre abajo DENTRO del anillo (sobre la franja oscura, no sobre la foto)
+   para los botones con imagen (Argentina, Bordado). Una sola línea; el largo
+   se limita en el campo de nombre del editor. Se desvanece mientras el botón
+   está activo. La sombra lo hace legible por si roza el borde de la foto. */
 .nombre-anillo {
-  max-width: 190px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 9px;
   text-align: center;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--texto-suave);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  z-index: 2;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   transition: opacity 0.25s ease;
 }
-.control:has(.boton-imagen.enviando) .nombre-anillo,
-.control:has(.boton-imagen.exito) .nombre-anillo {
+.boton-circular.enviando ~ .nombre-anillo,
+.boton-circular.exito ~ .nombre-anillo {
   opacity: 0;
 }
 

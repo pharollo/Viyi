@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=200';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=201';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -1013,13 +1013,14 @@ async function iniciar() {
       anillo.appendChild(boton);
       control.appendChild(anillo);
       if (boton.classList.contains('boton-imagen')) {
-        // Botones con foto (Argentina, Bordado): el nombre va DEBAJO del botón
-        // (fuera del anillo) para no tapar la imagen; se limita para no salirse
-        // y se desvanece mientras el botón está activo (CSS).
+        // Botones con foto (Argentina, Bordado): el nombre va abajo DENTRO del
+        // anillo (sobre la franja oscura, no sobre la imagen), no como etiqueta
+        // aparte; se desvanece mientras el botón está activo (CSS). El largo se
+        // limita en el campo de nombre del editor para que no se salga.
         const nom = document.createElement('div');
         nom.className = 'nombre-anillo';
         nom.textContent = dispositivo.nombre;
-        control.appendChild(nom);
+        anillo.appendChild(nom);
       } else {
         nombreEnBoton(boton, dispositivo.nombre);
       }
@@ -1763,6 +1764,7 @@ async function iniciar() {
     const iId = entrada(d.id, 'se genera del nombre');
     if (!esNuevo) iId.disabled = true;
     const iNombre = entrada(d.nombre, 'ej: Portón del Garaje');
+    iNombre.maxLength = 18; // límite para que el nombre no se salga del botón
     // Identificador = nombre en minúsculas, sin acentos, palabras con guion.
     const aSlug = (s) => s.toLowerCase()
       .replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e').replace(/[íìï]/g, 'i')
