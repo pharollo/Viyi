@@ -204,6 +204,10 @@ code {
   width: 68px;
   height: 68px;
   color: var(--texto);
+  /* El ícono es un squircle sobre negro puro: al recortarlo cuadrado quedaban
+     las esquinas negras marcadas contra la tarjeta (más clara). Se redondean
+     para que se funda con el fondo. */
+  border-radius: 23%;
 }
 
 .subtitulo-login {
