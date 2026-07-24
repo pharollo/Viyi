@@ -25,7 +25,10 @@
   .boton-bordado.girando .boton-logo{animation:girar-bordado 2.5s linear infinite;}
   @keyframes girar-bordado{to{transform:rotate(360deg);}}
   .nombre-boton{position:absolute;left:0;right:0;bottom:18px;text-align:center;font-size:13px;
-    font-weight:600;color:var(--texto-suave);text-shadow:0 1px 2px rgba(0,0,0,.6);z-index:1;}
+    font-weight:600;color:var(--texto-suave);text-shadow:0 1px 2px rgba(0,0,0,.6);z-index:1;
+    transition:opacity .25s ease;}
+  /* El nombre se desvanece mientras gira y reaparece al parar. */
+  .boton-bordado.girando .nombre-boton{opacity:0;}
   .fila{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
   button.accion{border:none;border-radius:12px;padding:12px 20px;font-size:15px;font-weight:600;
     cursor:pointer;background:var(--superficie);color:var(--texto);

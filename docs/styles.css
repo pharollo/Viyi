@@ -1085,6 +1085,14 @@ button:disabled {
 @keyframes girar-bordado {
   to { transform: rotate(360deg); }
 }
+/* El nombre se desvanece mientras gira y reaparece al parar. */
+.boton-bordado .nombre-boton {
+  transition: opacity 0.25s ease;
+}
+.boton-bordado.enviando .nombre-boton,
+.boton-bordado.exito .nombre-boton {
+  opacity: 0;
+}
 
 .boton-imagen .nombre-boton {
   position: absolute;
