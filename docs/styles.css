@@ -1074,6 +1074,23 @@ button:disabled {
 .boton-camiseta.mostrar-atras .cara-atras {
   opacity: 1;
 }
+/* Degradado oscuro abajo (scrim) para que el nombre se lea sobre la camiseta.
+   Va por encima de las dos caras y por debajo del texto. overflow:hidden del
+   botón lo recorta a la curva del círculo; arriba es transparente, sin borde. */
+.boton-camiseta::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 50%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0));
+  pointer-events: none;
+  z-index: 1;
+}
+.boton-camiseta .nombre-boton {
+  z-index: 2;
+}
 
 .boton-imagen .nombre-boton {
   position: absolute;
