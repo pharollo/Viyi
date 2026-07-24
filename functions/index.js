@@ -26,12 +26,15 @@ const SECRETS_HB = [HOMEBRIDGE_URL, HOMEBRIDGE_USER, HOMEBRIDGE_PASS];
 // Envío de los correos propios (firebase functions:secrets:set RESEND_API_KEY).
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 
-// maxInstances bajo a propósito: la cuota de Cloud Run "total allowable CPU per
-// project per region" cuenta el techo de TODAS las funciones juntas, y con 18
-// funciones a 10 instancias se agotó — los despliegues empezaron a fallar con
-// "Container Healthcheck failed / Quota exceeded". Con 3 sobra: cada instancia
-// atiende 80 peticiones a la vez.
-setGlobalOptions({ region: 'us-central1', maxInstances: 3 });
+// maxInstances: 1 a propósito. La cuota de Cloud Run "total allowable CPU per
+// project per region" (20 CPU en este proyecto, y Google no da más porque el
+// uso real no lo justifica) cuenta el TECHO de todas las funciones juntas:
+// nº funciones × maxInstances × cpu. Con 23 funciones a 3 instancias pedíamos
+// 69 CPU contra 20 disponibles, y por eso los despliegues fallaban con
+// "Container Healthcheck failed / Quota exceeded". Con 1 el techo baja a 23.
+// No perdemos capacidad: cada instancia atiende 80 peticiones a la vez
+// (concurrency por defecto), de sobra para un condominio.
+setGlobalOptions({ region: 'us-central1', maxInstances: 1 });
 
 // Nombres y apellidos siempre en Title Case, con las partículas en minúscula
 // ("María Pérez de la Cruz"). Se normaliza AQUÍ y no en cada formulario para
@@ -614,12 +617,7 @@ exports.adminEliminarUsuario = onCall(async (request) => {
   return { ok: true, pasesRevocados: pases.size };
 });
 
-// cpu: 0.5 reduce a la mitad lo que esta revisión pide de la cuota de Cloud
-// Run, para que quepa mientras suben la cuota del proyecto. Con CPU < 1 la
-// concurrency DEBE ser 1 (regla de Cloud Run); es una función de admin de
-// tráfico bajo, así que no molesta. Restaurar (quitar estas opciones) al subir
-// la cuota del proyecto.
-exports.adminGuardarDispositivo = onCall({ cpu: 0.5, concurrency: 1 }, async (request) => {
+exports.adminGuardarDispositivo = onCall(async (request) => {
   await exigirAdmin(request);
   const {
     id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, orden, activo,
@@ -1131,10 +1129,7 @@ exports.darAcceso = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
 });
 
 // Genera un enlace de pase con los dispositivos y la duración elegidos.
-// cpu: 0.5 (concurrency 1, obligatoria con <1 CPU) para que la revisión con
-// las duraciones nuevas (4h/5h) quepa en la cuota de Cloud Run. Función de
-// tráfico bajo. Restaurar (quitar estas opciones) al subir la cuota.
-exports.crearPase = onCall({ cpu: 0.5, concurrency: 1 }, async (request) => {
+exports.crearPase = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
   }
