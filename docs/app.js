@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=180';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=181';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2368,6 +2368,27 @@ async function iniciar() {
     centrarRueda(i, true);
     paseDuracionSel = DUR_RUEDA[i][0];
   }));
+
+  // ---- Skin del botón (estilo elegible, tipo "vestuario") ----
+  // Fase de prueba: la elección se guarda LOCAL en el dispositivo (localStorage);
+  // la persistencia por cuenta (usuarios/{uid}.skin) y la galería con filtro por
+  // tipo van en la fase 2. El skin se aplica poniendo body.piel-X (default = sin
+  // clase); como está en un ancestro, los botones re-renderizados lo heredan.
+  const SKINS = ['default', 'neon', 'acero', 'cristal', 'pop'];
+  function aplicarSkin(skin) {
+    const val = SKINS.includes(skin) ? skin : 'default';
+    SKINS.forEach((s) => document.body.classList.toggle(`piel-${s}`, s === val && s !== 'default'));
+    document.querySelectorAll('#skin-galeria .skin-op').forEach((op) => op.classList.toggle('activa', op.dataset.skin === val));
+    try { localStorage.setItem('viyi-skin', val); } catch (e) { /* modo privado */ }
+  }
+  $('skin-galeria').addEventListener('click', (e) => {
+    const b = e.target.closest('.skin-op');
+    if (b) aplicarSkin(b.dataset.skin);
+  });
+  let skinGuardado = 'default';
+  try { skinGuardado = localStorage.getItem('viyi-skin') || 'default'; } catch (e) { /* ignore */ }
+  aplicarSkin(skinGuardado);
+
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   $('pase-modo').addEventListener('click', (e) => {
     const b = e.target.closest('.chip-scope');

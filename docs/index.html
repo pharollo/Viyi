@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=180">
+  <link rel="stylesheet" href="styles.css?v=181">
 </head>
 <body>
   <header>
@@ -204,6 +204,16 @@
           <button type="submit" id="btn-guardar-perfil" class="btn-primario">Guardar</button>
           <p id="perfil-msg" class="mensaje-error oculto"></p>
         </form>
+        <div class="tarjeta" id="seccion-skin">
+          <h3 class="skin-titulo">Estilo del botón</h3>
+          <div class="skin-galeria" id="skin-galeria">
+            <button type="button" class="skin-op" data-skin="default"><span class="skin-muestra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.4"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><span class="skin-nom">Neumórfico</span></button>
+            <button type="button" class="skin-op" data-skin="neon"><span class="skin-muestra piel-neon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.4"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><span class="skin-nom">Neón</span></button>
+            <button type="button" class="skin-op" data-skin="acero"><span class="skin-muestra piel-acero"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.4"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><span class="skin-nom">Acero</span></button>
+            <button type="button" class="skin-op" data-skin="cristal"><span class="skin-muestra piel-cristal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.4"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><span class="skin-nom">Cristal</span></button>
+            <button type="button" class="skin-op" data-skin="pop"><span class="skin-muestra piel-pop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.4"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><span class="skin-nom">Pop</span></button>
+          </div>
+        </div>
         <div class="tarjeta" id="seccion-clave">
           <button type="button" id="btn-toggle-clave" class="btn-desplegar" aria-expanded="false" aria-controls="form-clave">Cambiar clave</button>
           <form id="form-clave" class="form-desplegable oculto">
@@ -235,6 +245,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=180"></script>
+  <script type="module" src="app.js?v=181"></script>
 </body>
 </html>
