@@ -1063,6 +1063,9 @@ button:disabled {
    vuelve sola. La cara de atrás se encuadra hacia el "10". */
 .boton-camiseta .boton-logo {
   transition: opacity 0.18s ease;
+  /* Se baja la intensidad de toda la foto (brillo + saturación) para que el
+     nombre en gris se lea sin necesidad de oscurecer solo abajo. */
+  filter: brightness(0.6) saturate(0.82);
 }
 .boton-camiseta .cara-atras {
   object-position: 50% 70%;
@@ -1073,27 +1076,6 @@ button:disabled {
 }
 .boton-camiseta.mostrar-atras .cara-atras {
   opacity: 1;
-}
-/* Degradado oscuro abajo (scrim) para que el nombre se lea sobre la camiseta.
-   Va por encima de las dos caras y por debajo del texto. overflow:hidden del
-   botón lo recorta a la curva del círculo; arriba es transparente, sin borde. */
-.boton-camiseta::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 60%;
-  background: linear-gradient(to top,
-    rgba(0, 0, 0, 0.97) 0%,
-    rgba(0, 0, 0, 0.93) 32%,
-    rgba(0, 0, 0, 0.6) 60%,
-    rgba(0, 0, 0, 0) 100%);
-  pointer-events: none;
-  z-index: 1;
-}
-.boton-camiseta .nombre-boton {
-  z-index: 2;
 }
 
 .boton-imagen .nombre-boton {
