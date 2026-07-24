@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=195';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=196';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2519,11 +2519,13 @@ async function iniciar() {
       lab.innerHTML = `<input type="checkbox" value="${escapar(id)}"><span class="pase-tgl" aria-hidden="true"></span><span class="pase-nom">${escapar(nombre)}</span>`;
       return lab;
     };
+    let primerGrupo = true;
     for (const t of TIPOS) {
       const delTipo = compartibles.filter((d) => (d.tipo || 'otro') === t.clave);
       if (!delTipo.length) continue;
       const grupo = document.createElement('details');
       grupo.className = 'pase-grupo';
+      if (primerGrupo) { grupo.open = true; primerGrupo = false; } // el primero (Puertas) abierto
       grupo.innerHTML = '<summary class="pase-grupo-cab">'
         + '<svg class="pase-grupo-flecha" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>'
         + `<span class="pase-grupo-tit">${escapar(t.titulo)}</span>`
