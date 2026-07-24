@@ -1090,6 +1090,35 @@ button:disabled {
 @keyframes girar-bordado {
   to { transform: rotate(360deg); }
 }
+/* Aspecto Hal: el ojo cobra vida al activarse. Un resplandor rojo palpita
+   alrededor del botón y el propio ojo se enciende más fuerte (brightness),
+   como el HAL de la película. En reposo, apagado y quieto. */
+.boton-hal .boton-logo {
+  transition: filter 0.4s ease;
+}
+.boton-hal.enviando,
+.boton-hal.exito {
+  animation: latir-hal 1.5s ease-in-out infinite;
+}
+.boton-hal.enviando .boton-logo,
+.boton-hal.exito .boton-logo {
+  animation: brillo-hal 1.5s ease-in-out infinite;
+}
+@keyframes latir-hal {
+  0%, 100% {
+    box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara),
+                0 0 14px 2px rgba(255, 40, 0, 0.45);
+  }
+  50% {
+    box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara),
+                0 0 34px 9px rgba(255, 45, 5, 0.9);
+  }
+}
+@keyframes brillo-hal {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.55) saturate(1.15); }
+}
+
 /* Nombre abajo DENTRO del anillo (sobre la franja oscura, no sobre la foto)
    para los botones con imagen (Argentina, Bordado). Una sola línea; el largo
    se limita en el campo de nombre del editor. Se desvanece mientras el botón

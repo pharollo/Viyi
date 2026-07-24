@@ -651,7 +651,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     // Aspecto del control (solo tiene sentido en puertas de pulso):
     // 'jet' = interruptor con tapa de seguridad; 'argentina' = botón con el
     // escudo de la selección; 'bordado' = parche que gira; otra cosa = normal.
-    aspecto: ['jet', 'argentina', 'bordado'].includes(aspecto) ? aspecto : 'normal',
+    aspecto: ['jet', 'argentina', 'bordado', 'hal'].includes(aspecto) ? aspecto : 'normal',
     orden: Number(orden) || 99,
     activo: activo !== false,
   }, { merge: true });
