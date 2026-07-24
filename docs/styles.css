@@ -1842,6 +1842,12 @@ input:checked ~ .pase-tgl::before {
   margin-bottom: 16px;
 }
 
+/* Sin el margen inferior que .pase-scope trae por defecto: sumaba alto al
+   bloque de chips y align-items:center dejaba la "i" corrida hacia abajo. */
+.pase-multi .pase-scope {
+  margin: 0;
+}
+
 .btn-info {
   flex: 0 0 auto;
   /* Flex para centrar la "i" ópticamente dentro del círculo: con line-height
@@ -1849,8 +1855,9 @@ input:checked ~ .pase-tgl::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 21px;
-  height: 21px;
+  position: relative;
+  width: 13px;
+  height: 13px;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -1858,12 +1865,20 @@ input:checked ~ .pase-tgl::before {
   color: var(--texto-suave);
   font-family: Georgia, "Times New Roman", serif;
   font-style: italic;
-  font-size: 13px;
+  font-size: 9px;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 2px 2px 5px var(--sombra-oscura), -2px -2px 5px var(--sombra-clara);
+  box-shadow: 1px 1px 3px var(--sombra-oscura), -1px -1px 3px var(--sombra-clara);
   -webkit-tap-highlight-color: transparent;
+}
+
+/* El círculo es pequeño a propósito, pero el área que se toca se extiende
+   con un pseudo-elemento invisible para que siga siendo cómoda en el móvil. */
+.btn-info::after {
+  content: '';
+  position: absolute;
+  inset: -9px;
 }
 
 .btn-info[aria-expanded="true"] {

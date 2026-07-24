@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=206">
+  <link rel="stylesheet" href="styles.css?v=207">
 </head>
 <body>
   <header>
@@ -119,9 +119,9 @@
             <button type="button" class="chip-scope activa" data-modo="enlace">Enlace</button>
             <button type="button" class="chip-scope" data-modo="frecuentes">Frecuentes</button>
           </div>
+          <input type="text" id="pase-evento" class="pase-evento" maxlength="60" autocapitalize="words" placeholder="Evento (Parrilla, Mahjong)" aria-label="Evento">
           <div id="pase-invitados-lista" class="pase-disp oculto"></div>
           <div id="pase-dispositivos" class="pase-disp"></div>
-          <input type="text" id="pase-evento" class="pase-evento" maxlength="60" autocapitalize="words" placeholder="Evento (Parrilla, Mahjong)" aria-label="Evento">
           <div class="pase-duracion" id="pase-duracion">
             <div class="dur-rueda-wrap activa" id="dur-rueda-wrap">
               <div class="dur-rueda" id="dur-rueda">
@@ -255,6 +255,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=206"></script>
+  <script type="module" src="app.js?v=207"></script>
 </body>
 </html>
