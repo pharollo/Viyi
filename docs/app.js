@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=194';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=195';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2396,6 +2396,8 @@ async function iniciar() {
   aplicarSkin(skinGuardado);
 
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
+  // Al encender/apagar un dispositivo, refrescar el conteo de su grupo.
+  $('pase-dispositivos').addEventListener('change', actualizarConteosGrupos);
   $('pase-modo').addEventListener('click', (e) => {
     const b = e.target.closest('.chip-scope');
     if (!b) return;
@@ -2508,18 +2510,48 @@ async function iniciar() {
     aplicarModoPase();
     const cont = $('pase-dispositivos');
     cont.textContent = '';
-    for (const d of compartibles) {
+    // Dispositivos agrupados por tipo en desplegables (<details>), colapsados
+    // por defecto; el conteo verde en la cabecera muestra cuántos hay elegidos
+    // dentro de un grupo cerrado.
+    const filaCasilla = (id, nombre) => {
       const lab = document.createElement('label');
       lab.className = 'pase-casilla';
-      lab.innerHTML = `<input type="checkbox" value="${escapar(d.id)}"><span class="pase-tgl" aria-hidden="true"></span><span class="pase-nom">${escapar(d.nombre)}</span>`;
-      cont.appendChild(lab);
+      lab.innerHTML = `<input type="checkbox" value="${escapar(id)}"><span class="pase-tgl" aria-hidden="true"></span><span class="pase-nom">${escapar(nombre)}</span>`;
+      return lab;
+    };
+    for (const t of TIPOS) {
+      const delTipo = compartibles.filter((d) => (d.tipo || 'otro') === t.clave);
+      if (!delTipo.length) continue;
+      const grupo = document.createElement('details');
+      grupo.className = 'pase-grupo';
+      grupo.innerHTML = '<summary class="pase-grupo-cab">'
+        + '<svg class="pase-grupo-flecha" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>'
+        + `<span class="pase-grupo-tit">${escapar(t.titulo)}</span>`
+        + '<span class="pase-grupo-conteo" hidden></span></summary>';
+      const cuerpo = document.createElement('div');
+      cuerpo.className = 'pase-grupo-cuerpo';
+      for (const d of delTipo) cuerpo.appendChild(filaCasilla(d.id, d.nombre));
+      grupo.appendChild(cuerpo);
+      cont.appendChild(grupo);
     }
+    actualizarConteosGrupos();
     $('pase-evento').value = '';
     $('pase-resultado').classList.add('oculto');
     cargarMisPases();
     // La rueda de duración necesita centrarse ya con el panel visible (oculto
     // mide 0). En el frame siguiente ya hay layout.
     requestAnimationFrame(recentrarRueda);
+  }
+
+  // Pinta en la cabecera de cada grupo (desplegable por tipo) cuántos
+  // dispositivos hay elegidos dentro; se oculta si es 0. Así un grupo colapsado
+  // avisa si tiene selecciones adentro.
+  function actualizarConteosGrupos() {
+    document.querySelectorAll('#pase-dispositivos .pase-grupo').forEach((g) => {
+      const n = g.querySelectorAll('input:checked').length;
+      const badge = g.querySelector('.pase-grupo-conteo');
+      if (badge) { badge.textContent = n; badge.hidden = n === 0; }
+    });
   }
 
   let paseModo = 'enlace';
