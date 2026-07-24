@@ -1564,7 +1564,8 @@ body.piel-pop .boton-circular,
    visual es una pieza aparte (.pase-tgl) — en iOS Safari desliza más confiable
    que un pseudo-elemento sobre el <input>. Toggle a la izquierda, nombre a la
    derecha, sin icono. */
-.pase-casilla input {
+.pase-casilla input,
+.pase-multi input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1595,11 +1596,11 @@ body.piel-pop .boton-circular,
   transition: left 0.15s ease, background 0.15s ease;
 }
 
-.pase-casilla input:checked ~ .pase-tgl {
+input:checked ~ .pase-tgl {
   background: var(--primario);
 }
 
-.pase-casilla input:checked ~ .pase-tgl::before {
+input:checked ~ .pase-tgl::before {
   left: 22px;
   background: #14210a;
 }
@@ -1798,18 +1799,9 @@ body.piel-pop .boton-circular,
 .pase-multi {
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: var(--texto-suave);
-  font-size: 14px;
+  gap: 14px;
   margin-bottom: 16px;
   cursor: pointer;
-}
-
-.pase-multi input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--primario);
-  flex: 0 0 auto;
 }
 
 .pase-resultado {

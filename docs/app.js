@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=196';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=197';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -136,7 +136,8 @@ async function iniciar() {
       if (!w) return w;
       const min = w.toLocaleLowerCase();
       if (i > 0 && MENORES.has(min.replace(/[.,;:]+$/, ''))) return min;
-      return w.charAt(0).toLocaleUpperCase() + w.slice(1);
+      // Baja el resto a minúscula (si no, "PARRILLA" en CAPS se quedaba igual).
+      return min.charAt(0).toLocaleUpperCase() + min.slice(1);
     })
     .join(' ');
   // Misma lógica que nombrePropio en las Functions, para que lo que ves en el
@@ -653,8 +654,8 @@ async function iniciar() {
     $('btn-menu').classList.remove('oculto');
     document.querySelectorAll('.solo-admin').forEach((el) => el.classList.toggle('oculto', !esAdmin));
     if (mostrar) {
-      mostrarTab('tab-controles');
       mostrarVista('vista-panel');
+      entrarTab(tabDesdeHash()); // respeta la pestaña de la URL (refresh / enlace)
     }
   }
 
@@ -2147,12 +2148,39 @@ async function iniciar() {
   $('btn-nuevo-usuario').addEventListener('click', () => abrirEditorUsuario(null));
 
   const PANELES_TAB = ['tab-controles', 'tab-pases', 'tab-gestion', 'tab-registro', 'tab-perfil'];
+  const TABS_ADMIN = ['tab-gestion', 'tab-registro'];
+  // La pestaña activa se refleja en la URL (#pases, #perfil…) para que el
+  // refresh la mantenga y el botón "atrás" del navegador funcione. Controles =
+  // sin hash. Un tab de admin cae a Controles si el usuario no es admin.
+  function tabValida(id) {
+    if (!PANELES_TAB.includes(id)) return 'tab-controles';
+    if (TABS_ADMIN.includes(id) && !(usuarioActual && usuarioActual.rol === 'admin')) return 'tab-controles';
+    return id;
+  }
+  function tabDesdeHash() {
+    return tabValida('tab-' + (location.hash.replace(/^#/, '') || 'controles'));
+  }
   function mostrarTab(id) {
+    id = tabValida(id);
     PANELES_TAB.forEach((t) => $(t).classList.toggle('oculto', t !== id));
     document.querySelectorAll('.item-menu').forEach((p) => {
       p.classList.toggle('activa', p.dataset.tab === id);
     });
+    // Reflejar en la URL (solo si cambió, para no duplicar el historial).
+    const objHash = id === 'tab-controles' ? '' : '#' + id.replace('tab-', '');
+    if (location.hash !== objHash) {
+      history.pushState(null, '', objHash || location.pathname + location.search);
+    }
   }
+  // Entrar a una pestaña + su setup (dispositivos / perfil). Lo usan la
+  // navegación, el arranque y el botón "atrás" (popstate).
+  function entrarTab(id) {
+    id = tabValida(id);
+    if (id === 'tab-perfil') { abrirPerfil(); return; }
+    mostrarTab(id);
+    if (id === 'tab-pases') prepararGeneradorPases();
+  }
+  window.addEventListener('popstate', () => entrarTab(tabDesdeHash()));
 
   const abrirMenu = () => {
     $('menu-lateral').classList.add('abierto');
@@ -2166,14 +2194,13 @@ async function iniciar() {
   $('backdrop').addEventListener('click', cerrarMenu);
   document.querySelectorAll('.item-menu').forEach((p) => {
     p.addEventListener('click', () => {
-      mostrarTab(p.dataset.tab);
-      if (p.dataset.tab === 'tab-pases') prepararGeneradorPases();
+      entrarTab(p.dataset.tab);
       cerrarMenu();
     });
   });
 
   // Clic en el logo "ViYi" -> volver a Controles desde cualquier vista.
-  const irInicio = () => { mostrarTab('tab-controles'); cerrarMenu(); };
+  const irInicio = () => { entrarTab('tab-controles'); cerrarMenu(); };
   $('ir-inicio').addEventListener('click', irInicio);
   $('ir-inicio').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); irInicio(); }
@@ -2740,7 +2767,7 @@ async function iniciar() {
     if (p.multiuso) {
       // Multiuso: en vez de "Para X", el conteo de canjes (+ botón Detalle).
       const n = p.usos || inv.length;
-      invitadoTxt = `Multiuso · ${n} canje${n === 1 ? '' : 's'}`;
+      invitadoTxt = `Grupal · ${n} canje${n === 1 ? '' : 's'}`;
     } else {
       const nombresInv = inv.map((x) => x && x.nombre).filter(Boolean);
       if (nombresInv.length) {
