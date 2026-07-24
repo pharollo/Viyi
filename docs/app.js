@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=190';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=191';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -989,8 +989,8 @@ async function iniciar() {
         // Aspecto Argentina "camiseta": frente por defecto; al presionar se
         // revela la cara de atrás (MESSI 10) por un momento y vuelve.
         boton.className = 'boton-circular grande boton-imagen boton-camiseta';
-        boton.innerHTML = '<img src="argentina-frente.jpg?v=1" alt="" class="boton-logo cara-frente">'
-          + '<img src="argentina-atras.jpg?v=1" alt="" class="boton-logo cara-atras">';
+        boton.innerHTML = '<img src="argentina-frente.jpg?v=2" alt="" class="boton-logo cara-frente">'
+          + '<img src="argentina-atras.jpg?v=2" alt="" class="boton-logo cara-atras">';
         boton.addEventListener('click', () => {
           boton.classList.add('mostrar-atras');
           setTimeout(() => boton.classList.remove('mostrar-atras'), 1200);

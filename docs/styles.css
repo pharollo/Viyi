@@ -1058,14 +1058,14 @@ button:disabled {
   z-index: 0;
 }
 
-/* Aspecto Argentina "camiseta": dos caras (frente/atrás) que se cruzan. El
-   frente se ve por defecto; al presionar se revela la de atrás (MESSI 10) y
-   vuelve sola. La cara de atrás se encuadra hacia el "10". */
+/* Aspecto Argentina "camiseta": dos caras que se cruzan. Frente = escudo AFA
+   (por defecto); al presionar se revela la cara de atrás (estampita de Messi)
+   nítida por un momento y vuelve. La cara de atrás se encuadra hacia la cara. */
 .boton-camiseta .boton-logo {
   transition: opacity 0.18s ease;
 }
 .boton-camiseta .cara-atras {
-  object-position: 50% 70%;
+  object-position: 50% 8%;
   opacity: 0;
 }
 .boton-camiseta.mostrar-atras .cara-frente {
@@ -1074,9 +1074,9 @@ button:disabled {
 .boton-camiseta.mostrar-atras .cara-atras {
   opacity: 1;
 }
-/* Capa frosted sobre TODO el botón: desenfoca y tinta suave la camiseta (se
-   sigue entendiendo qué es) para que el nombre se lea encima. Más clara que la
-   píldora anterior. Va sobre las imágenes y bajo el texto. */
+/* Capa frosted sobre el botón (frente): desenfoca y tinta suave el escudo para
+   que el nombre se lea. Al voltear a Messi (mostrar-atras) se desvanece, así la
+   estampita se ve NÍTIDA en el reveal. Va sobre las imágenes y bajo el texto. */
 .boton-camiseta::after {
   content: '';
   position: absolute;
@@ -1087,6 +1087,10 @@ button:disabled {
   backdrop-filter: blur(2px);
   pointer-events: none;
   z-index: 1;
+  transition: opacity 0.18s ease;
+}
+.boton-camiseta.mostrar-atras::after {
+  opacity: 0;
 }
 .boton-camiseta.boton-imagen .nombre-boton {
   z-index: 2;
