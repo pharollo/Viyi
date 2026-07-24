@@ -1083,8 +1083,12 @@ button:disabled {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 50%;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0));
+  height: 60%;
+  background: linear-gradient(to top,
+    rgba(0, 0, 0, 0.97) 0%,
+    rgba(0, 0, 0, 0.93) 32%,
+    rgba(0, 0, 0, 0.6) 60%,
+    rgba(0, 0, 0, 0) 100%);
   pointer-events: none;
   z-index: 1;
 }
