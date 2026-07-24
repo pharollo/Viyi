@@ -1074,6 +1074,23 @@ button:disabled {
 .boton-camiseta.mostrar-atras .cara-atras {
   opacity: 1;
 }
+/* Capa frosted sobre TODO el botón: desenfoca y tinta suave la camiseta (se
+   sigue entendiendo qué es) para que el nombre se lea encima. Más clara que la
+   píldora anterior. Va sobre las imágenes y bajo el texto. */
+.boton-camiseta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.28);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  pointer-events: none;
+  z-index: 1;
+}
+.boton-camiseta.boton-imagen .nombre-boton {
+  z-index: 2;
+}
 
 .boton-imagen .nombre-boton {
   position: absolute;
