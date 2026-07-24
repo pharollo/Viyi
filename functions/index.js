@@ -774,16 +774,24 @@ exports.adminEliminarDispositivo = onCall(async (request) => {
 // Gated por un token de pase existente para limitar la enumeración de correos.
 exports.verificarEmail = onCall(async (request) => {
   const { token, email } = request.data || {};
-  if (!token || typeof token !== 'string') {
-    throw new HttpsError('invalid-argument', 'Falta el enlace del pase.');
+  // El token es OPCIONAL: con pase se usa para mostrar el evento; sin pase (la
+  // home email-first) se consulta solo el correo para saber cómo entra la
+  // cuenta (clave / Google).
+  let evento = '';
+  let porNombre = '';
+  let porApellido = '';
+  if (token) {
+    if (typeof token !== 'string') {
+      throw new HttpsError('invalid-argument', 'El enlace no es válido.');
+    }
+    const paseSnap = await db.doc(`pases/${token}`).get();
+    if (!paseSnap.exists) {
+      throw new HttpsError('not-found', 'El enlace no es válido.');
+    }
+    evento = paseSnap.data().evento || '';
+    porNombre = paseSnap.data().porNombre || '';
+    porApellido = paseSnap.data().porApellido || '';
   }
-  const paseSnap = await db.doc(`pases/${token}`).get();
-  if (!paseSnap.exists) {
-    throw new HttpsError('not-found', 'El enlace no es válido.');
-  }
-  const evento = paseSnap.data().evento || '';
-  const porNombre = paseSnap.data().porNombre || '';
-  const porApellido = paseSnap.data().porApellido || '';
   // Sin correo: solo devuelve info del pase (para mostrar el evento al abrir).
   if (!email || typeof email !== 'string' || !email.includes('@')) {
     return { evento, porNombre, porApellido };

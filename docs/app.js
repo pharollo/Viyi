@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=202';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=203';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -299,14 +299,14 @@ async function iniciar() {
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
       $('info-usuario').classList.add('oculto');
-      // Con un enlace de pase: pedir el correo primero (email-first) y según si
-      // ya tiene cuenta, mostrar login o crear cuenta. Si no, login normal.
-      mostrarVista(paseTokenPendiente ? 'vista-email' : 'vista-login');
-      // El "Volver" solo tiene sentido llegando con un pase: es lo único que
-      // muestra la pantalla del correo antes. Al vecino fijo, que entra directo
-      // al login, no hay adónde devolverlo.
-      $('btn-volver-login').classList.toggle('oculto', !paseTokenPendiente);
-      $('btn-volver-reg').classList.toggle('oculto', !paseTokenPendiente);
+      // Siempre email-first (home y pase): se pide el correo primero y, según la
+      // cuenta, se ofrece clave o Google (o crear cuenta si viene con pase). Así
+      // el vecino solo-Google también puede entrar desde la home.
+      mostrarVista('vista-email');
+      // "Volver" siempre disponible: desde el login/registro se puede regresar a
+      // la pantalla del correo para cambiarlo o cambiar de método.
+      $('btn-volver-login').classList.remove('oculto');
+      $('btn-volver-reg').classList.remove('oculto');
       // Mostrar al invitado a qué evento lo invitan (si el pase tiene evento).
       if (paseTokenPendiente) {
         verificarEmail({ token: paseTokenPendiente })
@@ -486,23 +486,32 @@ async function iniciar() {
         $('campo-email').value = email;
         mostrarVista('vista-login');
         $('campo-password').focus();
-      } else {
-        // No tiene cuenta: a crear cuenta (correo precargado).
+      } else if (paseTokenPendiente) {
+        // Con pase y sin cuenta: a crear cuenta (correo precargado).
         $('reg-email').value = email;
         mostrarVista('vista-registro');
         $('reg-nombre').focus();
+      } else {
+        // Home y sin cuenta: no se auto-registra (a los vecinos los agrega el
+        // admin). Se avisa.
+        error.textContent = 'No hay una cuenta con ese correo. Pídele acceso al administrador.';
+        error.classList.remove('oculto');
       }
     } catch (err) {
       if (err && err.code === 'functions/not-found') {
         error.textContent = 'El enlace no es válido.';
         error.classList.remove('oculto');
-      } else {
-        // No se pudo verificar (función no disponible u otro fallo): no
-        // bloqueamos al invitado; lo llevamos a crear cuenta con el correo.
-        // Si ya existe, createUser avisa y "Ya tengo cuenta" lo lleva al login.
+      } else if (paseTokenPendiente) {
+        // Con pase, si no se pudo verificar, no bloqueamos al invitado: lo
+        // llevamos a crear cuenta. Si ya existe, "Ya tengo cuenta" va al login.
         $('reg-email').value = email;
         mostrarVista('vista-registro');
         $('reg-nombre').focus();
+      } else {
+        // Home, si no se pudo verificar: que intente con su clave.
+        $('campo-email').value = email;
+        mostrarVista('vista-login');
+        $('campo-password').focus();
       }
     } finally {
       boton.disabled = false;
