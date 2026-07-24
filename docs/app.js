@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=197';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=198';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -996,6 +996,11 @@ async function iniciar() {
           boton.classList.add('mostrar-atras');
           setTimeout(() => boton.classList.remove('mostrar-atras'), 2500);
         });
+      } else if (dispositivo.aspecto === 'bordado') {
+        // Aspecto Bordado: parche bordado como botón; gira en sentido horario
+        // mientras el botón está activo (enviando/éxito → CSS).
+        boton.className = 'boton-circular grande boton-imagen boton-bordado';
+        boton.innerHTML = '<img src="bordado.jpg?v=1" alt="" class="boton-logo">';
       } else {
         const iconoSub = ICONO_SUBTIPO[dispositivo.subtipo];
         const iconoCuadrado = !!iconoSub || dispositivo.tipo === 'ascensor';
@@ -1769,7 +1774,7 @@ async function iniciar() {
     // Aspecto del control: normal, o el Jet Switch con tapa de seguridad. Solo
     // se ofrece para puertas de pulso (portones), donde la tapa evita aperturas
     // accidentales; en otros casos se oculta y no aplica.
-    const sAspecto = selector([['normal', 'Normal'], ['jet', 'Jet Switch (tapa de seguridad)'], ['argentina', 'Argentina (escudo)']], d.aspecto || 'normal');
+    const sAspecto = selector([['normal', 'Normal'], ['jet', 'Jet Switch (tapa de seguridad)'], ['argentina', 'Argentina (escudo)'], ['bordado', 'Bordado (parche)']], d.aspecto || 'normal');
     const campoAspecto = campo('Aspecto', sAspecto);
     const actualizarSub = () => {
       campoSub.classList.toggle('oculto', sTipo.value !== 'puerta');

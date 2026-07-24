@@ -1075,6 +1075,17 @@ button:disabled {
   opacity: 1;
 }
 
+/* Aspecto Bordado: el parche gira en sentido horario mientras el botón está
+   activo (enviando / éxito). En reposo, quieto. Como el parche está centrado y
+   el botón recorta al círculo, gira en su sitio sin mostrar el negro. */
+.boton-bordado.enviando .boton-logo,
+.boton-bordado.exito .boton-logo {
+  animation: girar-bordado 2.5s linear infinite;
+}
+@keyframes girar-bordado {
+  to { transform: rotate(360deg); }
+}
+
 .boton-imagen .nombre-boton {
   position: absolute;
   left: 0;

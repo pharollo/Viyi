@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bordado · demo</title>
+<style>
+  :root{
+    --fondo:#1b1c1e; --superficie:#212225; --texto:#e8eaec; --texto-suave:#8d9297;
+    --primario:#a5ff2e; --sombra-oscura:rgba(0,0,0,.55); --sombra-clara:rgba(255,255,255,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--fondo);color:var(--texto);
+    font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:30px;padding:40px 20px;}
+  h1{font-size:16px;font-weight:600;color:var(--texto-suave);letter-spacing:.5px;margin:0}
+  .anillo{border-radius:50%;padding:26px;background:var(--superficie);
+    box-shadow:inset 7px 7px 16px var(--sombra-oscura),inset -7px -7px 16px var(--sombra-clara);}
+  .boton-circular{position:relative;width:168px;height:168px;border-radius:50%;overflow:hidden;
+    border:none;background:var(--superficie);cursor:pointer;color:#a9afb5;
+    box-shadow:9px 9px 20px var(--sombra-oscura),-9px -9px 20px var(--sombra-clara);}
+  .boton-logo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    object-position:center;border-radius:50%;display:block;pointer-events:none;z-index:0;}
+  /* Giro horario mientras está "activo" (clase .girando). En reposo, quieto. */
+  .boton-bordado.girando .boton-logo{animation:girar-bordado 2.5s linear infinite;}
+  @keyframes girar-bordado{to{transform:rotate(360deg);}}
+  .nombre-boton{position:absolute;left:0;right:0;bottom:18px;text-align:center;font-size:13px;
+    font-weight:600;color:var(--texto-suave);text-shadow:0 1px 2px rgba(0,0,0,.6);z-index:1;}
+  .fila{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+  button.accion{border:none;border-radius:12px;padding:12px 20px;font-size:15px;font-weight:600;
+    cursor:pointer;background:var(--superficie);color:var(--texto);
+    box-shadow:5px 5px 12px var(--sombra-oscura),-5px -5px 12px var(--sombra-clara);}
+  button.accion:active{box-shadow:inset 3px 3px 8px var(--sombra-oscura),inset -3px -3px 8px var(--sombra-clara);}
+  button.accion.on{color:var(--primario);}
+  .hint{font-size:13px;color:var(--texto-suave);text-align:center;max-width:320px;line-height:1.5;}
+</style>
+</head>
+<body>
+  <h1>ASPECTO BORDADO · DEMO</h1>
+
+  <div class="anillo">
+    <button type="button" class="boton-circular grande boton-imagen boton-bordado" id="btn">
+      <img src="bordado.jpg?v=1" alt="" class="boton-logo">
+      <span class="nombre-boton">Portón</span>
+    </button>
+  </div>
+
+  <div class="fila">
+    <button type="button" class="accion" id="pulsar">Pulsar (gira 5 s)</button>
+    <button type="button" class="accion" id="toggle">Girar continuo</button>
+  </div>
+
+  <p class="hint">Toca el botón (o "Pulsar") para verlo girar en sentido horario, tal como
+     lo hará mientras el portón abre. El borde redondo queda fijo y el negro nunca aparece.</p>
+
+<script>
+  var btn = document.getElementById('btn');
+  var timer = null;
+  function pulso(){
+    clearTimeout(timer);
+    btn.classList.add('girando');
+    // Un portón queda "activo" ~5 s (como en la app real).
+    timer = setTimeout(function(){ btn.classList.remove('girando'); }, 5000);
+  }
+  btn.addEventListener('click', pulso);
+  document.getElementById('pulsar').addEventListener('click', pulso);
+  document.getElementById('toggle').addEventListener('click', function(){
+    clearTimeout(timer);
+    var on = btn.classList.toggle('girando');
+    this.classList.toggle('on', on);
+  });
+</script>
+</body>
+</html>
