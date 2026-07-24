@@ -1058,6 +1058,23 @@ button:disabled {
   z-index: 0;
 }
 
+/* Aspecto Argentina "camiseta": dos caras (frente/atrás) que se cruzan. El
+   frente se ve por defecto; al presionar se revela la de atrás (MESSI 10) y
+   vuelve sola. La cara de atrás se encuadra hacia el "10". */
+.boton-camiseta .boton-logo {
+  transition: opacity 0.18s ease;
+}
+.boton-camiseta .cara-atras {
+  object-position: 50% 70%;
+  opacity: 0;
+}
+.boton-camiseta.mostrar-atras .cara-frente {
+  opacity: 0;
+}
+.boton-camiseta.mostrar-atras .cara-atras {
+  opacity: 1;
+}
+
 .boton-imagen .nombre-boton {
   position: absolute;
   left: 0;
