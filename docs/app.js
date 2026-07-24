@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=179';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=180';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2742,6 +2742,7 @@ async function iniciar() {
     acciones.appendChild(badge);
     if (btnDetalle) acciones.appendChild(btnDetalle);
 
+    // Copiar: solo mientras el enlace sigue vivo y compartible.
     if (estado === 'activo') {
       const url = `${location.origin}${location.pathname}?p=${p.token}`;
       const bCopiar = document.createElement('button');
@@ -2753,6 +2754,11 @@ async function iniciar() {
         toast(ok ? 'Copiado' : 'No se pudo copiar.', ok ? undefined : 'error');
       });
       acciones.appendChild(bCopiar);
+    }
+    // Revocar: mientras el pase todavía pueda estar dando acceso (no revocado ni
+    // vencido), aunque sea de un solo uso ya canjeado — ese es justo el caso en
+    // que hay que poder cortarlo. revocarPase borra el acceso de quien lo canjeó.
+    if (!p.revocado && !vencido) {
       const bRev = document.createElement('button');
       bRev.type = 'button';
       bRev.className = 'btn-mini btn-mini-peligro';
