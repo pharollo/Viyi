@@ -1074,21 +1074,6 @@ button:disabled {
 .boton-camiseta.mostrar-atras .cara-atras {
   opacity: 1;
 }
-/* Panel translúcido (vidrio esmerilado) solo detrás del nombre: da contraste
-   al gris sin apagar la foto. Especificidad extra (.boton-camiseta.boton-imagen)
-   para ganarle al .boton-imagen .nombre-boton de abajo y volverlo una píldora
-   centrada del ancho del texto. */
-.boton-camiseta.boton-imagen .nombre-boton {
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%);
-  max-width: 86%;
-  padding: 3px 11px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.5);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
-}
 
 .boton-imagen .nombre-boton {
   position: absolute;
