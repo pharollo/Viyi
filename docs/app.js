@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=193';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=194';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2511,7 +2511,7 @@ async function iniciar() {
     for (const d of compartibles) {
       const lab = document.createElement('label');
       lab.className = 'pase-casilla';
-      lab.innerHTML = `<input type="checkbox" value="${escapar(d.id)}"><span>${escapar(d.nombre)}</span>`;
+      lab.innerHTML = `<input type="checkbox" value="${escapar(d.id)}"><span class="pase-tgl" aria-hidden="true"></span><span class="pase-nom">${escapar(d.nombre)}</span>`;
       cont.appendChild(lab);
     }
     $('pase-evento').value = '';
@@ -2539,7 +2539,8 @@ async function iniciar() {
         const lab = document.createElement('label');
         lab.className = 'pase-casilla';
         lab.innerHTML = `<input type="checkbox" value="${escapar(inv.uid)}">`
-          + `<span>${escapar(nombre)}</span>`;
+          + `<span class="pase-tgl" aria-hidden="true"></span>`
+          + `<span class="pase-nom">${escapar(nombre)}</span>`;
         cont.appendChild(lab);
       }
     } catch (err) {

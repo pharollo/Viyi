@@ -1552,24 +1552,62 @@ body.piel-pop .boton-circular,
 .pase-casilla {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 8px 6px;
+  gap: 14px;
+  padding: 10px 4px;
   border-radius: 8px;
   background: transparent;
   color: var(--texto);
-  font-size: 15px;
   cursor: pointer;
 }
 
+/* El checkbox real queda oculto (accesible) y el label lo alterna; el toggle
+   visual es una pieza aparte (.pase-tgl) — en iOS Safari desliza más confiable
+   que un pseudo-elemento sobre el <input>. Toggle a la izquierda, nombre a la
+   derecha, sin icono. */
 .pase-casilla input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--primario);
-  flex: 0 0 auto;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.pase-casilla:has(input:checked) {
-  color: var(--primario);
+.pase-tgl {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 25px;
+  border-radius: 999px;
+  position: relative;
+  background: var(--superficie);
+  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara);
+  transition: background 0.15s ease;
+}
+
+.pase-tgl::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--texto-suave);
+  transition: left 0.15s ease, background 0.15s ease;
+}
+
+.pase-casilla input:checked ~ .pase-tgl {
+  background: var(--primario);
+}
+
+.pase-casilla input:checked ~ .pase-tgl::before {
+  left: 22px;
+  background: #14210a;
+}
+
+.pase-nom {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--texto);
 }
 
 .pase-duracion {
