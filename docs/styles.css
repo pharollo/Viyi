@@ -1603,8 +1603,7 @@ body.piel-pop .boton-circular,
    visual es una pieza aparte (.pase-tgl) — en iOS Safari desliza más confiable
    que un pseudo-elemento sobre el <input>. Toggle a la izquierda, nombre a la
    derecha, sin icono. */
-.pase-casilla input,
-.pase-multi input {
+.pase-casilla input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1835,12 +1834,47 @@ input:checked ~ .pase-tgl::before {
   box-shadow: inset 3px 3px 6px var(--sombra-oscura), inset -3px -3px 6px var(--sombra-clara), inset 0 0 0 1.5px var(--primario);
 }
 
+/* Tipo de enlace: Simple / Multiuso, con una "i" que despliega la ayuda. */
 .pase-multi {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   margin-bottom: 16px;
+}
+
+.btn-info {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: var(--superficie);
+  color: var(--texto-suave);
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
+  box-shadow: 2px 2px 5px var(--sombra-oscura), -2px -2px 5px var(--sombra-clara);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-info[aria-expanded="true"] {
+  color: var(--primario);
+  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara);
+}
+
+.pase-ayuda {
+  margin: -6px 0 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--texto-suave);
+}
+
+.pase-ayuda strong {
+  color: var(--texto);
+  font-weight: 600;
 }
 
 .pase-resultado {

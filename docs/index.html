@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=204">
+  <link rel="stylesheet" href="styles.css?v=205">
 </head>
 <body>
   <header>
@@ -135,7 +135,17 @@
               </div>
             </div>
           </div>
-          <label class="pase-multi"><input type="checkbox" id="pase-multiuso"><span class="pase-tgl" aria-hidden="true"></span><span class="pase-nom">Enlace Grupal</span></label>
+          <div class="pase-multi">
+            <div class="pase-scope" id="pase-tipo">
+              <button type="button" class="chip-scope activa" data-tipo="simple">Simple</button>
+              <button type="button" class="chip-scope" data-tipo="multiuso">Multiuso</button>
+            </div>
+            <button type="button" id="btn-info-enlace" class="btn-info" aria-label="Qué significa cada tipo" aria-expanded="false">i</button>
+          </div>
+          <p id="info-enlace" class="pase-ayuda oculto">
+            <strong>Simple:</strong> lo usa una sola persona; al canjearlo se cierra.<br>
+            <strong>Multiuso:</strong> lo pueden usar varias personas con el mismo enlace.
+          </p>
           <button id="btn-generar-pase" type="button" class="btn-primario">Generar</button>
           <div id="pase-resultado" class="pase-resultado oculto"></div>
         </div>
@@ -245,6 +255,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=204"></script>
+  <script type="module" src="app.js?v=205"></script>
 </body>
 </html>

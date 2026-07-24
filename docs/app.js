@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=204';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=205';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2451,6 +2451,23 @@ async function iniciar() {
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   // Al encender/apagar un dispositivo, refrescar el conteo de su grupo.
   $('pase-dispositivos').addEventListener('change', actualizarConteosGrupos);
+
+  // ---- Tipo de enlace: Simple (default) / Multiuso, con ayuda desplegable ----
+  let paseMultiuso = false;
+  $('pase-tipo').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip-scope');
+    if (!b) return;
+    paseMultiuso = b.dataset.tipo === 'multiuso';
+    document.querySelectorAll('#pase-tipo .chip-scope').forEach((c) => c.classList.toggle('activa', c === b));
+  });
+  function ocultarAyudaEnlace() {
+    $('info-enlace').classList.add('oculto');
+    $('btn-info-enlace').setAttribute('aria-expanded', 'false');
+  }
+  $('btn-info-enlace').addEventListener('click', () => {
+    const oculto = $('info-enlace').classList.toggle('oculto');
+    $('btn-info-enlace').setAttribute('aria-expanded', oculto ? 'false' : 'true');
+  });
   $('pase-modo').addEventListener('click', (e) => {
     const b = e.target.closest('.chip-scope');
     if (!b) return;
@@ -2591,6 +2608,11 @@ async function iniciar() {
     }
     actualizarConteosGrupos();
     $('pase-evento').value = '';
+    // El tipo de enlace vuelve a Simple (lo más común) cada vez que se abre.
+    paseMultiuso = false;
+    document.querySelectorAll('#pase-tipo .chip-scope').forEach((c) =>
+      c.classList.toggle('activa', c.dataset.tipo === 'simple'));
+    ocultarAyudaEnlace();
     $('pase-resultado').classList.add('oculto');
     cargarMisPases();
     // La rueda de duración necesita centrarse ya con el panel visible (oculto
@@ -2642,6 +2664,7 @@ async function iniciar() {
     $('pase-invitados-lista').classList.toggle('oculto', !frec);
     $('btn-generar-pase').textContent = frec ? 'Invitar' : 'Generar';
     document.querySelector('.pase-multi').classList.toggle('oculto', frec);
+    if (frec) ocultarAyudaEnlace(); // su ayuda tampoco aplica en frecuentes
     document.querySelectorAll('#pase-modo .chip-scope').forEach((c) =>
       c.classList.toggle('activa', (c.dataset.modo === 'frecuentes') === frec));
     if (frec) $('pase-resultado').classList.add('oculto');
@@ -2683,7 +2706,7 @@ async function iniciar() {
     boton.disabled = true;
     boton.textContent = 'Generando…';
     try {
-      const multiuso = $('pase-multiuso').checked;
+      const multiuso = paseMultiuso;
       const evento = tituloCase($('pase-evento').value.trim());
       const res = await crearPase({ dispositivos: seleccion, duracion: paseDuracionSel, multiuso, evento });
       const url = `${location.origin}${location.pathname}?p=${res.data.token}`;
@@ -2793,7 +2816,7 @@ async function iniciar() {
     if (p.multiuso) {
       // Multiuso: en vez de "Para X", el conteo de canjes (+ botón Detalle).
       const n = p.usos || inv.length;
-      invitadoTxt = `Grupal · ${n} canje${n === 1 ? '' : 's'}`;
+      invitadoTxt = `Multiuso · ${n} canje${n === 1 ? '' : 's'}`;
     } else {
       const nombresInv = inv.map((x) => x && x.nombre).filter(Boolean);
       if (nombresInv.length) {
