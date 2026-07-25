@@ -1458,10 +1458,6 @@ button:disabled {
 }
 
 /* Selector de skin en el perfil. */
-.skin-titulo {
-  margin: 0 0 12px;
-  font-size: 15px;
-}
 .skin-galeria {
   display: flex;
   gap: 16px;
