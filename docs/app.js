@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=215';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=216';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -219,6 +219,9 @@ async function iniciar() {
     { id: 'acero', nombre: 'Acero', modos: MODOS_PIEL, piel: true },
     { id: 'cristal', nombre: 'Cristal', modos: MODOS_PIEL, piel: true },
     { id: 'pop', nombre: 'Pop', modos: MODOS_PIEL, piel: true },
+    // Cobre es de la familia perilla/slider: su foto es un knob de audio, no
+    // pega en un pulsador. `imgMuestra` = con qué se previsualiza en el Locker.
+    { id: 'cobre', nombre: 'Cobre', modos: ['cortina', 'termostato', 'dimmer'], piel: true, imgMuestra: 'perilla-cobre.jpg?v=1' },
     { id: 'hal', nombre: 'Hal', modos: ['pulso'], soloPuerta: true },
     { id: 'bordado', nombre: 'Bordado', modos: ['pulso'], soloPuerta: true },
     { id: 'argentina', nombre: 'Argentina', modos: ['pulso'], soloPuerta: true },
@@ -2564,6 +2567,7 @@ async function iniciar() {
 
   // Muestra (mini botón) de un aspecto para ese dispositivo.
   function muestraAspecto(a, d) {
+    if (a.imgMuestra) return { clase: '', html: `<img src="${a.imgMuestra}" alt="">` };
     if (a.id === 'argentina') return { clase: '', html: '<img src="argentina-frente.jpg?v=2" alt="">' };
     if (ASPECTOS_IMAGEN[a.id]) return { clase: '', html: `<img src="${ASPECTOS_IMAGEN[a.id].img}" alt="">` };
     if (a.id === 'jet') return { clase: 'muestra-jet', html: '' };

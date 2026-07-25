@@ -191,7 +191,7 @@ const dormir = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // puede elegir el suyo en su vestuario (usuarios/{uid}.aspectos). 'normal' es
 // válido a propósito: es la forma de que el vecino vuelva al botón de siempre
 // aunque el admin le haya puesto otro.
-const ASPECTOS_VALIDOS = ['normal', 'jet', 'argentina', 'bordado', 'hal', 'neon', 'acero', 'cristal', 'pop'];
+const ASPECTOS_VALIDOS = ['normal', 'jet', 'argentina', 'bordado', 'hal', 'neon', 'acero', 'cristal', 'pop', 'cobre'];
 
 const DURACIONES_MS = {
   '30m': 1800000, '1h': 3600000, '2h': 7200000, '3h': 10800000,

@@ -1418,6 +1418,55 @@ button:disabled {
 .perilla.piel-pop.encendido .perilla-valor,
 .perilla.piel-pop.encendido .perilla-accion { color: #14210a; }
 
+/* ===== Piel COBRE: perilla de audio (foto) con corona de LEDs ámbar =====
+   La foto va sobre .perilla-indicador, que es justo lo que el JS rota con el
+   valor: así el knob gira de verdad y su línea marca la posición, sin tocar el
+   JS. El punto indicador de siempre sobra (la foto ya trae la línea).
+   El arco se enmascara con un gradiente cónico para que track y nivel se lean
+   como una corona de LEDs: 20 puntos repartidos en los 270° del recorrido. */
+.perilla.piel-cobre .perilla-centro {
+  background: #0b0b0c;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+}
+.perilla.piel-cobre .perilla-indicador {
+  background: url("perilla-cobre.jpg?v=1") center/cover no-repeat;
+  border-radius: 50%;
+}
+.perilla.piel-cobre .perilla-indicador::before { display: none; }
+
+.perilla.piel-cobre .perilla-svg {
+  -webkit-mask: repeating-conic-gradient(from -135deg at 50% 50%, #000 0 4deg, transparent 4deg 13.5deg);
+  mask: repeating-conic-gradient(from -135deg at 50% 50%, #000 0 4deg, transparent 4deg 13.5deg);
+}
+.perilla.piel-cobre .perilla-track { stroke: #4a3a28; stroke-width: 7; }
+.perilla.piel-cobre .perilla-nivel {
+  stroke: #ffb545;
+  stroke-width: 7;
+  filter: drop-shadow(0 0 6px rgba(255, 170, 60, 0.95));
+}
+/* El valor va sobre el cobre: oscuro, con un realce claro para que se lea.
+   Necesita position+z-index porque el indicador (que ahora lleva la foto) está
+   posicionado y, sin esto, se pintaría encima del número. */
+.perilla.piel-cobre .perilla-valor,
+.perilla.piel-cobre .perilla-accion,
+.perilla.piel-cobre .termo-objetivo {
+  position: relative;
+  z-index: 1;
+  color: #2b1a0c;
+  text-shadow: 0 1px 2px rgba(255, 225, 190, 0.7);
+}
+
+/* Cobre en el slider del dimmer: mismo material, sin knob. */
+.control-dimmer.piel-cobre { background: #101012; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55); }
+.control-dimmer.piel-cobre .dimmer-pista { background: #0b0b0c; box-shadow: inset 0 0 0 1px rgba(255, 170, 60, 0.22); }
+.control-dimmer.piel-cobre .dimmer-fill {
+  background: linear-gradient(180deg, #d9a071, #a86a3c);
+  box-shadow: 0 0 14px rgba(255, 170, 60, 0.5);
+}
+.control-dimmer.piel-cobre.encendido .dimmer-icono,
+.control-dimmer.piel-cobre.encendido .dimmer-valor { color: #ffb545; }
+
 /* ===== Las mismas pieles, vestidas sobre el SLIDER del dimmer ===== */
 .control-dimmer.piel-neon { background: #0c0c0f; box-shadow: 0 0 0 1.5px rgba(165, 255, 46, 0.5), 0 0 18px rgba(165, 255, 46, 0.15); }
 .control-dimmer.piel-neon .dimmer-pista { background: #08080a; box-shadow: inset 0 0 0 1.5px rgba(165, 255, 46, 0.35); }
