@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=210';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=211';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -1087,10 +1087,13 @@ async function iniciar() {
     try {
       await ejecutarComando({ dispositivoId: dispositivo.id });
       boton.classList.add('exito');
-      // El portón sigue "activo" los ~15s que tarda en abrir completo, para que
-      // la animación (persianas que suben, el bordado girando, el ojo de Hal
-      // latiendo) acompañe al portón de verdad y no se apague antes.
-      const duracionExito = dispositivo.subtipo === 'porton' ? 15000 : 1500;
+      // Cuánto se queda "activo" el botón = lo que tarda ESA puerta en abrir
+      // (segundosApertura, configurable por dispositivo). Con eso cualquier
+      // animación —persianas, bordado girando, ojo de Hal latiendo— acompaña al
+      // portón real. Sin el dato, se mantiene el comportamiento de antes.
+      const seg = Number(dispositivo.segundosApertura);
+      const duracionExito = seg > 0 ? seg * 1000
+        : (dispositivo.subtipo === 'porton' ? 5000 : 1500);
       setTimeout(() => boton.classList.remove('exito'), duracionExito);
     } catch (err) {
       toast(err.message || 'No se pudo enviar el comando.', 'error');
@@ -1809,9 +1812,16 @@ async function iniciar() {
     // accidentales; en otros casos se oculta y no aplica.
     const sAspecto = selector([['normal', 'Normal'], ['jet', 'Jet Switch (tapa de seguridad)'], ['argentina', 'Argentina (escudo)'], ['bordado', 'Bordado (parche)'], ['hal', 'Hal (ojo rojo)']], d.aspecto || 'normal');
     const campoAspecto = campo('Aspecto', sAspecto);
+    // Cuánto tarda esta puerta en abrir completo: la animación del botón (ojo de
+    // Hal, bordado, persianas) dura ese tiempo, para acompañar al portón real.
+    // Es por dispositivo porque cada portón tarda lo suyo.
+    const iSegundos = entrada(d.segundosApertura || 15, '', 'number');
+    const campoSegundos = campo('Segundos en abrir (animación del botón)', iSegundos);
     const actualizarSub = () => {
       campoSub.classList.toggle('oculto', sTipo.value !== 'puerta');
-      campoAspecto.classList.toggle('oculto', !(sTipo.value === 'puerta' && sModo.value === 'pulso'));
+      const esPuertaPulso = sTipo.value === 'puerta' && sModo.value === 'pulso';
+      campoAspecto.classList.toggle('oculto', !esPuertaPulso);
+      campoSegundos.classList.toggle('oculto', !esPuertaPulso);
     };
     sTipo.addEventListener('change', actualizarSub);
     // (sModo aún no existe aquí; el cambio de modo y la llamada inicial van más
@@ -1977,6 +1987,7 @@ async function iniciar() {
             tipo: sTipo.value,
             subtipo: sTipo.value === 'puerta' ? sSub.value : '',
             aspecto: (sTipo.value === 'puerta' && sModo.value === 'pulso') ? sAspecto.value : 'normal',
+            segundosApertura: Number(iSegundos.value) || 15,
             modo: sModo.value,
             proveedor: sProveedor.value,
             orden: Number(iOrden.value) || 99,
@@ -2022,6 +2033,7 @@ async function iniciar() {
       campoSub,
       campoModo,
       campoAspecto,
+      campoSegundos,
       campo('Proveedor', sProveedor),
       campo('Orden (menor = primero)', iOrden),
       cActivo.label,

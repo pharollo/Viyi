@@ -620,7 +620,7 @@ exports.adminEliminarUsuario = onCall(async (request) => {
 exports.adminGuardarDispositivo = onCall(async (request) => {
   await exigirAdmin(request);
   const {
-    id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, orden, activo,
+    id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, segundosApertura, orden, activo,
     proveedor, tuyaDeviceId, codigo, pulsoMs, codigoBrillo, brilloMax,
     codigoPosicion, codigoPosicionEstado, posicionInvertida,
     accesorioId, caracteristica,
@@ -652,6 +652,10 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     // 'jet' = interruptor con tapa de seguridad; 'argentina' = botón con el
     // escudo de la selección; 'bordado' = parche que gira; otra cosa = normal.
     aspecto: ['jet', 'argentina', 'bordado', 'hal'].includes(aspecto) ? aspecto : 'normal',
+    // Segundos que tarda esta puerta en abrir completo: la animación del botón
+    // dura ese tiempo. Se acota a 1-120s para que un dato malo no deje el botón
+    // animándose eternamente.
+    segundosApertura: Math.min(120, Math.max(1, Number(segundosApertura) || 15)),
     orden: Number(orden) || 99,
     activo: activo !== false,
   }, { merge: true });
