@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=216';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=217';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2567,7 +2567,13 @@ async function iniciar() {
 
   // Muestra (mini botón) de un aspecto para ese dispositivo.
   function muestraAspecto(a, d) {
-    if (a.imgMuestra) return { clase: '', html: `<img src="${a.imgMuestra}" alt="">` };
+    // La foto del knob solo se muestra donde el control ES una perilla; en el
+    // dimmer (slider horizontal) prometería algo que no va a aparecer.
+    if (a.imgMuestra) {
+      return d.modo === 'dimmer'
+        ? { clase: 'muestra-cobre', html: '' }
+        : { clase: '', html: `<img src="${a.imgMuestra}" alt="">` };
+    }
     if (a.id === 'argentina') return { clase: '', html: '<img src="argentina-frente.jpg?v=2" alt="">' };
     if (ASPECTOS_IMAGEN[a.id]) return { clase: '', html: `<img src="${ASPECTOS_IMAGEN[a.id].img}" alt="">` };
     if (a.id === 'jet') return { clase: 'muestra-jet', html: '' };

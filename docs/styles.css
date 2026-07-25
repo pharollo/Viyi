@@ -1564,6 +1564,13 @@ button:disabled {
   border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
+/* Muestra de Cobre en el dimmer: ahí el control es un slider, no una perilla,
+   así que la miniatura es el material y no el knob (que no aparecería). */
+.muestra-cobre {
+  background: linear-gradient(160deg, #d9a071, #8a5730) !important;
+  box-shadow: 0 0 12px rgba(255, 170, 60, 0.35) !important;
+}
+
 /* Muestra del Jet Switch: su tapa roja, que no es una foto. */
 .muestra-jet {
   width: 26px;
