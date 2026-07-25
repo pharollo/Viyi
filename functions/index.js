@@ -187,6 +187,12 @@ async function ejecutarHomebridge(dispositivo, config, { accion, valor, data }) 
 const dormir = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Duraciones de los pases (acceso temporal compartido).
+// Aspectos del botón: los pone el admin por dispositivo (aspecto) y el vecino
+// puede elegir el suyo en su vestuario (usuarios/{uid}.aspectos). 'normal' es
+// válido a propósito: es la forma de que el vecino vuelva al botón de siempre
+// aunque el admin le haya puesto otro.
+const ASPECTOS_VALIDOS = ['normal', 'jet', 'argentina', 'bordado', 'hal', 'neon', 'acero', 'cristal', 'pop'];
+
 const DURACIONES_MS = {
   '30m': 1800000, '1h': 3600000, '2h': 7200000, '3h': 10800000,
   '4h': 14400000, '5h': 18000000, '6h': 21600000, '12h': 43200000,
@@ -496,14 +502,26 @@ exports.actualizarMiPerfil = onCall(async (request) => {
   if (!snap.exists || snap.data().activo === false) {
     throw new HttpsError('permission-denied', 'Tu cuenta no está activa.');
   }
-  // El vecino solo edita nombre/apellido. Los inmuebles los asigna el admin
-  // (adminActualizarUsuario), no se aceptan aquí para que no se autoasignen.
-  const { nombre, apellido } = request.data || {};
+  // El vecino edita nombre/apellido y el aspecto de sus botones (su vestuario).
+  // Los inmuebles los asigna el admin (adminActualizarUsuario), no se aceptan
+  // aquí para que no se autoasignen.
+  const { nombre, apellido, aspectos } = request.data || {};
   const cambios = {};
-  if (typeof nombre === 'string' && nombre.trim()) {
-    cambios.nombre = nombrePropio(nombre);
-  } else {
-    throw new HttpsError('invalid-argument', 'El nombre no puede quedar vacío.');
+  // El vestuario se guarda solo: se puede mandar sin tocar el nombre.
+  if (aspectos && typeof aspectos === 'object' && !Array.isArray(aspectos)) {
+    const limpio = {};
+    for (const [dispId, asp] of Object.entries(aspectos)) {
+      if (!/^[a-z0-9-]{2,40}$/.test(dispId)) continue;
+      if (ASPECTOS_VALIDOS.includes(asp)) limpio[dispId] = asp;
+    }
+    cambios.aspectos = limpio;
+  }
+  if (nombre !== undefined || cambios.aspectos === undefined) {
+    if (typeof nombre === 'string' && nombre.trim()) {
+      cambios.nombre = nombrePropio(nombre);
+    } else {
+      throw new HttpsError('invalid-argument', 'El nombre no puede quedar vacío.');
+    }
   }
   if (typeof apellido === 'string') cambios.apellido = nombrePropio(apellido);
   await db.doc(`usuarios/${uid}`).set(cambios, { merge: true });
@@ -651,7 +669,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     // Aspecto del control (solo tiene sentido en puertas de pulso):
     // 'jet' = interruptor con tapa de seguridad; 'argentina' = botón con el
     // escudo de la selección; 'bordado' = parche que gira; otra cosa = normal.
-    aspecto: ['jet', 'argentina', 'bordado', 'hal'].includes(aspecto) ? aspecto : 'normal',
+    aspecto: ASPECTOS_VALIDOS.includes(aspecto) ? aspecto : 'normal',
     // Segundos que tarda esta puerta en abrir completo: la animación del botón
     // dura ese tiempo. Se acota a 1-120s para que un dato malo no deje el botón
     // animándose eternamente.

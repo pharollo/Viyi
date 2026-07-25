@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=211';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=212';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -202,6 +202,39 @@ async function iniciar() {
     bordado: { img: 'bordado.jpg?v=1', clase: 'boton-bordado' },
     hal: { img: 'hal.jpg?v=1', clase: 'boton-hal' },
   };
+
+  // ---- Vestuario: catálogo de aspectos elegibles por el vecino ----
+  // `modos` = en qué controles funciona de verdad. Las pieles solo reestilizan
+  // un botón circular, así que sirven en pulso e interruptor; las cortinas,
+  // dimmers y termostatos son perillas/sliders y hoy no tienen aspectos: no se
+  // ofrecen, para no prometer un cambio que no pasa.
+  // `soloPuerta` = las fotos y el Jet solo tienen sentido en puertas.
+  // `piel` = skin de CSS (clase en el botón). El orden es el de la galería.
+  const MODOS_BOTON = ['pulso', 'interruptor'];
+  const CATALOGO_ASPECTOS = [
+    { id: 'normal', nombre: 'Normal', modos: MODOS_BOTON },
+    { id: 'neon', nombre: 'Neón', modos: MODOS_BOTON, piel: true },
+    { id: 'acero', nombre: 'Acero', modos: MODOS_BOTON, piel: true },
+    { id: 'cristal', nombre: 'Cristal', modos: MODOS_BOTON, piel: true },
+    { id: 'pop', nombre: 'Pop', modos: MODOS_BOTON, piel: true },
+    { id: 'hal', nombre: 'Hal', modos: ['pulso'], soloPuerta: true },
+    { id: 'bordado', nombre: 'Bordado', modos: ['pulso'], soloPuerta: true },
+    { id: 'argentina', nombre: 'Argentina', modos: ['pulso'], soloPuerta: true },
+    { id: 'jet', nombre: 'Jet Switch', modos: ['pulso'], soloPuerta: true },
+  ];
+  const PIELES = CATALOGO_ASPECTOS.filter((a) => a.piel).map((a) => a.id);
+  // Aspectos que este dispositivo puede llevar de verdad.
+  const aspectosDe = (d) => CATALOGO_ASPECTOS.filter((a) =>
+    a.modos.includes(d.modo || 'pulso') && (!a.soloPuerta || d.tipo === 'puerta'));
+
+  // El aspecto que se pinta: manda la elección del vecino (usuarios/{uid}.
+  // aspectos[dispositivoId]); si no eligió, el que puso el admin en el
+  // dispositivo. Se valida contra el catálogo por si quedó algo viejo guardado.
+  function aspectoDe(d) {
+    const mio = usuarioActual && usuarioActual.aspectos && usuarioActual.aspectos[d.id];
+    const elegido = mio || d.aspecto || 'normal';
+    return aspectosDe(d).some((a) => a.id === elegido) ? elegido : 'normal';
+  }
 
   // Compat: dispositivos viejos guardados con tipo 'bunker' se tratan como
   // puerta + subtipo bunker.
@@ -992,8 +1025,10 @@ async function iniciar() {
   }
 
   function tarjetaDispositivo(dispositivo) {
+    // El aspecto sale del vestuario del vecino (o del que puso el admin).
+    const aspecto = aspectoDe(dispositivo);
     // Puerta de pulso con aspecto Jet: interruptor con tapa de seguridad.
-    if (dispositivo.modo === 'pulso' && dispositivo.aspecto === 'jet') {
+    if (dispositivo.modo === 'pulso' && aspecto === 'jet') {
       return controlJet(dispositivo);
     }
     const control = document.createElement('div');
@@ -1004,7 +1039,7 @@ async function iniciar() {
       anillo.className = 'anillo';
       boton = document.createElement('button');
       boton.type = 'button';
-      if (dispositivo.aspecto === 'argentina') {
+      if (aspecto === 'argentina') {
         // Aspecto Argentina "camiseta": frente por defecto; al presionar se
         // revela la cara de atrás (MESSI 10) por un momento y vuelve.
         boton.className = 'boton-circular grande boton-imagen boton-camiseta';
@@ -1014,10 +1049,10 @@ async function iniciar() {
           boton.classList.add('mostrar-atras');
           setTimeout(() => boton.classList.remove('mostrar-atras'), 2500);
         });
-      } else if (ASPECTOS_IMAGEN[dispositivo.aspecto]) {
+      } else if (ASPECTOS_IMAGEN[aspecto]) {
         // Aspectos de una sola imagen (Bordado, Hal): la foto es el botón y su
         // clase le da la animación al activarse (ver styles.css).
-        const asp = ASPECTOS_IMAGEN[dispositivo.aspecto];
+        const asp = ASPECTOS_IMAGEN[aspecto];
         boton.className = `boton-circular grande boton-imagen ${asp.clase}`;
         boton.innerHTML = `<img src="${asp.img}" alt="" class="boton-logo">`;
       } else {
@@ -1071,6 +1106,11 @@ async function iniciar() {
     }
     if (boton && dispositivo.modo !== 'pulso') {
       estadoInicial(boton, dispositivo);
+    }
+    // Las pieles (Neón, Acero, Cristal, Pop) solo reestilizan: la clase va en el
+    // botón —no en el body— para que cada dispositivo pueda llevar la suya.
+    if (PIELES.includes(aspecto)) {
+      control.querySelectorAll('.boton-circular').forEach((b) => b.classList.add(`piel-${aspecto}`));
     }
     return control;
   }
@@ -2302,6 +2342,7 @@ async function iniciar() {
     const mostrarInmuebles = !esInvitado && inmuebles.length > 0;
     $('seccion-inmuebles').classList.toggle('oculto', !mostrarInmuebles);
     if (mostrarInmuebles) renderInmueblesPerfil(inmuebles);
+    renderVestuario(); // el vestuario se arma con los dispositivos que ve hoy
   }
   $('info-usuario').addEventListener('click', abrirPerfil);
   $('info-usuario').addEventListener('keydown', (e) => {
@@ -2452,25 +2493,105 @@ async function iniciar() {
     paseDuracionSel = DUR_RUEDA[i][0];
   }));
 
-  // ---- Skin del botón (estilo elegible, tipo "vestuario") ----
-  // Fase de prueba: la elección se guarda LOCAL en el dispositivo (localStorage);
-  // la persistencia por cuenta (usuarios/{uid}.skin) y la galería con filtro por
-  // tipo van en la fase 2. El skin se aplica poniendo body.piel-X (default = sin
-  // clase); como está en un ancestro, los botones re-renderizados lo heredan.
-  const SKINS = ['default', 'neon', 'acero', 'cristal', 'pop'];
-  function aplicarSkin(skin) {
-    const val = SKINS.includes(skin) ? skin : 'default';
-    SKINS.forEach((s) => document.body.classList.toggle(`piel-${s}`, s === val && s !== 'default'));
-    document.querySelectorAll('#skin-galeria .skin-op').forEach((op) => op.classList.toggle('activa', op.dataset.skin === val));
-    try { localStorage.setItem('viyi-skin', val); } catch (e) { /* modo privado */ }
+  // ---- Vestuario: el vecino elige el aspecto de CADA botón ----
+  // La elección vive en su cuenta (usuarios/{uid}.aspectos[dispositivoId]), así
+  // lo sigue a cualquier teléfono, y solo la ve él: no toca lo que ven los demás.
+  // El aspecto que puso el admin en el dispositivo queda como el de fábrica.
+
+  // Icono con el que se previsualiza un dispositivo (el mismo del botón real).
+  function iconoDe(d) {
+    const sub = ICONO_SUBTIPO[d.subtipo];
+    if (sub) return ICONOS[sub];
+    if (d.tipo === 'ascensor') return ICONOS.ascensor;
+    if (d.tipo === 'luz') return ICONOS.luz;
+    return ICONOS.candados;
   }
-  $('skin-galeria').addEventListener('click', (e) => {
+
+  // Muestra (mini botón) de un aspecto para ese dispositivo.
+  function muestraAspecto(a, d) {
+    if (a.id === 'argentina') return { clase: '', html: '<img src="argentina-frente.jpg?v=2" alt="">' };
+    if (ASPECTOS_IMAGEN[a.id]) return { clase: '', html: `<img src="${ASPECTOS_IMAGEN[a.id].img}" alt="">` };
+    if (a.id === 'jet') return { clase: 'muestra-jet', html: '' };
+    // Normal y las pieles: el icono del propio dispositivo, con la piel puesta.
+    return { clase: a.piel ? `piel-${a.id}` : '', html: iconoDe(d) };
+  }
+
+  function renderVestuario() {
+    const cont = $('vestuario');
+    cont.textContent = '';
+    const disp = misDispositivos || [];
+    if (!disp.length) {
+      const p = document.createElement('p');
+      p.className = 'vest-ayuda';
+      p.textContent = 'Todavía no tienes dispositivos.';
+      cont.appendChild(p);
+      return;
+    }
+    // Solo los que tienen algo que elegir. Cortinas, dimmers y termostatos son
+    // perillas/sliders: todavía no tienen aspectos, así que no aparecen.
+    const conAspectos = disp.filter((d) => aspectosDe(d).length > 1);
+    const sinAspectos = disp.length - conAspectos.length;
+    if (!conAspectos.length) {
+      const p = document.createElement('p');
+      p.className = 'vest-ayuda';
+      p.textContent = 'Tus dispositivos todavía no tienen estilos para elegir.';
+      cont.appendChild(p);
+      return;
+    }
+    for (const d of conAspectos) {
+      const bloque = document.createElement('div');
+      bloque.className = 'vest-disp';
+      const tit = document.createElement('div');
+      tit.className = 'vest-nombre';
+      tit.textContent = d.nombre;
+      bloque.appendChild(tit);
+      const gal = document.createElement('div');
+      gal.className = 'skin-galeria';
+      const actual = aspectoDe(d);
+      for (const a of aspectosDe(d)) {
+        const m = muestraAspecto(a, d);
+        const op = document.createElement('button');
+        op.type = 'button';
+        op.className = 'skin-op' + (a.id === actual ? ' activa' : '');
+        op.dataset.disp = d.id;
+        op.dataset.aspecto = a.id;
+        op.innerHTML = `<span class="skin-muestra ${m.clase}">${m.html}</span>`
+          + `<span class="skin-nom">${escapar(a.nombre)}</span>`;
+        gal.appendChild(op);
+      }
+      bloque.appendChild(gal);
+      cont.appendChild(bloque);
+    }
+    if (sinAspectos) {
+      const p = document.createElement('p');
+      p.className = 'vest-ayuda vest-nota';
+      p.textContent = sinAspectos === 1
+        ? 'Tu otro dispositivo (perilla o slider) todavía no tiene estilos.'
+        : `Tus otros ${sinAspectos} dispositivos (perillas y sliders) todavía no tienen estilos.`;
+      cont.appendChild(p);
+    }
+  }
+
+  async function elegirAspecto(dispId, aspectoId) {
+    if (!usuarioActual) return;
+    const mapa = Object.assign({}, usuarioActual.aspectos || {});
+    // Se guarda incluso 'normal': es una elección explícita que debe poder
+    // ganarle al aspecto que puso el admin, no un "sin preferencia".
+    mapa[dispId] = aspectoId;
+    usuarioActual.aspectos = mapa;
+    renderVestuario();                    // se ve elegido al instante
+    renderDispositivos(misDispositivos);  // y los controles se repintan
+    try {
+      await actualizarMiPerfil({ aspectos: mapa });
+    } catch (err) {
+      toast('No se pudo guardar el estilo.', 'error');
+    }
+  }
+
+  $('vestuario').addEventListener('click', (e) => {
     const b = e.target.closest('.skin-op');
-    if (b) aplicarSkin(b.dataset.skin);
+    if (b) elegirAspecto(b.dataset.disp, b.dataset.aspecto);
   });
-  let skinGuardado = 'default';
-  try { skinGuardado = localStorage.getItem('viyi-skin') || 'default'; } catch (e) { /* ignore */ }
-  aplicarSkin(skinGuardado);
 
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   // Al encender/apagar un dispositivo, refrescar el conteo de su grupo.

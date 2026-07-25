@@ -1313,11 +1313,11 @@ button:disabled {
 
 /* ===== Skins del botón (estilo elegible tipo "vestuario") =====
    El default (neumórfico) es el base sin clase. Cada skin reestiliza
-   .boton-circular cuando body tiene la clase piel-X; los mismos estilos sirven
+   .boton-circular cuando lleva la clase piel-X (una por dispositivo); los mismos
    para las muestras del selector (.skin-muestra.piel-X). Los iconos usan
    currentColor, así que se themean con `color`. El pulido fino de estados
    (éxito/activo por skin) va después. */
-body[class*="piel-"] .boton-circular:not(:disabled):active {
+.boton-circular[class*="piel-"]:not(:disabled):active {
   transform: scale(0.96);
 }
 
@@ -1334,19 +1334,27 @@ body[class*="piel-"] .boton-circular:not(:disabled):active {
   box-shadow: 5px 5px 12px var(--sombra-oscura), -5px -5px 12px var(--sombra-clara);
 }
 .skin-muestra svg { width: 26px; height: 26px; }
+.skin-muestra { overflow: hidden; }
+.skin-muestra img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
 
 /* Neón */
-body.piel-neon .boton-circular,
+.boton-circular.piel-neon,
 .skin-muestra.piel-neon {
   color: var(--primario);
   background: #0c0c0f;
   box-shadow: 0 0 0 2px var(--primario), 0 0 20px rgba(165, 255, 46, 0.5), inset 0 0 16px rgba(165, 255, 46, 0.12);
 }
-body.piel-neon .boton-circular svg,
+.boton-circular.piel-neon svg,
 .skin-muestra.piel-neon svg { filter: drop-shadow(0 0 6px rgba(165, 255, 46, 0.85)); }
 
 /* Acero */
-body.piel-acero .boton-circular,
+.boton-circular.piel-acero,
 .skin-muestra.piel-acero {
   color: #dfe3e8;
   background: linear-gradient(145deg, #4a4e54, #23262b);
@@ -1354,7 +1362,7 @@ body.piel-acero .boton-circular,
 }
 
 /* Cristal */
-body.piel-cristal .boton-circular,
+.boton-circular.piel-cristal,
 .skin-muestra.piel-cristal {
   color: #eef2f5;
   background: rgba(255, 255, 255, 0.07);
@@ -1362,11 +1370,46 @@ body.piel-cristal .boton-circular,
 }
 
 /* Pop (verde sólido) */
-body.piel-pop .boton-circular,
+.boton-circular.piel-pop,
 .skin-muestra.piel-pop {
   color: #14210a;
   background: var(--primario);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4), inset 0 -4px 8px rgba(0, 0, 0, 0.16), inset 0 3px 6px rgba(255, 255, 255, 0.3);
+}
+
+/* Vestuario: un bloque por dispositivo, cada uno con su galería de aspectos. */
+.vest-ayuda {
+  font-size: 13px;
+  color: var(--texto-suave);
+  margin: -6px 0 16px;
+}
+
+.vest-nota {
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.vest-disp + .vest-disp {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.vest-nombre {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--texto);
+  margin-bottom: 10px;
+}
+
+/* Muestra del Jet Switch: su tapa roja, que no es una foto. */
+.muestra-jet {
+  width: 26px;
+  height: 30px;
+  border-radius: 6px;
+  background: linear-gradient(160deg, #e2483a, #a3241a);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.35);
 }
 
 /* Selector de skin en el perfil. */
