@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=214';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=215';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -210,13 +210,15 @@ async function iniciar() {
   // ofrecen, para no prometer un cambio que no pasa.
   // `soloPuerta` = las fotos y el Jet solo tienen sentido en puertas.
   // `piel` = skin de CSS (clase en el botón). El orden es el de la galería.
-  const MODOS_BOTON = ['pulso', 'interruptor'];
+  // Las pieles visten los tres tipos de control: botón circular, perilla
+  // (cortina y termostato) y slider (dimmer). Cada uno tiene su CSS.
+  const MODOS_PIEL = ['pulso', 'interruptor', 'cortina', 'dimmer', 'termostato'];
   const CATALOGO_ASPECTOS = [
-    { id: 'normal', nombre: 'Normal', modos: MODOS_BOTON },
-    { id: 'neon', nombre: 'Neón', modos: MODOS_BOTON, piel: true },
-    { id: 'acero', nombre: 'Acero', modos: MODOS_BOTON, piel: true },
-    { id: 'cristal', nombre: 'Cristal', modos: MODOS_BOTON, piel: true },
-    { id: 'pop', nombre: 'Pop', modos: MODOS_BOTON, piel: true },
+    { id: 'normal', nombre: 'Normal', modos: MODOS_PIEL },
+    { id: 'neon', nombre: 'Neón', modos: MODOS_PIEL, piel: true },
+    { id: 'acero', nombre: 'Acero', modos: MODOS_PIEL, piel: true },
+    { id: 'cristal', nombre: 'Cristal', modos: MODOS_PIEL, piel: true },
+    { id: 'pop', nombre: 'Pop', modos: MODOS_PIEL, piel: true },
     { id: 'hal', nombre: 'Hal', modos: ['pulso'], soloPuerta: true },
     { id: 'bordado', nombre: 'Bordado', modos: ['pulso'], soloPuerta: true },
     { id: 'argentina', nombre: 'Argentina', modos: ['pulso'], soloPuerta: true },
@@ -230,6 +232,17 @@ async function iniciar() {
   // El aspecto que se pinta: manda la elección del vecino (usuarios/{uid}.
   // aspectos[dispositivoId]); si no eligió, el que puso el admin en el
   // dispositivo. Se valida contra el catálogo por si quedó algo viejo guardado.
+  // Pone la piel en las piezas que saben vestirse: el botón circular, la perilla
+  // (cortina/termostato) y la tarjeta del dimmer. `raiz` puede ser una de ellas
+  // o su contenedor.
+  function aplicarPiel(raiz, aspecto) {
+    if (!PIELES.includes(aspecto)) return;
+    const clase = `piel-${aspecto}`;
+    const SEL = '.boton-circular, .perilla, .control-dimmer';
+    if (raiz.matches && raiz.matches(SEL)) raiz.classList.add(clase);
+    raiz.querySelectorAll(SEL).forEach((el) => el.classList.add(clase));
+  }
+
   function aspectoDe(d) {
     const mio = usuarioActual && usuarioActual.aspectos && usuarioActual.aspectos[d.id];
     const elegido = mio || d.aspecto || 'normal';
@@ -713,7 +726,9 @@ async function iniciar() {
   // Dimmer a lo ancho, con slider HORIZONTAL. Va fuera del carrusel (que scrollea
   // horizontal) y usa gesto horizontal, que no pelea ni con el carrusel ni con el
   // gesto vertical de inicio de iOS — por eso no necesita zona muerta abajo.
-  function controlDimmer(dispositivo) {
+  // `demo` = el del vestuario: se desliza y se ve igual, pero no manda nada al
+  // dispositivo ni consulta su estado.
+  function controlDimmer(dispositivo, demo) {
     const cont = document.createElement('div');
     cont.className = 'control-dimmer';
 
@@ -768,7 +783,7 @@ async function iniciar() {
     };
 
     async function enviarBrillo(extra) {
-      if (enviando) return;
+      if (demo || enviando) return; // en el vestuario no se manda nada
       enviando = true;
       try {
         await ejecutarComando({ dispositivoId: dispositivo.id, accion: 'brillo', valor, ...(extra || {}) });
@@ -830,15 +845,19 @@ async function iniciar() {
       enviarBrillo({ valor: destino, desde, fade: true });
     });
 
-    (async () => {
-      try {
-        const res = await consultarEstado({ dispositivoId: dispositivo.id });
-        const d = res.data || {};
-        if (typeof d.brillo === 'number') pintar(d.brillo);
-        const mem = typeof d.brilloMemoria === 'number' ? d.brilloMemoria : d.brillo;
-        if (typeof mem === 'number' && mem > 0) ultimoBrillo = mem;
-      } catch (err) { /* sin estado disponible */ }
-    })();
+    if (demo) {
+      pintar(65); // un valor de muestra, para que el slider se vea con vida
+    } else {
+      (async () => {
+        try {
+          const res = await consultarEstado({ dispositivoId: dispositivo.id });
+          const d = res.data || {};
+          if (typeof d.brillo === 'number') pintar(d.brillo);
+          const mem = typeof d.brilloMemoria === 'number' ? d.brilloMemoria : d.brillo;
+          if (typeof mem === 'number' && mem > 0) ultimoBrillo = mem;
+        } catch (err) { /* sin estado disponible */ }
+      })();
+    }
 
     return cont;
   }
@@ -877,7 +896,11 @@ async function iniciar() {
         activarCarrusel(fila);
       }
       for (const dispositivo of dimmers) {
-        contenedor.appendChild(controlDimmer(dispositivo));
+        // El dimmer no pasa por tarjetaDispositivo (va a lo ancho, fuera del
+        // carrusel), así que su piel se aplica aquí.
+        const cd = controlDimmer(dispositivo);
+        aplicarPiel(cd, aspectoDe(dispositivo));
+        contenedor.appendChild(cd);
       }
     }
   }
@@ -1083,11 +1106,11 @@ async function iniciar() {
         nombreEnBoton(boton, dispositivo.nombre);
       }
     } else if (dispositivo.modo === 'cortina') {
-      control.appendChild(perillaCortina(dispositivo));
+      control.appendChild(perillaCortina(dispositivo, demo));
     } else if (dispositivo.modo === 'dimmer') {
       control.appendChild(perillaDimmer(dispositivo));
     } else if (dispositivo.modo === 'termostato') {
-      control.appendChild(perillaTermostato(dispositivo));
+      control.appendChild(perillaTermostato(dispositivo, demo));
     } else {
       boton = document.createElement('button');
       boton.type = 'button';
@@ -1116,11 +1139,9 @@ async function iniciar() {
     if (boton && dispositivo.modo !== 'pulso' && !demo) {
       estadoInicial(boton, dispositivo);
     }
-    // Las pieles (Neón, Acero, Cristal, Pop) solo reestilizan: la clase va en el
-    // botón —no en el body— para que cada dispositivo pueda llevar la suya.
-    if (PIELES.includes(aspecto)) {
-      control.querySelectorAll('.boton-circular').forEach((b) => b.classList.add(`piel-${aspecto}`));
-    }
+    // Las pieles (Neón, Acero, Cristal, Pop) solo reestilizan: la clase va en la
+    // pieza —no en el body— para que cada dispositivo pueda llevar la suya.
+    aplicarPiel(control, aspecto);
     return control;
   }
 
@@ -1366,7 +1387,7 @@ async function iniciar() {
   const ICONO_PAUSA = '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><rect x="6.5" y="5" width="4.2" height="14" rx="1.3"/><rect x="13.3" y="5" width="4.2" height="14" rx="1.3"/></svg>';
   const ICONO_PLAY = '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M8 5.2v13.6l11-6.8z"/></svg>';
 
-  function perillaCortina(dispositivo) {
+  function perillaCortina(dispositivo, demo) {
     const perilla = document.createElement('div');
     perilla.className = 'perilla perilla-cortina';
     perilla.setAttribute('role', 'slider');
@@ -1419,7 +1440,7 @@ async function iniciar() {
     };
 
     async function enviar(data) {
-      if (enviando) return;
+      if (demo || enviando) return; // en el vestuario no se manda nada
       enviando = true;
       perilla.classList.add('perilla-enviando');
       try {
@@ -1443,12 +1464,16 @@ async function iniciar() {
       },
     });
 
-    (async () => {
-      try {
-        const res = await consultarEstado({ dispositivoId: dispositivo.id });
-        if (res.data && typeof res.data.posicion === 'number') pintar(res.data.posicion);
-      } catch (err) { /* sin estado disponible */ }
-    })();
+    if (demo) {
+      pintar(60); // valor de muestra para el vestuario
+    } else {
+      (async () => {
+        try {
+          const res = await consultarEstado({ dispositivoId: dispositivo.id });
+          if (res.data && typeof res.data.posicion === 'number') pintar(res.data.posicion);
+        } catch (err) { /* sin estado disponible */ }
+      })();
+    }
 
     return perilla;
   }
@@ -1457,7 +1482,7 @@ async function iniciar() {
   // muestra la actual, y tocar el centro enciende (frío) o apaga.
   const TERMO_MIN = 10;
   const TERMO_MAX = 32;
-  function perillaTermostato(dispositivo) {
+  function perillaTermostato(dispositivo, demo) {
     const cont = document.createElement('div');
     cont.className = 'termostato';
     const perilla = document.createElement('div');
@@ -1508,7 +1533,7 @@ async function iniciar() {
     };
 
     async function enviarTemp() {
-      if (enviando) return;
+      if (demo || enviando) return; // en el vestuario no se manda nada
       enviando = true;
       perilla.classList.add('perilla-enviando');
       try {
@@ -1522,6 +1547,7 @@ async function iniciar() {
     }
 
     async function enviarModo(m) {
+      if (demo) return; // en el vestuario no se manda nada
       try {
         await ejecutarComando({ dispositivoId: dispositivo.id, accion: 'modo', valor: m });
       } catch (err) {
@@ -1552,7 +1578,12 @@ async function iniciar() {
     pintarEstado();
     cont.append(perilla, etiqueta);
 
-    (async () => {
+    if (demo) {
+      // Valores de muestra para el vestuario, sin consultar el termostato.
+      pintar(23);
+      encendido = true;
+      pintarEstado();
+    } else (async () => {
       try {
         const res = await consultarEstado({ dispositivoId: dispositivo.id });
         const d = res.data || {};
@@ -2554,7 +2585,16 @@ async function iniciar() {
     const cont = $('vest-demo');
     cont.textContent = '';
     if (!vestDisp) return;
-    cont.appendChild(tarjetaDispositivo(vestDisp, true, vestAspecto));
+    // El dimmer se arma con su propio constructor (va a lo ancho, fuera del
+    // carrusel); el resto pasa por tarjetaDispositivo.
+    let ctrl;
+    if (vestDisp.modo === 'dimmer') {
+      ctrl = controlDimmer(vestDisp, true);
+      aplicarPiel(ctrl, vestAspecto);
+    } else {
+      ctrl = tarjetaDispositivo(vestDisp, true, vestAspecto);
+    }
+    cont.appendChild(ctrl);
   }
 
   // Carrusel de opciones: la que queda centrada es la elegida.

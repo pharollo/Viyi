@@ -1377,6 +1377,73 @@ button:disabled {
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4), inset 0 -4px 8px rgba(0, 0, 0, 0.16), inset 0 3px 6px rgba(255, 255, 255, 0.3);
 }
 
+/* ===== Las mismas pieles, vestidas sobre PERILLA (cortina y termostato) =====
+   Aquí se viste el aro (track), el nivel y el centro; el valor y el indicador
+   siguen a la piel para que el dial se lea como una pieza. */
+.perilla.piel-neon .perilla-track { stroke: #16181c; }
+.perilla.piel-neon .perilla-nivel { filter: drop-shadow(0 0 8px rgba(165, 255, 46, 0.95)); }
+.perilla.piel-neon .perilla-centro {
+  background: #0c0c0f;
+  box-shadow: 0 0 0 2px var(--primario), 0 0 18px rgba(165, 255, 46, 0.45), inset 0 0 14px rgba(165, 255, 46, 0.12);
+}
+
+.perilla.piel-acero .perilla-track { stroke: #43474d; }
+.perilla.piel-acero .perilla-nivel { stroke: #dfe3e8; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+.perilla.piel-acero .perilla-centro {
+  background: linear-gradient(145deg, #4a4e54, #23262b);
+  box-shadow: 6px 6px 14px rgba(0, 0, 0, 0.55), -4px -4px 10px rgba(255, 255, 255, 0.07), inset 0 2px 3px rgba(255, 255, 255, 0.22), inset 0 -3px 6px rgba(0, 0, 0, 0.45);
+}
+.perilla.piel-acero .perilla-valor,
+.perilla.piel-acero .perilla-accion { color: #dfe3e8; }
+.perilla.piel-acero .perilla-indicador::before { background: #dfe3e8; box-shadow: none; }
+
+.perilla.piel-cristal .perilla-track { stroke: rgba(255, 255, 255, 0.12); }
+.perilla.piel-cristal .perilla-nivel { stroke: #eef2f5; filter: none; }
+.perilla.piel-cristal .perilla-centro {
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 8px rgba(255, 255, 255, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.22), 0 6px 16px rgba(0, 0, 0, 0.38);
+}
+.perilla.piel-cristal .perilla-valor,
+.perilla.piel-cristal .perilla-accion { color: #eef2f5; }
+.perilla.piel-cristal .perilla-indicador::before { background: #eef2f5; box-shadow: none; }
+
+.perilla.piel-pop .perilla-track { stroke: #2a2d31; }
+.perilla.piel-pop .perilla-nivel { filter: none; stroke-width: 13; }
+.perilla.piel-pop .perilla-centro {
+  background: var(--primario);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4), inset 0 -4px 8px rgba(0, 0, 0, 0.16), inset 0 3px 6px rgba(255, 255, 255, 0.3);
+}
+.perilla.piel-pop .perilla-valor,
+.perilla.piel-pop .perilla-accion { color: #14210a; }
+.perilla.piel-pop.encendido .perilla-valor,
+.perilla.piel-pop.encendido .perilla-accion { color: #14210a; }
+
+/* ===== Las mismas pieles, vestidas sobre el SLIDER del dimmer ===== */
+.control-dimmer.piel-neon { background: #0c0c0f; box-shadow: 0 0 0 1.5px rgba(165, 255, 46, 0.5), 0 0 18px rgba(165, 255, 46, 0.15); }
+.control-dimmer.piel-neon .dimmer-pista { background: #08080a; box-shadow: inset 0 0 0 1.5px rgba(165, 255, 46, 0.35); }
+.control-dimmer.piel-neon .dimmer-fill { box-shadow: 0 0 16px rgba(165, 255, 46, 0.85); }
+
+.control-dimmer.piel-acero { background: linear-gradient(145deg, #4a4e54, #23262b); }
+.control-dimmer.piel-acero .dimmer-pista { background: #1c1e21; }
+.control-dimmer.piel-acero .dimmer-fill { background: linear-gradient(180deg, #eef1f4, #9aa1a9); }
+.control-dimmer.piel-acero.encendido .dimmer-icono,
+.control-dimmer.piel-acero.encendido .dimmer-valor { color: #dfe3e8; }
+
+.control-dimmer.piel-cristal { background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22), 0 6px 16px rgba(0, 0, 0, 0.38); }
+.control-dimmer.piel-cristal .dimmer-pista { background: rgba(0, 0, 0, 0.28); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
+.control-dimmer.piel-cristal .dimmer-fill { background: rgba(255, 255, 255, 0.85); }
+.control-dimmer.piel-cristal.encendido .dimmer-icono,
+.control-dimmer.piel-cristal.encendido .dimmer-valor { color: #eef2f5; }
+
+.control-dimmer.piel-pop { background: var(--primario); }
+.control-dimmer.piel-pop .dimmer-nombre { color: #14210a; font-weight: 600; }
+.control-dimmer.piel-pop .dimmer-icono,
+.control-dimmer.piel-pop .dimmer-valor { color: #14210a; }
+.control-dimmer.piel-pop.encendido .dimmer-icono,
+.control-dimmer.piel-pop.encendido .dimmer-valor { color: #14210a; }
+.control-dimmer.piel-pop .dimmer-pista { background: rgba(0, 0, 0, 0.22); box-shadow: none; }
+.control-dimmer.piel-pop .dimmer-fill { background: #14210a; }
+
 /* Vestuario: un bloque por dispositivo, cada uno con su galería de aspectos. */
 .vest-ayuda {
   font-size: 13px;
