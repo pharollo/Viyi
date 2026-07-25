@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=212';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=213';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -951,7 +951,7 @@ async function iniciar() {
   // Control tipo "Jet Switch": tapa de seguridad roja + palanca. Se desliza la
   // tapa hacia arriba (armar) y luego la palanca (abrir). Es MOMENTARY como un
   // portón: al abrir dispara el pulso y la palanca vuelve sola a Armado en 1 s.
-  function controlJet(dispositivo) {
+  function controlJet(dispositivo, demo) {
     const control = document.createElement('div');
     control.className = 'control control-jet';
 
@@ -988,10 +988,11 @@ async function iniciar() {
     };
 
     // Dispara el comando real al abrir; la palanca es momentary y vuelve sola.
+    // En el vestuario (demo) se anima igual pero NO se manda nada al portón.
     async function disparar() {
       ir(2);
       momentaryTimer = setTimeout(() => { ir(1); momentaryTimer = null; }, 1000);
-      if (enviando) return;
+      if (demo || enviando) return;
       enviando = true;
       try {
         await ejecutarComando({ dispositivoId: dispositivo.id });
@@ -1024,12 +1025,15 @@ async function iniciar() {
     return control;
   }
 
-  function tarjetaDispositivo(dispositivo) {
+  // `demo` = el control del vestuario: se ve y se anima igual, pero no manda
+  // nada al dispositivo ni consulta su estado. `aspectoForzado` permite
+  // previsualizar un aspecto sin haberlo elegido todavía.
+  function tarjetaDispositivo(dispositivo, demo, aspectoForzado) {
     // El aspecto sale del vestuario del vecino (o del que puso el admin).
-    const aspecto = aspectoDe(dispositivo);
+    const aspecto = aspectoForzado || aspectoDe(dispositivo);
     // Puerta de pulso con aspecto Jet: interruptor con tapa de seguridad.
     if (dispositivo.modo === 'pulso' && aspecto === 'jet') {
-      return controlJet(dispositivo);
+      return controlJet(dispositivo, demo);
     }
     const control = document.createElement('div');
     control.className = 'control';
@@ -1063,7 +1067,7 @@ async function iniciar() {
           : (dispositivo.tipo === 'ascensor' ? ICONOS.ascensor : ICONOS.candados);
       }
       boton.setAttribute('aria-label', `${dispositivo.etiquetaBoton || 'Abrir'} ${dispositivo.nombre}`);
-      boton.addEventListener('click', () => pulsar(boton, dispositivo));
+      boton.addEventListener('click', () => (demo ? pulsarDemo(boton, dispositivo) : pulsar(boton, dispositivo)));
       anillo.appendChild(boton);
       control.appendChild(anillo);
       if (boton.classList.contains('boton-imagen')) {
@@ -1092,7 +1096,11 @@ async function iniciar() {
         ? ICONOS[ICONO_SUBTIPO[dispositivo.subtipo]]
         : (ICONOS[dispositivo.tipo] || ICONOS.otro);
       boton.setAttribute('aria-label', `Encender o apagar ${dispositivo.nombre}`);
-      boton.addEventListener('click', () => alternar(boton, dispositivo));
+      boton.addEventListener('click', () => {
+        // En el demo solo se ve el on/off; no se enciende nada de verdad.
+        if (demo) { pintarEstado(boton, !boton.classList.contains('activo')); return; }
+        alternar(boton, dispositivo);
+      });
       nombreEnBoton(boton, dispositivo.nombre);
       control.appendChild(boton);
     }
@@ -1104,7 +1112,8 @@ async function iniciar() {
       etiqueta.textContent = dispositivo.nombre;
       control.appendChild(etiqueta);
     }
-    if (boton && dispositivo.modo !== 'pulso') {
+    // El demo no consulta el estado real: es solo para ver y sentir el botón.
+    if (boton && dispositivo.modo !== 'pulso' && !demo) {
       estadoInicial(boton, dispositivo);
     }
     // Las pieles (Neón, Acero, Cristal, Pop) solo reestilizan: la clase va en el
@@ -1119,6 +1128,21 @@ async function iniciar() {
   function pintarEstado(boton, encendido) {
     boton.classList.toggle('activo', encendido);
     boton.setAttribute('aria-pressed', encendido ? 'true' : 'false');
+  }
+
+  // Pulso de mentira, para el vestuario: hace exactamente la misma coreografía
+  // de clases que `pulsar` (enviando → éxito, con la duración de esa puerta)
+  // para que el vecino sienta el botón, pero no le manda nada al dispositivo.
+  function pulsarDemo(boton, dispositivo) {
+    if (boton.classList.contains('enviando') || boton.classList.contains('exito')) return;
+    boton.classList.add('enviando');
+    setTimeout(() => {
+      boton.classList.remove('enviando');
+      boton.classList.add('exito');
+      const seg = Number(dispositivo.segundosApertura);
+      const dur = seg > 0 ? seg * 1000 : (dispositivo.subtipo === 'porton' ? 5000 : 1500);
+      setTimeout(() => boton.classList.remove('exito'), dur);
+    }, 350); // simula lo que tarda el comando en salir
   }
 
   async function pulsar(boton, dispositivo) {
@@ -2516,71 +2540,104 @@ async function iniciar() {
     return { clase: a.piel ? `piel-${a.id}` : '', html: iconoDe(d) };
   }
 
-  function renderVestuario() {
-    const cont = $('vestuario');
+  // Dispositivos que tienen algo que elegir. Las cortinas, dimmers y termostatos
+  // son perillas/sliders y todavía no tienen aspectos, así que quedan fuera.
+  const dispConAspectos = () => (misDispositivos || []).filter((d) => aspectosDe(d).length > 1);
+
+  let vestDisp = null;      // dispositivo que se está vistiendo
+  let vestAspecto = null;   // opción centrada en el carrusel
+  let vestTimer = null;
+
+  // Pinta el demo: el control REAL del dispositivo con el aspecto elegido, pero
+  // en modo demo (se toca y se anima, sin mandarle nada al portón).
+  function pintarDemoVestuario() {
+    const cont = $('vest-demo');
     cont.textContent = '';
-    const disp = misDispositivos || [];
-    if (!disp.length) {
-      const p = document.createElement('p');
-      p.className = 'vest-ayuda';
-      p.textContent = 'Todavía no tienes dispositivos.';
-      cont.appendChild(p);
-      return;
-    }
-    // Solo los que tienen algo que elegir. Cortinas, dimmers y termostatos son
-    // perillas/sliders: todavía no tienen aspectos, así que no aparecen.
-    const conAspectos = disp.filter((d) => aspectosDe(d).length > 1);
-    const sinAspectos = disp.length - conAspectos.length;
-    if (!conAspectos.length) {
-      const p = document.createElement('p');
-      p.className = 'vest-ayuda';
-      p.textContent = 'Tus dispositivos todavía no tienen estilos para elegir.';
-      cont.appendChild(p);
-      return;
-    }
-    for (const d of conAspectos) {
-      const bloque = document.createElement('div');
-      bloque.className = 'vest-disp';
-      const tit = document.createElement('div');
-      tit.className = 'vest-nombre';
-      tit.textContent = d.nombre;
-      bloque.appendChild(tit);
-      const gal = document.createElement('div');
-      gal.className = 'skin-galeria';
-      const actual = aspectoDe(d);
-      for (const a of aspectosDe(d)) {
-        const m = muestraAspecto(a, d);
-        const op = document.createElement('button');
-        op.type = 'button';
-        op.className = 'skin-op' + (a.id === actual ? ' activa' : '');
-        op.dataset.disp = d.id;
-        op.dataset.aspecto = a.id;
-        op.innerHTML = `<span class="skin-muestra ${m.clase}">${m.html}</span>`
-          + `<span class="skin-nom">${escapar(a.nombre)}</span>`;
-        gal.appendChild(op);
-      }
-      bloque.appendChild(gal);
-      cont.appendChild(bloque);
-    }
-    if (sinAspectos) {
-      const p = document.createElement('p');
-      p.className = 'vest-ayuda vest-nota';
-      p.textContent = sinAspectos === 1
-        ? 'Tu otro dispositivo (perilla o slider) todavía no tiene estilos.'
-        : `Tus otros ${sinAspectos} dispositivos (perillas y sliders) todavía no tienen estilos.`;
-      cont.appendChild(p);
-    }
+    if (!vestDisp) return;
+    cont.appendChild(tarjetaDispositivo(vestDisp, true, vestAspecto));
   }
 
-  async function elegirAspecto(dispId, aspectoId) {
+  // Carrusel de opciones: la que queda centrada es la elegida.
+  function pintarOpcionesVestuario() {
+    const cont = $('vest-opciones');
+    cont.textContent = '';
+    if (!vestDisp) return;
+    const ops = aspectosDe(vestDisp);
+    for (const a of ops) {
+      const m = muestraAspecto(a, vestDisp);
+      const op = document.createElement('button');
+      op.type = 'button';
+      op.className = 'skin-op';
+      op.dataset.aspecto = a.id;
+      op.innerHTML = `<span class="skin-muestra ${m.clase}">${m.html}</span>`
+        + `<span class="skin-nom">${escapar(a.nombre)}</span>`;
+      cont.appendChild(op);
+    }
+    activarCarrusel(cont); // coverflow + marca la centrada con .enfoque
+    // Centrar la que ya está elegida, sin animación (es el estado inicial).
+    const i = Math.max(0, ops.findIndex((a) => a.id === vestAspecto));
+    const el = cont.children[i];
+    if (el) cont.scrollLeft = el.offsetLeft - (cont.clientWidth - el.offsetWidth) / 2;
+  }
+
+  function renderVestuario() {
+    const lista = dispConAspectos();
+    const sel = $('vest-disp');
+    const nota = $('vest-nota');
+    const sinAspectos = (misDispositivos || []).length - lista.length;
+    // Nota de los que no tienen estilos todavía (perillas y sliders).
+    nota.classList.toggle('oculto', !sinAspectos);
+    if (sinAspectos) {
+      nota.textContent = sinAspectos === 1
+        ? 'Tu otro dispositivo (perilla o slider) todavía no tiene estilos.'
+        : `Tus otros ${sinAspectos} dispositivos (perillas y sliders) todavía no tienen estilos.`;
+    }
+    sel.classList.toggle('oculto', lista.length < 2); // con uno solo, no hay qué elegir
+    if (!lista.length) {
+      sel.classList.add('oculto');
+      $('vest-demo').textContent = '';
+      $('vest-opciones').textContent = '';
+      vestDisp = null;
+      nota.classList.remove('oculto');
+      nota.textContent = 'Tus dispositivos todavía no tienen estilos para elegir.';
+      return;
+    }
+    // Mantener el dispositivo elegido si sigue existiendo; si no, el primero.
+    if (!vestDisp || !lista.some((d) => d.id === vestDisp.id)) vestDisp = lista[0];
+    else vestDisp = lista.find((d) => d.id === vestDisp.id);
+    sel.textContent = '';
+    for (const d of lista) {
+      const o = document.createElement('option');
+      o.value = d.id;
+      o.textContent = d.nombre;
+      o.selected = d.id === vestDisp.id;
+      sel.appendChild(o);
+    }
+    vestAspecto = aspectoDe(vestDisp);
+    pintarDemoVestuario();
+    pintarOpcionesVestuario();
+  }
+
+  // Al centrar otra opción en el carrusel: se previsualiza y se guarda.
+  function alCentrarOpcion() {
+    const cont = $('vest-opciones');
+    const foco = cont.querySelector('.skin-op.enfoque');
+    if (!foco || !vestDisp) return;
+    const asp = foco.dataset.aspecto;
+    if (asp === vestAspecto) return;
+    vestAspecto = asp;
+    pintarDemoVestuario();
+    guardarAspecto(vestDisp.id, asp);
+  }
+
+  async function guardarAspecto(dispId, aspectoId) {
     if (!usuarioActual) return;
     const mapa = Object.assign({}, usuarioActual.aspectos || {});
     // Se guarda incluso 'normal': es una elección explícita que debe poder
     // ganarle al aspecto que puso el admin, no un "sin preferencia".
     mapa[dispId] = aspectoId;
     usuarioActual.aspectos = mapa;
-    renderVestuario();                    // se ve elegido al instante
-    renderDispositivos(misDispositivos);  // y los controles se repintan
+    renderDispositivos(misDispositivos); // los controles de verdad se repintan
     try {
       await actualizarMiPerfil({ aspectos: mapa });
     } catch (err) {
@@ -2588,9 +2645,23 @@ async function iniciar() {
     }
   }
 
-  $('vestuario').addEventListener('click', (e) => {
+  $('vest-disp').addEventListener('change', (e) => {
+    const d = dispConAspectos().find((x) => x.id === e.target.value);
+    if (!d) return;
+    vestDisp = d;
+    vestAspecto = aspectoDe(d);
+    pintarDemoVestuario();
+    pintarOpcionesVestuario();
+  });
+  // El carrusel elige al asentarse el scroll (no en cada píxel).
+  $('vest-opciones').addEventListener('scroll', () => {
+    clearTimeout(vestTimer);
+    vestTimer = setTimeout(alCentrarOpcion, 140);
+  }, { passive: true });
+  // Tocar una opción la centra (y el scroll dispara la elección).
+  $('vest-opciones').addEventListener('click', (e) => {
     const b = e.target.closest('.skin-op');
-    if (b) elegirAspecto(b.dataset.disp, b.dataset.aspecto);
+    if (b) b.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
   });
 
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);

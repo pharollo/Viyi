@@ -1384,23 +1384,68 @@ button:disabled {
   margin: -6px 0 16px;
 }
 
+/* Dropdown del dispositivo que se está vistiendo. */
+.vest-select {
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  /* Con appearance:none se pierde la flecha nativa: se dibuja una. */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238d9297' stroke-width='2.4' stroke-linecap='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 18px;
+  padding-right: 38px;
+}
+
+/* Demo: el control de verdad, para verlo y tocarlo antes de decidir. */
+.vest-demo {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 18px;
+}
+
+/* Carrusel de opciones: la centrada es la elegida (coverflow como el de los
+   dispositivos). El padding lateral deja que la primera y la última se
+   centren. */
+.vest-opciones {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  padding: 6px calc(50% - 46px);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+.vest-opciones::-webkit-scrollbar { display: none; }
+
+.vest-opciones .skin-op {
+  flex: 0 0 92px;
+  scroll-snap-align: center;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+/* La centrada se marca en verde; el carrusel ya le da escala y opacidad. */
+.vest-opciones .skin-op.enfoque .skin-muestra {
+  outline: 2px solid var(--primario);
+  outline-offset: 3px;
+}
+.vest-opciones .skin-op.enfoque .skin-nom { color: var(--primario); }
+
 .vest-nota {
   margin: 18px 0 0;
   padding-top: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.vest-disp + .vest-disp {
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.vest-nombre {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--texto);
-  margin-bottom: 10px;
 }
 
 /* Muestra del Jet Switch: su tapa roja, que no es una foto. */

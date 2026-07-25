@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=212">
+  <link rel="stylesheet" href="styles.css?v=213">
 </head>
 <body>
   <header>
@@ -216,8 +216,13 @@
         </form>
         <div class="tarjeta" id="seccion-skin">
           <h3 class="skin-titulo">Estilo de tus botones</h3>
-          <p class="vest-ayuda">Elige cómo se ve cada uno. Solo lo cambia para ti.</p>
-          <div id="vestuario"></div>
+          <p class="vest-ayuda">Pruébalo aquí: tócalo para sentirlo. Solo cambia para ti.</p>
+          <div id="vestuario">
+            <select id="vest-disp" class="vest-select" aria-label="Dispositivo"></select>
+            <div id="vest-demo" class="vest-demo"></div>
+            <div id="vest-opciones" class="vest-opciones"></div>
+            <p id="vest-nota" class="vest-ayuda vest-nota oculto"></p>
+          </div>
         </div>
         <div class="tarjeta" id="seccion-clave">
           <button type="button" id="btn-toggle-clave" class="btn-desplegar" aria-expanded="false" aria-controls="form-clave">Cambiar clave</button>
@@ -250,6 +255,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=212"></script>
+  <script type="module" src="app.js?v=213"></script>
 </body>
 </html>
