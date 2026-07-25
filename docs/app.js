@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=209';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=210';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -1087,8 +1087,10 @@ async function iniciar() {
     try {
       await ejecutarComando({ dispositivoId: dispositivo.id });
       boton.classList.add('exito');
-      // El portón anima la apertura (luz que sube ×3); necesita más tiempo.
-      const duracionExito = dispositivo.subtipo === 'porton' ? 5000 : 1500;
+      // El portón sigue "activo" los ~15s que tarda en abrir completo, para que
+      // la animación (persianas que suben, el bordado girando, el ojo de Hal
+      // latiendo) acompañe al portón de verdad y no se apague antes.
+      const duracionExito = dispositivo.subtipo === 'porton' ? 15000 : 1500;
       setTimeout(() => boton.classList.remove('exito'), duracionExito);
     } catch (err) {
       toast(err.message || 'No se pudo enviar el comando.', 'error');

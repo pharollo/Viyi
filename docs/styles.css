@@ -1266,7 +1266,9 @@ button:disabled {
   animation-duration: 1.6s;
   animation-timing-function: ease-in-out;
   animation-fill-mode: both;
-  animation-iteration-count: 3;
+  /* Se repite mientras el botón esté activo: el portón tarda ~15s en abrir y
+     con un número fijo de vueltas la animación se apagaba mucho antes. */
+  animation-iteration-count: infinite;
 }
 .boton-circular.exito .icono-porton .persianas line:nth-of-type(4) { animation-name: porton-persiana-4; }
 .boton-circular.exito .icono-porton .persianas line:nth-of-type(3) { animation-name: porton-persiana-3; }
