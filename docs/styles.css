@@ -279,6 +279,9 @@ code {
 #form-perfil input,
 #form-perfil select,
 #form-clave input,
+#form-skin input,
+#form-skin select,
+#form-skin textarea,
 .campo input,
 .campo select {
   padding: 13px 14px;
@@ -301,6 +304,9 @@ code {
 #form-perfil input:focus,
 #form-perfil select:focus,
 #form-clave input:focus,
+#form-skin input:focus,
+#form-skin select:focus,
+#form-skin textarea:focus,
 .campo input:focus,
 .campo select:focus {
   box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara), 0 0 0 1.5px var(--primario);
@@ -2503,3 +2509,12 @@ input:checked ~ .pase-tgl::before {
 }
 
 .btn-borrar-skin:active { color: var(--error); }
+
+/* El textarea hereda el estilo de los inputs, pero no su fuente ni su altura:
+   sin esto sale en monospace del navegador y se puede estirar a lo ancho. */
+#form-skin textarea {
+  font-family: inherit;
+  line-height: 1.4;
+  resize: vertical;
+  min-height: 62px;
+}
