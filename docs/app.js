@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=235';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=236';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -273,6 +273,7 @@ async function iniciar() {
     // Ascensor: botón de llamada de acero con la flecha y el aro ámbar. `tipos`
     // en vez de `soloPuerta`: es al revés, solo tiene sentido en un ascensor.
     { id: 'ascensor', nombre: 'Llamada', modos: ['pulso'], tipos: ['ascensor'] },
+    { id: 'sabiem', nombre: 'Sabiem', modos: ['pulso'], tipos: ['ascensor'] },
     { id: 'hal', nombre: 'Hal', modos: ['pulso'], soloPuerta: true },
     { id: 'bordado', nombre: 'Bordado', modos: ['pulso'], soloPuerta: true },
     { id: 'argentina', nombre: 'Argentina', modos: ['pulso'], soloPuerta: true },
@@ -1493,12 +1494,79 @@ async function iniciar() {
     return control;
   }
 
+  // ---- Sabiem: placa de llamada de ascensor a la antigua ----
+  // No es un botón redondo sino una placa vertical, así que va como control
+  // propio (igual que el Jet Switch) en vez de por ASPECTOS_IMAGEN.
+  // La foto viene con los rótulos APAGADOS; encenderlos son dos capas
+  // transparentes del mismo tamaño que la placa, con las letras en ámbar. Al
+  // llamar se encienden los dos y, al final, se apaga LLEGANDO y luego OCUPADO
+  // — como el original, que avisa que ya llegó antes de soltar la llamada.
+  function controlSabiem(dispositivo, demo) {
+    const control = document.createElement('div');
+    control.className = 'control control-sabiem';
+
+    const placa = document.createElement('div');
+    placa.className = 'sabiem-placa';
+    placa.innerHTML = '<i class="sabiem-luz sabiem-ocupado"></i>'
+      + '<i class="sabiem-luz sabiem-llegando"></i>'
+      + '<button type="button" class="sabiem-boton"></button>';
+    const ocupado = placa.querySelector('.sabiem-ocupado');
+    const llegando = placa.querySelector('.sabiem-llegando');
+    const boton = placa.querySelector('.sabiem-boton');
+    boton.setAttribute('aria-label', `Llamar ${dispositivo.nombre}`);
+
+    const etiqueta = document.createElement('span');
+    etiqueta.className = 'etiqueta-control';
+    etiqueta.textContent = dispositivo.nombre;
+    control.append(placa, etiqueta);
+
+    // El ascensor tarda en llegar: sin dato del admin, 6s se siente honesto
+    // (el default de 1.5s de una puerta no daría para las dos fases).
+    const total = (Number(dispositivo.segundosApertura) || 6) * 1000;
+    const cortaLlegando = Math.max(total * 0.45, total - 1800);
+    let temporizadores = [];
+    let enviando = false;
+
+    function apagar() {
+      temporizadores.forEach(clearTimeout);
+      temporizadores = [];
+      ocupado.classList.remove('on');
+      llegando.classList.remove('on');
+    }
+
+    async function llamar() {
+      if (enviando) return;
+      apagar();
+      ocupado.classList.add('on');
+      llegando.classList.add('on');
+      temporizadores.push(setTimeout(() => llegando.classList.remove('on'), cortaLlegando));
+      temporizadores.push(setTimeout(() => ocupado.classList.remove('on'), total));
+      if (demo) return; // en el vestuario se anima pero no se llama al ascensor
+      enviando = true;
+      try {
+        await ejecutarComando({ dispositivoId: dispositivo.id });
+      } catch (err) {
+        apagar();
+        toast(err.message || 'No se pudo llamar al ascensor.', 'error');
+      } finally {
+        enviando = false;
+      }
+    }
+
+    boton.addEventListener('click', llamar);
+    return control;
+  }
+
   function tarjetaDispositivo(dispositivo, demo, aspectoForzado) {
     // El aspecto sale del vestuario del vecino (o del que puso el admin).
     const aspecto = aspectoForzado || aspectoDe(dispositivo);
     // Puerta de pulso con aspecto Jet: interruptor con tapa de seguridad.
     if (dispositivo.modo === 'pulso' && aspecto === 'jet') {
       return controlJet(dispositivo, demo);
+    }
+    // Aspecto Sabiem: placa de llamada de ascensor (control propio, no botón).
+    if (dispositivo.modo === 'pulso' && aspecto === 'sabiem') {
+      return controlSabiem(dispositivo, demo);
     }
     // Aspecto Rueda: reemplaza la perilla/slider por el rodillo.
     if (aspecto === 'rueda' && MODOS_RUEDA.includes(dispositivo.modo)) {
@@ -3049,6 +3117,7 @@ async function iniciar() {
       return { clase: ASPECTOS_IMAGEN[a.id].clase || '', html: `<img src="${ASPECTOS_IMAGEN[a.id].img}" alt="">` };
     }
     if (a.id === 'jet') return { clase: 'muestra-jet', html: '' };
+    if (a.id === 'sabiem') return { clase: 'muestra-sabiem', html: '' };
     // Normal y las pieles: el icono del propio dispositivo, con la piel puesta.
     return { clase: a.piel ? `piel-${a.id}` : '', html: iconoDe(d) };
   }
@@ -3098,6 +3167,8 @@ async function iniciar() {
     }
     activarCarrusel(cont); // coverflow + marca la centrada con .enfoque
     // Este scroll es NUESTRO, no del dedo: que no se tome por una elección.
+    // Y se cancela cualquier decisión a medio cocer del carrusel anterior.
+    clearTimeout(vestTimer);
     vestTocado = false;
     centrarElegida(cont, ops);
     // Si el panel todavía no estaba visible al pintar, clientWidth es 0 y el
@@ -3169,7 +3240,12 @@ async function iniciar() {
   }
 
   // Al centrar otra opción deslizando el carrusel.
-  function alCentrarOpcion() {
+  // `paraId` = el dispositivo que estaba puesto cuando el carrusel se asentó.
+  // Si mientras se esperaban los 140 ms cambiaste de dispositivo, esta decisión
+  // ya no es de nadie: escribirla le pondría al NUEVO el aspecto del anterior
+  // (así el búnker acabó con el skin de una luz).
+  function alCentrarOpcion(paraId) {
+    if (!vestDisp || (paraId && vestDisp.id !== paraId)) return;
     const foco = $('vest-opciones').querySelector('.skin-op.enfoque');
     if (foco) seleccionarAspecto(foco.dataset.aspecto);
   }
@@ -3217,7 +3293,8 @@ async function iniciar() {
   $('vest-opciones').addEventListener('scroll', () => {
     if (!vestTocado) return;
     clearTimeout(vestTimer);
-    vestTimer = setTimeout(alCentrarOpcion, 140);
+    const paraId = vestDisp && vestDisp.id;
+    vestTimer = setTimeout(() => alCentrarOpcion(paraId), 140);
   }, { passive: true });
   // Tocar una opción la elige de una vez (y de paso la centra). Antes se
   // esperaba a que el scroll la centrara, pero si el carrusel no llegaba a

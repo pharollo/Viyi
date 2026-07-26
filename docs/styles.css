@@ -2640,3 +2640,67 @@ input:checked ~ .pase-tgl::before {
 .skin-muestra.boton-ascensor img {
   filter: saturate(0.12) brightness(0.68);
 }
+
+/* ===== Aspecto Sabiem: placa de llamada de ascensor a la antigua =====
+   Una placa vertical, no un botón redondo: control propio, como el Jet Switch.
+   La foto trae los rótulos apagados; encenderlos son dos capas transparentes
+   del MISMO tamaño que la placa (las letras ya vienen en su sitio), así no hay
+   posiciones que calcular ni que se descuadren al cambiar el tamaño. */
+.control-sabiem {
+  gap: 10px;
+}
+
+.sabiem-placa {
+  position: relative;
+  width: 150px;
+  height: 302px;      /* proporción de la placa original (605x1216) */
+  border-radius: 7px;
+  background: url("sabiem.webp?v=1") center/100% 100% no-repeat;
+  box-shadow: 6px 6px 16px var(--sombra-oscura), -6px -6px 16px var(--sombra-clara);
+}
+
+.sabiem-luz {
+  position: absolute;
+  inset: 0;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.sabiem-luz.on {
+  opacity: 1;
+  filter: drop-shadow(0 0 5px rgba(255, 205, 70, 0.85));
+}
+
+.sabiem-ocupado { background-image: url("sabiem-ocupado.png?v=1"); }
+.sabiem-llegando { background-image: url("sabiem-llegando.png?v=1"); }
+
+/* Zona de toque sobre el botón negro de la foto (medido: centro 49.7% / 65.4%,
+   diámetro 22% del ancho). Se deja algo más grande que el botón para que no
+   haya que apuntar. */
+.sabiem-boton {
+  position: absolute;
+  left: 49.7%;
+  top: 65.4%;
+  width: 34%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border: none;
+  border-radius: 50%;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sabiem-boton:active {
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.55);
+}
+
+/* Miniatura del Locker: la placa es vertical y el hueco es redondo, así que se
+   muestra entera con `contain` en vez de recortarla. */
+.muestra-sabiem {
+  background: url("sabiem.webp?v=1") center/auto 100% no-repeat;
+}
