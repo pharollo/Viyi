@@ -107,7 +107,7 @@
   function nota(t){ if (!diag) diag = document.getElementById('diag'); if (diag) diag.textContent = t; }
 
   // El archivo se baja al cargar, así el primer arrastre no espera la red.
-  fetch('tic-rueda.wav?v=2').then(function(r){ return r.arrayBuffer(); })
+  fetch('tic-rueda.wav?v=3').then(function(r){ return r.arrayBuffer(); })
     .then(function(ab){ crudo = ab; }).catch(function(){});
 
   function prepararAudio(){
@@ -116,7 +116,7 @@
     // 1) Respaldo primero, y desbloqueado aquí mismo (dentro del gesto).
     pool = [];
     for (var i = 0; i < 4; i++) {
-      var a = new Audio('tic-rueda.wav?v=2');
+      var a = new Audio('tic-rueda.wav?v=3');
       a.preload = 'auto';
       try {
         a.muted = true;
@@ -139,7 +139,7 @@
       mudo.connect(ctx.destination); mudo.start(0);
       if (ctx.state === 'suspended') ctx.resume();
       var listo = crudo ? Promise.resolve(crudo)
-        : fetch('tic-rueda.wav?v=2').then(function(r){ return r.arrayBuffer(); });
+        : fetch('tic-rueda.wav?v=3').then(function(r){ return r.arrayBuffer(); });
       listo.then(function(ab){ return ctx.decodeAudioData(ab.slice(0)); })
         .then(function(b){
           buf = b;

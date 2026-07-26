@@ -213,6 +213,7 @@ async function iniciar() {
   // Las pieles visten los tres tipos de control: botón circular, perilla
   // (cortina y termostato) y slider (dimmer). Cada uno tiene su CSS.
   const MODOS_PIEL = ['pulso', 'interruptor', 'cortina', 'dimmer', 'termostato'];
+  const MODOS_RUEDA = ['cortina', 'termostato', 'dimmer'];   // el rodillo reemplaza el control
   const CATALOGO_ASPECTOS = [
     { id: 'normal', nombre: 'Normal', modos: MODOS_PIEL },
     { id: 'neon', nombre: 'Neón', modos: MODOS_PIEL, piel: true },
@@ -224,7 +225,7 @@ async function iniciar() {
     { id: 'cobre', nombre: 'Cobre', modos: ['cortina', 'termostato', 'dimmer'], piel: true, imgMuestra: 'perilla-cobre.jpg?v=1' },
     // Rueda NO es piel: reemplaza el control entero (otro gesto y otro layout),
     // como hace el Jet Switch en los portones.
-    { id: 'rueda', nombre: 'Rueda', modos: ['cortina', 'termostato', 'dimmer'], imgMuestra: 'rueda-base.jpg?v=1' },
+    { id: 'rueda', nombre: 'Rueda', modos: MODOS_RUEDA, imgMuestra: 'rueda-base.jpg?v=1' },
     { id: 'hal', nombre: 'Hal', modos: ['pulso'], soloPuerta: true },
     { id: 'bordado', nombre: 'Bordado', modos: ['pulso'], soloPuerta: true },
     { id: 'argentina', nombre: 'Argentina', modos: ['pulso'], soloPuerta: true },
@@ -890,8 +891,10 @@ async function iniciar() {
       contenedor.appendChild(titulo);
       // Los dimmers van aparte, a lo ancho (slider horizontal). El resto va en
       // el carrusel como siempre.
-      const enCarrusel = grupo.filter((d) => d.modo !== 'dimmer');
-      const dimmers = grupo.filter((d) => d.modo === 'dimmer');
+      // El dimmer va a lo ancho (slider), salvo que lleve el aspecto Rueda:
+      // ese es compacto y vertical, así que entra al carrusel como los demás.
+      const enCarrusel = grupo.filter((d) => d.modo !== 'dimmer' || aspectoDe(d) === 'rueda');
+      const dimmers = grupo.filter((d) => d.modo === 'dimmer' && aspectoDe(d) !== 'rueda');
       if (enCarrusel.length) {
         const fila = document.createElement('div');
         fila.className = 'grupo-controles carrusel';
@@ -1071,7 +1074,7 @@ async function iniciar() {
     if (ticPool) return;
     ticPool = [];
     for (let i = 0; i < 4; i++) {
-      const a = new Audio('tic-rueda.wav?v=2');
+      const a = new Audio('tic-rueda.wav?v=3');
       a.preload = 'auto';
       ticPool.push(a);
     }
@@ -1213,6 +1216,10 @@ async function iniciar() {
     // Puerta de pulso con aspecto Jet: interruptor con tapa de seguridad.
     if (dispositivo.modo === 'pulso' && aspecto === 'jet') {
       return controlJet(dispositivo, demo);
+    }
+    // Aspecto Rueda: reemplaza la perilla/slider por el rodillo.
+    if (aspecto === 'rueda' && MODOS_RUEDA.includes(dispositivo.modo)) {
+      return controlRueda(dispositivo, demo);
     }
     const control = document.createElement('div');
     control.className = 'control';
@@ -2751,7 +2758,7 @@ async function iniciar() {
     // El dimmer se arma con su propio constructor (va a lo ancho, fuera del
     // carrusel); el resto pasa por tarjetaDispositivo.
     let ctrl;
-    if (vestDisp.modo === 'dimmer') {
+    if (vestDisp.modo === 'dimmer' && vestAspecto !== 'rueda') {
       ctrl = controlDimmer(vestDisp, true);
       aplicarPiel(ctrl, vestAspecto);
     } else {
