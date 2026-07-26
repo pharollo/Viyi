@@ -2709,3 +2709,31 @@ input:checked ~ .pase-tgl::before {
 .muestra-sabiem {
   background: url("sabiem.webp?v=1") center/auto 100% no-repeat;
 }
+
+/* ===== Aspecto Bronce: botón de ascensor industrial =====
+   Mismo patrón que el de acero, pero el filtro del reposo conserva algo de
+   saturación: el bisel ES de bronce y desaturarlo del todo lo volvería gris,
+   perdiendo justo lo que lo distingue. */
+.boton-bronce {
+  transition: box-shadow 0.35s ease;
+}
+
+.boton-bronce .boton-logo {
+  filter: saturate(0.4) brightness(0.52);
+  transition: filter 0.35s ease;
+}
+
+.boton-bronce.enviando .boton-logo,
+.boton-bronce.exito .boton-logo {
+  filter: none;
+}
+
+.boton-bronce.enviando,
+.boton-bronce.exito {
+  box-shadow: 9px 9px 18px var(--sombra-oscura), -9px -9px 18px var(--sombra-clara),
+              0 0 30px 7px rgba(255, 176, 62, 0.7);
+}
+
+.skin-muestra.boton-bronce img {
+  filter: saturate(0.4) brightness(0.52);
+}

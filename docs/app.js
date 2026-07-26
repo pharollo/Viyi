@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=237';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=238';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -216,7 +216,8 @@ async function iniciar() {
   const ASPECTOS_IMAGEN = {
     bordado: { img: 'bordado.jpg?v=1', clase: 'boton-bordado' },
     hal: { img: 'hal.jpg?v=1', clase: 'boton-hal' },
-    ascensor: { img: 'ascensor.webp?v=2', clase: 'boton-ascensor' },
+    ascensor: { img: 'ascensor.webp?v=3', clase: 'boton-ascensor' },
+    bronce: { img: 'bronce.webp?v=1', clase: 'boton-bronce' },
   };
 
   // ---- Galería de skins (colección `skins` de Firestore) ----
@@ -273,6 +274,7 @@ async function iniciar() {
     // Ascensor: botón de llamada de acero con la flecha y el aro ámbar. `tipos`
     // en vez de `soloPuerta`: es al revés, solo tiene sentido en un ascensor.
     { id: 'ascensor', nombre: 'Llamada', modos: ['pulso'], tipos: ['ascensor'] },
+    { id: 'bronce', nombre: 'Bronce', modos: ['pulso'], tipos: ['ascensor'] },
     { id: 'sabiem', nombre: 'Sabiem', modos: ['pulso'], tipos: ['ascensor'] },
     { id: 'hal', nombre: 'Hal', modos: ['pulso'], soloPuerta: true },
     { id: 'bordado', nombre: 'Bordado', modos: ['pulso'], soloPuerta: true },
