@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=217';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=218';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2668,16 +2668,19 @@ async function iniciar() {
     pintarOpcionesVestuario();
   }
 
-  // Al centrar otra opción en el carrusel: se previsualiza y se guarda.
-  function alCentrarOpcion() {
-    const cont = $('vest-opciones');
-    const foco = cont.querySelector('.skin-op.enfoque');
-    if (!foco || !vestDisp) return;
-    const asp = foco.dataset.aspecto;
-    if (asp === vestAspecto) return;
+  // Aplica la opción elegida: repinta el demo y la guarda. Lo llaman tanto el
+  // toque como el scroll del carrusel.
+  function seleccionarAspecto(asp) {
+    if (!vestDisp || !asp || asp === vestAspecto) return;
     vestAspecto = asp;
     pintarDemoVestuario();
     guardarAspecto(vestDisp.id, asp);
+  }
+
+  // Al centrar otra opción deslizando el carrusel.
+  function alCentrarOpcion() {
+    const foco = $('vest-opciones').querySelector('.skin-op.enfoque');
+    if (foco) seleccionarAspecto(foco.dataset.aspecto);
   }
 
   async function guardarAspecto(dispId, aspectoId) {
@@ -2708,10 +2711,14 @@ async function iniciar() {
     clearTimeout(vestTimer);
     vestTimer = setTimeout(alCentrarOpcion, 140);
   }, { passive: true });
-  // Tocar una opción la centra (y el scroll dispara la elección).
+  // Tocar una opción la elige de una vez (y de paso la centra). Antes se
+  // esperaba a que el scroll la centrara, pero si el carrusel no llegaba a
+  // moverse ese evento nunca llegaba y el toque no hacía nada.
   $('vest-opciones').addEventListener('click', (e) => {
     const b = e.target.closest('.skin-op');
-    if (b) b.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    if (!b) return;
+    b.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    seleccionarAspecto(b.dataset.aspecto);
   });
 
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
