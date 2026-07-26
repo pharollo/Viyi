@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Rueda vertical · prueba</title>
+<title>Rueda · prueba</title>
 <style>
   :root{
     --fondo:#1b1c1e; --superficie:#212225; --texto:#e8eaec; --texto-suave:#8d9297;
@@ -12,147 +12,169 @@
   }
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;background:var(--fondo);color:var(--texto);
-    font-family:system-ui,-apple-system,sans-serif;padding:26px 16px 60px;}
+    font-family:system-ui,-apple-system,sans-serif;padding:24px 16px 50px;}
   h1{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
-    color:var(--texto-suave);text-align:center;margin:0 0 22px}
-  .fila{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
-  .tarjeta{background:var(--superficie);border-radius:20px;padding:18px 16px;
+    color:var(--texto-suave);text-align:center;margin:0 0 20px}
+  .fila{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+  .tarjeta{background:var(--superficie);border-radius:20px;padding:16px 14px 14px;
     box-shadow:9px 9px 20px var(--sombra-oscura),-9px -9px 20px var(--sombra-clara);
-    display:flex;flex-direction:column;align-items:center;gap:10px;min-width:150px}
-  .nombre{font-size:14px;font-weight:600;color:var(--texto-suave)}
+    display:flex;flex-direction:column;align-items:center;gap:8px}
+  .nombre{font-size:13px;font-weight:600;color:var(--texto-suave)}
+  .valor{font-size:22px;font-weight:600;color:var(--primario);font-variant-numeric:tabular-nums}
+  .calor .valor{color:var(--fuego)}
 
-  /* ---- Rueda vertical ---- */
-  .rueda{position:relative;height:150px;width:118px;}
-  .pista{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none;
-    -webkit-mask-image:linear-gradient(180deg,transparent,#000 26%,#000 74%,transparent);
-    mask-image:linear-gradient(180deg,transparent,#000 26%,#000 74%,transparent);
-    /* deja que el gesto vertical sea de la rueda, no de la página */
-    overscroll-behavior:contain;}
-  .pista::-webkit-scrollbar{display:none}
-  .esp{height:53px;flex:0 0 53px}           /* (150-44)/2 para centrar extremos */
-  .op{height:44px;display:flex;align-items:center;justify-content:center;
-    scroll-snap-align:center;font-size:19px;font-weight:600;color:var(--texto-suave);
-    font-variant-numeric:tabular-nums;transition:color .12s,font-size .12s,opacity .12s;
-    opacity:.55;-webkit-tap-highlight-color:transparent;cursor:pointer}
-  .op.centro{color:var(--primario);font-size:27px;opacity:1}
-  /* ventana que enmarca el valor elegido */
-  .marco{position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%);
-    border-radius:12px;box-shadow:inset 0 0 0 1.5px rgba(165,255,46,.5);pointer-events:none}
-  .calor .op.centro{color:var(--fuego)}
-  .calor .marco{box-shadow:inset 0 0 0 1.5px rgba(255,140,58,.55)}
+  /* ---- Control: rodillo + arco de luces ---- */
+  .ctrl{position:relative;width:150px;height:150px;touch-action:pan-x;
+    -webkit-tap-highlight-color:transparent;cursor:grab}
+  .ctrl:active{cursor:grabbing}
+  .arco{position:absolute;inset:0;pointer-events:none}
+  .led{position:absolute;width:7px;height:7px;border-radius:50%;
+    background:#2c2e33;transform:translate(-50%,-50%);transition:background .12s,box-shadow .12s}
+  .led.on{background:var(--primario);box-shadow:0 0 7px rgba(165,255,46,.9)}
+  .calor .led.on{background:var(--fuego);box-shadow:0 0 7px rgba(255,140,58,.9)}
 
-  .pie{max-width:340px;margin:26px auto 0;font-size:13px;line-height:1.6;
+  .rodillo{position:absolute;left:50%;top:50%;width:52px;height:132px;
+    transform:translate(-50%,-50%);border-radius:13px;overflow:hidden;
+    background:url('rueda-base.jpg?v=1') center/100% 100% no-repeat;
+    box-shadow:0 6px 16px rgba(0,0,0,.6)}
+  /* la franja moleteada: es la que se desplaza y da la ilusión de giro */
+  .moleteado{position:absolute;left:9px;right:9px;top:0;bottom:0;
+    background:url('rueda-textura.jpg?v=1') center top/100% auto repeat-y;
+    opacity:.85}
+  /* brillo fijo del rodillo, para que se vea cilíndrico al girar */
+  .brillo{position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(90deg,rgba(0,0,0,.75),rgba(255,255,255,.10) 22%,
+      rgba(255,255,255,.03) 50%,rgba(255,255,255,.10) 78%,rgba(0,0,0,.75));}
+
+  .pie{max-width:340px;margin:24px auto 0;font-size:13px;line-height:1.6;
     color:var(--texto-suave);text-align:center}
-  .val{margin-top:4px;font-size:12px;color:var(--texto-suave)}
 </style>
 </head>
 <body>
-  <h1>Rueda vertical · prueba</h1>
+  <h1>Rueda · prueba</h1>
 
   <div class="fila">
     <div class="tarjeta">
-      <span class="nombre">Aire Sala</span>
-      <div class="rueda calor" id="r-termo">
-        <div class="pista"></div>
-        <div class="marco"></div>
+      <span class="nombre">Persiana Estudio</span>
+      <div class="ctrl" id="c-cortina">
+        <div class="arco"></div>
+        <div class="rodillo"><div class="moleteado"></div><div class="brillo"></div></div>
       </div>
-      <span class="val" id="v-termo">—</span>
+      <span class="valor" id="v-cortina">60%</span>
     </div>
 
-    <div class="tarjeta">
-      <span class="nombre">Persiana Estudio</span>
-      <div class="rueda" id="r-cortina">
-        <div class="pista"></div>
-        <div class="marco"></div>
+    <div class="tarjeta calor">
+      <span class="nombre">Aire Sala</span>
+      <div class="ctrl" id="c-termo">
+        <div class="arco"></div>
+        <div class="rodillo"><div class="moleteado"></div><div class="brillo"></div></div>
       </div>
-      <span class="val" id="v-cortina">—</span>
+      <span class="valor" id="v-termo">23°</span>
     </div>
   </div>
 
-  <p class="pie">Desliza con el dedo hacia arriba o abajo. Se detiene solo en cada
-     valor. Tocar un valor también lo elige.<br>
-     El comando se manda al soltar, no en cada paso.</p>
+  <p class="pie">Arrastra el rodillo hacia arriba o abajo: gira, suena en cada
+     paso y el arco de luces sube contigo.<br>
+     El comando saldría al soltar, no en cada paso.</p>
 
 <script>
 (function(){
-  // Crea una rueda vertical. `onElegir` se llama cuando el usuario suelta y la
-  // rueda se asienta — no en cada valor que pasa.
-  function rueda(cont, valores, inicial, fmt, onElegir){
-    var pista = cont.querySelector('.pista');
-    var espArr = document.createElement('div'); espArr.className = 'esp';
-    var espAba = document.createElement('div'); espAba.className = 'esp';
-    pista.appendChild(espArr);
-    valores.forEach(function(v, i){
-      var op = document.createElement('div');
-      op.className = 'op';
-      op.textContent = fmt(v);
-      op.dataset.i = i;
-      pista.appendChild(op);
+  // ---- Sonido del detente ----
+  // HTMLAudio con WAV (no Web Audio: en iPhone no se desbloqueaba). Varios
+  // elementos en rueda para que los clics rápidos no se pisen.
+  var POOL = [], iPool = 0;
+  for (var i = 0; i < 4; i++) { var a = new Audio('tic-rueda.wav?v=1'); a.preload = 'auto'; POOL.push(a); }
+  var desbloqueado = false;
+  function desbloquear(){
+    if (desbloqueado) return; desbloqueado = true;
+    POOL.forEach(function(a){
+      try { a.muted = true; var p = a.play();
+        if (p && p.then) p.then(function(){ a.pause(); a.currentTime = 0; a.muted = false; })
+                          .catch(function(){ a.muted = false; });
+        else { a.pause(); a.muted = false; }
+      } catch(e){}
     });
-    pista.appendChild(espAba);
-    var ops = [].slice.call(pista.querySelectorAll('.op'));
-
-    function idxCentrado(){
-      var rc = pista.getBoundingClientRect();
-      var centro = rc.top + rc.height/2;
-      var mejor = 0, mejorD = Infinity;
-      ops.forEach(function(op, i){
-        var r = op.getBoundingClientRect();
-        var d = Math.abs(r.top + r.height/2 - centro);
-        if (d < mejorD) { mejorD = d; mejor = i; }
-      });
-      return mejor;
-    }
-    function pintar(){
-      var i = idxCentrado();
-      ops.forEach(function(op, k){ op.classList.toggle('centro', k === i); });
-      return i;
-    }
-    function centrar(i, suave){
-      var op = ops[i];
-      if (!op) return;
-      pista.scrollTo({ top: op.offsetTop - (pista.clientHeight - op.offsetHeight)/2,
-                       behavior: suave ? 'smooth' : 'auto' });
-    }
-
-    var timer = null, ultimo = inicial;
-    pista.addEventListener('scroll', function(){
-      pintar();
-      clearTimeout(timer);
-      timer = setTimeout(function(){
-        var i = idxCentrado();
-        if (valores[i] !== ultimo) { ultimo = valores[i]; onElegir(valores[i]); }
-      }, 130);
-    }, { passive: true });
-
-    // Tocar un valor lo elige de una vez (no depende de que llegue el scroll).
-    pista.addEventListener('click', function(e){
-      var op = e.target.closest('.op');
-      if (!op) return;
-      var i = +op.dataset.i;
-      centrar(i, true);
-      if (valores[i] !== ultimo) { ultimo = valores[i]; onElegir(valores[i]); }
-    });
-
-    var i0 = Math.max(0, valores.indexOf(inicial));
-    centrar(i0, false);
-    pintar();
-    requestAnimationFrame(pintar);
+  }
+  function tic(){
+    var a = POOL[iPool++ % POOL.length];
+    try { a.currentTime = 0; var p = a.play(); if (p && p.catch) p.catch(function(){}); } catch(e){}
   }
 
-  // Termostato: 16° a 30° de medio en medio grado.
-  var temps = [];
-  for (var t = 16; t <= 30; t += 0.5) temps.push(t);
-  rueda(document.getElementById('r-termo'), temps, 23,
-    function(v){ return (v % 1 ? v.toFixed(1) : v) + '°'; },
-    function(v){ document.getElementById('v-termo').textContent = 'enviado: ' + v + '°'; });
+  // ---- Control ----
+  function control(cont, opts){
+    var arco = cont.querySelector('.arco');
+    var moleteado = cont.querySelector('.moleteado');
+    var valor = opts.inicial;
 
-  // Cortina: 0 a 100 de 5 en 5.
-  var pcts = [];
-  for (var p = 0; p <= 100; p += 5) pcts.push(p);
-  rueda(document.getElementById('r-cortina'), pcts, 60,
-    function(v){ return v + '%'; },
-    function(v){ document.getElementById('v-cortina').textContent = 'enviado: ' + v + '%'; });
+    // Arco de lucesitas abrazando el rodillo por la derecha. El ángulo se mide
+    // desde el eje horizontal: -SPAN abajo, +SPAN arriba, así el arco se comba
+    // hacia afuera y nunca cruza por encima del rodillo.
+    var N = opts.leds || 13, leds = [];
+    var R = 60, CX = 75, CY = 75, SPAN = 58;   // radio > medio ancho del rodillo
+    for (var i = 0; i < N; i++) {
+      var ang = (-SPAN + (2 * SPAN * i / (N - 1))) * Math.PI / 180;
+      var d = document.createElement('span');
+      d.className = 'led';
+      d.style.left = (CX + Math.cos(ang) * R) + 'px';
+      d.style.top  = (CY - Math.sin(ang) * R) + 'px';
+      leds.push(d); arco.appendChild(d);       // i=0 abajo … i=N-1 arriba
+    }
+
+    function pintar(){
+      var frac = (valor - opts.min) / (opts.max - opts.min);
+      var encendidos = Math.round(frac * N);
+      leds.forEach(function(d, i){
+        d.classList.toggle('on', i < encendidos);   // se llena de abajo hacia arriba
+      });
+      opts.salida.textContent = opts.fmt(valor);
+    }
+
+    var y0 = null, acumulado = 0, base = 0, ultimoPaso = 0;
+    var PX_POR_PASO = 11;   // cuánto hay que arrastrar para saltar un valor
+
+    cont.addEventListener('pointerdown', function(e){
+      desbloquear();
+      y0 = e.clientY; base = acumulado; ultimoPaso = 0;
+      if (cont.setPointerCapture) cont.setPointerCapture(e.pointerId);
+    });
+    cont.addEventListener('pointermove', function(e){
+      if (y0 === null) return;
+      var dy = y0 - e.clientY;                 // arriba = sube
+      acumulado = base + dy;
+      moleteado.style.backgroundPositionY = (-acumulado) + 'px';   // gira
+      var pasos = Math.round(dy / PX_POR_PASO);
+      if (pasos !== ultimoPaso) {
+        var nuevo = Math.min(opts.max, Math.max(opts.min,
+          opts.inicialArrastre + (pasos * opts.paso)));
+        if (nuevo !== valor) { valor = nuevo; pintar(); tic(); }
+        ultimoPaso = pasos;
+      }
+    });
+    function fin(){
+      if (y0 === null) return;
+      y0 = null;
+      opts.salida.textContent = opts.fmt(valor) + ' ✓';   // aquí saldría el comando
+      setTimeout(function(){ opts.salida.textContent = opts.fmt(valor); }, 900);
+    }
+    cont.addEventListener('pointerup', fin);
+    cont.addEventListener('pointercancel', fin);
+    // el valor de partida de cada arrastre
+    cont.addEventListener('pointerdown', function(){ opts.inicialArrastre = valor; });
+
+    opts.inicialArrastre = valor;
+    pintar();
+  }
+
+  control(document.getElementById('c-cortina'), {
+    min: 0, max: 100, paso: 5, inicial: 60, leds: 13,
+    fmt: function(v){ return v + '%'; },
+    salida: document.getElementById('v-cortina'),
+  });
+  control(document.getElementById('c-termo'), {
+    min: 16, max: 30, paso: 0.5, inicial: 23, leds: 13,
+    fmt: function(v){ return (v % 1 ? v.toFixed(1) : v) + '°'; },
+    salida: document.getElementById('v-termo'),
+  });
 })();
 </script>
 </body>
