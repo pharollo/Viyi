@@ -2634,3 +2634,9 @@ input:checked ~ .pase-tgl::before {
   box-shadow: 9px 9px 18px var(--sombra-oscura), -9px -9px 18px var(--sombra-clara),
               0 0 30px 7px rgba(255, 176, 62, 0.7);
 }
+
+/* La miniatura del Locker no usa .boton-logo sino .skin-muestra img, así que
+   el reposo del ascensor hay que apagárselo también aquí. */
+.skin-muestra.boton-ascensor img {
+  filter: saturate(0.12) brightness(0.68);
+}

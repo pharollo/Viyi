@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=234';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=235';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -216,7 +216,7 @@ async function iniciar() {
   const ASPECTOS_IMAGEN = {
     bordado: { img: 'bordado.jpg?v=1', clase: 'boton-bordado' },
     hal: { img: 'hal.jpg?v=1', clase: 'boton-hal' },
-    ascensor: { img: 'ascensor.webp?v=1', clase: 'boton-ascensor' },
+    ascensor: { img: 'ascensor.webp?v=2', clase: 'boton-ascensor' },
   };
 
   // ---- Galería de skins (colección `skins` de Firestore) ----
@@ -3041,7 +3041,13 @@ async function iniciar() {
         : { clase: '', html: `<img src="${a.imgMuestra}" alt="">` };
     }
     if (a.id === 'argentina') return { clase: '', html: '<img src="argentina-frente.jpg?v=2" alt="">' };
-    if (ASPECTOS_IMAGEN[a.id]) return { clase: '', html: `<img src="${ASPECTOS_IMAGEN[a.id].img}" alt="">` };
+    if (ASPECTOS_IMAGEN[a.id]) {
+      // La miniatura lleva la MISMA clase del aspecto para que muestre su
+      // estado en reposo. Sin esto, el ascensor se previsualizaba con el aro
+      // ámbar encendido y el botón de verdad aparecía apagado: la miniatura
+      // prometía algo distinto de lo que ibas a ver.
+      return { clase: ASPECTOS_IMAGEN[a.id].clase || '', html: `<img src="${ASPECTOS_IMAGEN[a.id].img}" alt="">` };
+    }
     if (a.id === 'jet') return { clase: 'muestra-jet', html: '' };
     // Normal y las pieles: el icono del propio dispositivo, con la piel puesta.
     return { clase: a.piel ? `piel-${a.id}` : '', html: iconoDe(d) };
