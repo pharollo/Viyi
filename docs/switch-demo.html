@@ -14,16 +14,12 @@
   .switch{--jet-s:0.75;position:relative;
     width:calc(210px*var(--jet-s));height:calc(400px*var(--jet-s));
     cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent;}
-  .capa{position:absolute;inset:0;background-repeat:no-repeat;transition:opacity .13s ease;}
-  .c-cerrado{background-image:url('jet-cerrado-src.png');
-    background-size:calc(354px*var(--jet-s)) calc(708px*var(--jet-s));
-    background-position:calc(-72px*var(--jet-s)) calc(-159px*var(--jet-s));}
-  .c-armado{background-image:url('jet-3estados.png');
-    background-size:calc(1284px*var(--jet-s)) calc(729px*var(--jet-s));
-    background-position:calc(-532px*var(--jet-s)) calc(-251px*var(--jet-s));opacity:0;}
-  .c-abierto{background-image:url('jet-dos-src.png');
-    background-size:calc(413px*var(--jet-s)) calc(827px*var(--jet-s));
-    background-position:calc(-2px*var(--jet-s)) calc(-272px*var(--jet-s));opacity:0;}
+  /* Cada estado viene ya recortado a la caja del switch: se estira y listo. */
+  .capa{position:absolute;inset:0;background-repeat:no-repeat;
+    background-size:100% 100%;transition:opacity .13s ease;}
+  .c-cerrado{background-image:url('jet-cerrado.webp?v=1');}
+  .c-armado{background-image:url('jet-armado.webp?v=1');opacity:0;}
+  .c-abierto{background-image:url('jet-abierto.webp?v=1');opacity:0;}
   /* Bomba de búnker, blanca sólida, justo sobre "ENGAGE". */
   .bunker{position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);color:#fff;line-height:0;}
   .bunker svg{width:calc(64px*var(--jet-s));height:calc(64px*var(--jet-s));stroke:#fff;stroke-width:3.4;}
