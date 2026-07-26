@@ -2518,3 +2518,94 @@ input:checked ~ .pase-tgl::before {
   resize: vertical;
   min-height: 62px;
 }
+
+/* Interruptor con foto de la galería (una luz, un relé). El aro verde de
+   .activo es un box-shadow interior, y la imagen lo tapa: el encendido se lee
+   en la propia foto (apagada se atenúa) más un aro dibujado encima. Se acota a
+   .medio para no tocar los botones de pulso con foto (Bordado, Hal, Argentina),
+   que nunca llevan .activo y quedarían apagados para siempre. */
+.boton-circular.medio.boton-imagen .boton-logo {
+  filter: brightness(0.4) saturate(0.5);
+  transition: filter 0.25s ease;
+}
+
+.boton-circular.medio.boton-imagen.activo .boton-logo {
+  filter: none;
+}
+
+.boton-circular.medio.boton-imagen.activo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgba(165, 255, 46, 0.85);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Chips de "para qué tipos sirve este botón", al crear y al editar. */
+.skin-tipos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.chip-tipo {
+  border: none;
+  border-radius: 999px;
+  padding: 7px 13px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--texto-suave);
+  background: var(--fondo);
+  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara);
+  cursor: pointer;
+}
+
+.chip-tipo.activa {
+  color: var(--primario);
+  box-shadow: inset 0 0 0 1.5px rgba(165, 255, 46, 0.6);
+}
+
+/* La fila del skin abre su editor al tocarla. */
+.skin-item { border-radius: 14px; overflow: hidden; }
+.skin-fila { cursor: pointer; }
+
+.skin-editor {
+  padding: 4px 10px 12px;
+  background: var(--fondo);
+  border-radius: 0 0 14px 14px;
+  margin-top: -4px;
+}
+
+.skin-acciones {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.skin-acciones .btn-secundario {
+  flex: 1;
+  margin: 0;
+}
+
+/* El nombre dentro de un interruptor con foto: el estilo base está pensado
+   para el botón grande (168px) y en uno de 92 queda alto y se pierde sobre la
+   imagen. Se baja y se le pone un velo degradado que lo despega del fondo. */
+.boton-circular.medio.boton-imagen .nombre-boton {
+  bottom: 9px;
+}
+
+.boton-circular.medio.boton-imagen::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 52%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0));
+  pointer-events: none;
+  z-index: 1;
+}

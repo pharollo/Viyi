@@ -961,6 +961,37 @@ exports.adminSkins = onCall({ timeoutSeconds: 120 }, async (request) => {
     return { ok: true, id };
   }
 
+  // Cambiar nombre, animación o a qué tipos aplica, SIN volver a generar la
+  // imagen: equivocarse de nombre no debe costar otra imagen.
+  if (accion === 'editar') {
+    const d = request.data || {};
+    const id = String(d.id || '').trim();
+    if (!/^[a-z0-9-]{2,40}$/.test(id)) {
+      throw new HttpsError('invalid-argument', 'Falta el id.');
+    }
+    const ref = db.doc(`skins/${id}`);
+    if (!(await ref.get()).exists) {
+      throw new HttpsError('not-found', 'Ese botón ya no existe.');
+    }
+    const cambios = {};
+    if (d.nombre !== undefined) {
+      const nombre = String(d.nombre || '').trim();
+      if (!nombre || nombre.length > 24) {
+        throw new HttpsError('invalid-argument', 'Ponle un nombre de hasta 24 caracteres.');
+      }
+      cambios.nombre = nombre;
+    }
+    if (d.animacion !== undefined) {
+      cambios.animacion = ANIMACIONES_SKIN.includes(d.animacion) ? d.animacion : 'ninguna';
+    }
+    if (d.tipos !== undefined) {
+      cambios.tipos = Array.isArray(d.tipos) ? d.tipos.filter((t) => TIPOS_SKIN.includes(t)) : [];
+    }
+    if (!Object.keys(cambios).length) return { ok: true, id };
+    await ref.set(cambios, { merge: true });
+    return { ok: true, id };
+  }
+
   if (accion === 'eliminar') {
     const id = String((request.data || {}).id || '').trim();
     if (!/^[a-z0-9-]{2,40}$/.test(id)) {

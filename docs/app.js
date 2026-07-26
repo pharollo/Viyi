@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=229';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=230';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -277,13 +277,15 @@ async function iniciar() {
   const PIELES = CATALOGO_ASPECTOS.filter((a) => a.piel).map((a) => a.id);
 
   // Catálogo completo = los de código + los de la galería. Un skin de galería
-  // es siempre un botón redondo con foto (modo pulso); `tipos` vacío = sirve
-  // para cualquier tipo de dispositivo.
+  // es un botón redondo con foto, así que sirve donde el control ES un botón:
+  // pulso (puertas, ascensores) e interruptor (luces, relés). `tipos` vacío =
+  // sirve para cualquier tipo de dispositivo.
+  const MODOS_SKIN = ['pulso', 'interruptor'];
   function catalogoAspectos() {
     return CATALOGO_ASPECTOS.concat(skinsGaleria.map((s) => ({
       id: s.id,
       nombre: s.nombre,
-      modos: ['pulso'],
+      modos: MODOS_SKIN,
       tipos: Array.isArray(s.tipos) && s.tipos.length ? s.tipos : null,
     })));
   }
@@ -1554,10 +1556,19 @@ async function iniciar() {
     } else {
       boton = document.createElement('button');
       boton.type = 'button';
-      boton.className = 'boton-circular medio';
-      boton.innerHTML = ICONO_SUBTIPO[dispositivo.subtipo]
-        ? ICONOS[ICONO_SUBTIPO[dispositivo.subtipo]]
-        : (ICONOS[dispositivo.tipo] || ICONOS.otro);
+      const conFoto = ASPECTOS_IMAGEN[aspecto];
+      if (conFoto) {
+        // Interruptor con foto (skin de galería en una luz o un relé). El aro
+        // verde del encendido queda tapado por la imagen, así que el estado se
+        // lee en la propia foto: apagada se atenúa (ver styles.css).
+        boton.className = `boton-circular medio boton-imagen ${conFoto.clase}`;
+        boton.innerHTML = `<img src="${conFoto.img}" alt="" class="boton-logo">`;
+      } else {
+        boton.className = 'boton-circular medio';
+        boton.innerHTML = ICONO_SUBTIPO[dispositivo.subtipo]
+          ? ICONOS[ICONO_SUBTIPO[dispositivo.subtipo]]
+          : (ICONOS[dispositivo.tipo] || ICONOS.otro);
+      }
       boton.setAttribute('aria-label', `Encender o apagar ${dispositivo.nombre}`);
       boton.addEventListener('click', () => {
         // En el demo solo se ve el on/off; no se enciende nada de verdad.
@@ -3189,6 +3200,44 @@ async function iniciar() {
   const adminSkins = httpsCallable(functions, 'adminSkins');
   let skinPropuesta = null;   // data URI del WebP ya procesado, sin publicar
 
+  // A qué tipos puede aplicar un skin: solo donde el control ES un botón
+  // redondo. Cortinas, dimmers y termostatos son perillas, ruedas o sliders y
+  // una foto no los viste, así que no se ofrecen.
+  const TIPOS_SKIN = [
+    { id: 'puerta', nombre: 'Puertas' },
+    { id: 'ascensor', nombre: 'Ascensores' },
+    { id: 'luz', nombre: 'Luces' },
+    { id: 'rele', nombre: 'Relés' },
+    { id: 'otro', nombre: 'Otros' },
+  ];
+
+  // `elegidos` vacío significa "todos" (así se guarda), por eso arrancan todos
+  // marcados. No se deja desmarcar el último: cero marcados no querría decir
+  // "ninguno" sino "todos", y sería justo lo contrario de lo que parece.
+  function pintarChipsTipos(cont, elegidos) {
+    const marcados = Array.isArray(elegidos) && elegidos.length ? elegidos : TIPOS_SKIN.map((t) => t.id);
+    cont.textContent = '';
+    for (const t of TIPOS_SKIN) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip-tipo' + (marcados.includes(t.id) ? ' activa' : '');
+      b.dataset.tipo = t.id;
+      b.textContent = t.nombre;
+      b.addEventListener('click', () => {
+        b.classList.toggle('activa');
+        if (!cont.querySelector('.chip-tipo.activa')) b.classList.add('activa');
+      });
+      cont.appendChild(b);
+    }
+  }
+
+  // Si están todos marcados se manda [] = "todos", que es como lo guarda el
+  // backend; así no hay dos formas de decir lo mismo.
+  function tiposElegidos(cont) {
+    const sel = [...cont.querySelectorAll('.chip-tipo.activa')].map((b) => b.dataset.tipo);
+    return sel.length === TIPOS_SKIN.length ? [] : sel;
+  }
+
   // El botón es un círculo con la foto a `cover`, así que basta un cuadrado:
   // el CSS hace el recorte. Se cuadra por el lado corto y se centra.
   function aCuadradoWebp(fuente, lado = 256) {
@@ -3220,7 +3269,7 @@ async function iniciar() {
     const mostrar = form.classList.contains('oculto');
     form.classList.toggle('oculto', !mostrar);
     $('btn-toggle-skin').setAttribute('aria-expanded', String(mostrar));
-    if (mostrar) pintarListaSkins();
+    if (mostrar) { pintarChipsTipos($('skin-tipos'), null); pintarListaSkins(); }
   });
 
   $('btn-generar-skin').addEventListener('click', async () => {
@@ -3266,6 +3315,7 @@ async function iniciar() {
         nombre,
         imagen: skinPropuesta,
         animacion: $('skin-animacion').value,
+        tipos: tiposElegidos($('skin-tipos')),
         prompt: $('skin-prompt').value.trim(),
       });
       await refrescarSkins();
@@ -3273,6 +3323,7 @@ async function iniciar() {
       $('skin-previa').classList.add('oculto');
       $('skin-prompt').value = '';
       $('skin-nombre').value = '';
+      pintarChipsTipos($('skin-tipos'), null);
       msgSkin('Publicado. Ya se puede elegir en el Locker.');
     } catch (err) {
       msgSkin((err && err.message) || 'No se pudo publicar.', true);
@@ -3290,33 +3341,81 @@ async function iniciar() {
     pintarListaSkins();
   }
 
+  // Cada skin de la lista se puede editar: cambiar el nombre, la animación o a
+  // qué tipos aplica SIN volver a generar la imagen (equivocarse de nombre no
+  // debe costar otra generación).
   function pintarListaSkins() {
     const cont = $('skin-lista');
     cont.textContent = '';
     if (!skinsGaleria.length) return;
     for (const s of skinsGaleria) {
+      const caja = document.createElement('div');
+      caja.className = 'skin-item';
+
       const fila = document.createElement('div');
       fila.className = 'skin-fila';
       fila.innerHTML = `<img src="${s.imagen}" alt=""><span>${escapar(s.nombre)}</span>`;
-      const bor = document.createElement('button');
-      bor.type = 'button';
-      bor.className = 'btn-borrar-skin';
-      bor.textContent = 'Borrar';
-      bor.addEventListener('click', async () => {
+
+      const editor = document.createElement('div');
+      editor.className = 'skin-editor oculto';
+      editor.innerHTML = '<label class="campo-perfil">Nombre'
+        + `<input type="text" class="ed-nombre" maxlength="24" value="${escapar(s.nombre)}"></label>`
+        + '<label class="campo-perfil">Al activarse<select class="ed-animacion">'
+        + Object.values(ANIMACIONES_SKIN).map((a) =>
+          `<option value="${a.id}"${a.id === (s.animacion || 'ninguna') ? ' selected' : ''}>${a.nombre}</option>`).join('')
+        + '</select></label>'
+        + '<div class="campo-perfil">Para<div class="skin-tipos ed-tipos"></div></div>';
+      pintarChipsTipos(editor.querySelector('.ed-tipos'), s.tipos);
+
+      const acciones = document.createElement('div');
+      acciones.className = 'skin-acciones';
+      const guardar = document.createElement('button');
+      guardar.type = 'button';
+      guardar.className = 'btn-secundario';
+      guardar.textContent = 'Guardar';
+      guardar.addEventListener('click', async () => {
+        const nombre = editor.querySelector('.ed-nombre').value.trim();
+        if (!nombre) { msgSkin('Ponle un nombre.', true); return; }
+        guardar.disabled = true;
+        try {
+          await adminSkins({
+            accion: 'editar',
+            id: s.id,
+            nombre,
+            animacion: editor.querySelector('.ed-animacion').value,
+            tipos: tiposElegidos(editor.querySelector('.ed-tipos')),
+          });
+          await refrescarSkins();
+          msgSkin('Guardado.');
+        } catch (err) {
+          msgSkin((err && err.message) || 'No se pudo guardar.', true);
+          guardar.disabled = false;
+        }
+      });
+
+      const borrar = document.createElement('button');
+      borrar.type = 'button';
+      borrar.className = 'btn-borrar-skin';
+      borrar.textContent = 'Borrar';
+      borrar.addEventListener('click', async () => {
         // Los vecinos que lo tuvieran puesto vuelven solos a su botón normal:
         // aspectoDe() valida contra el catálogo y descarta lo que ya no existe.
         if (!confirm(`¿Borrar "${s.nombre}" de la galería?`)) return;
-        bor.disabled = true;
+        borrar.disabled = true;
         try {
           await adminSkins({ accion: 'eliminar', id: s.id });
           await refrescarSkins();
         } catch (err) {
           msgSkin((err && err.message) || 'No se pudo borrar.', true);
-          bor.disabled = false;
+          borrar.disabled = false;
         }
       });
-      fila.appendChild(bor);
-      cont.appendChild(fila);
+      acciones.append(guardar, borrar);
+      editor.appendChild(acciones);
+
+      fila.addEventListener('click', () => editor.classList.toggle('oculto'));
+      caja.append(fila, editor);
+      cont.appendChild(caja);
     }
   }
 
