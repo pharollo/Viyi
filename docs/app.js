@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=220';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=221';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -84,6 +84,21 @@ async function iniciar() {
   let usuarioActual = null;
   let misDispositivos = [];
   let avisoTimer = null;
+
+  // Caché del arranque instantáneo (lo primero que se pinta al refrescar).
+  // Hay que reescribirla cuando algo del perfil cambia en caliente; si no, el
+  // refresh pinta lo viejo hasta que conteste Firestore y parece que no se
+  // guardó.
+  const claveCache = (uid) => `viyi-disp-${uid}`;
+  function guardarCache() {
+    const uid = auth.currentUser && auth.currentUser.uid;
+    if (!uid || !usuarioActual) return;
+    try {
+      localStorage.setItem(claveCache(uid), JSON.stringify({
+        usuario: usuarioActual, dispositivos: misDispositivos,
+      }));
+    } catch (e) { /* almacenamiento lleno o bloqueado: no es crítico */ }
+  }
 
   // Enlace de pase entrante (?p=TOKEN, o ?pase= de enlaces viejos).
   const paramsUrl = new URLSearchParams(location.search);
@@ -386,7 +401,7 @@ async function iniciar() {
     // verifican contra Firestore y se corrigen si algo cambió. Tocar un botón
     // viejo no abre nada indebido: el backend valida activo + permiso en cada
     // acción. No aplica llegando con un pase: ese flujo crea/modifica el perfil.
-    const cacheKey = `viyi-disp-${user.uid}`;
+    const cacheKey = claveCache(user.uid);
     let yaEnPanel = false;
     if (!paseTokenPendiente) {
       try {
@@ -431,10 +446,7 @@ async function iniciar() {
       // Repinta con lo fresco (idempotente); solo cambia de vista si no venía
       // ya pintado desde la caché, para no sacar al usuario de otra pestaña.
       pintarControles(usuario, dispositivos, !yaEnPanel);
-      // Guardar para el próximo arranque instantáneo.
-      try {
-        localStorage.setItem(cacheKey, JSON.stringify({ usuario, dispositivos }));
-      } catch (e) { /* almacenamiento lleno o bloqueado: no es crítico */ }
+      guardarCache(); // para el próximo arranque instantáneo
 
       if (usuario.rol === 'admin') {
         cargarGestion();
@@ -2851,8 +2863,16 @@ async function iniciar() {
     mapa[dispId] = aspectoId;
     usuarioActual.aspectos = mapa;
     renderDispositivos(misDispositivos); // los controles de verdad se repintan
+    guardarCache(); // que el refresh pinte el elegido, no el de la caché vieja
     try {
-      await actualizarMiPerfil({ aspectos: mapa });
+      const res = await actualizarMiPerfil({ aspectos: mapa });
+      // El backend descarta en silencio los aspectos que no conoce, así que se
+      // compara con lo que devolvió: si no quedó, el refresh lo perdería y hay
+      // que decirlo aquí, no dejar que se vea como si se hubiera guardado.
+      const guardado = res && res.data && res.data.perfil && res.data.perfil.aspectos;
+      if (guardado && guardado[dispId] !== aspectoId) {
+        toast('Ese estilo todavía no está disponible en el servidor.', 'error');
+      }
     } catch (err) {
       toast('No se pudo guardar el estilo.', 'error');
     }
