@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=233';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=234';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -216,6 +216,7 @@ async function iniciar() {
   const ASPECTOS_IMAGEN = {
     bordado: { img: 'bordado.jpg?v=1', clase: 'boton-bordado' },
     hal: { img: 'hal.jpg?v=1', clase: 'boton-hal' },
+    ascensor: { img: 'ascensor.webp?v=1', clase: 'boton-ascensor' },
   };
 
   // ---- Galería de skins (colección `skins` de Firestore) ----
@@ -269,6 +270,9 @@ async function iniciar() {
     // Rueda NO es piel: reemplaza el control entero (otro gesto y otro layout),
     // como hace el Jet Switch en los portones.
     { id: 'rueda', nombre: 'Rueda', modos: MODOS_RUEDA, imgMuestra: 'rueda-marco.jpg?v=1' },
+    // Ascensor: botón de llamada de acero con la flecha y el aro ámbar. `tipos`
+    // en vez de `soloPuerta`: es al revés, solo tiene sentido en un ascensor.
+    { id: 'ascensor', nombre: 'Llamada', modos: ['pulso'], tipos: ['ascensor'] },
     { id: 'hal', nombre: 'Hal', modos: ['pulso'], soloPuerta: true },
     { id: 'bordado', nombre: 'Bordado', modos: ['pulso'], soloPuerta: true },
     { id: 'argentina', nombre: 'Argentina', modos: ['pulso'], soloPuerta: true },

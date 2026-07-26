@@ -2609,3 +2609,28 @@ input:checked ~ .pase-tgl::before {
   pointer-events: none;
   z-index: 1;
 }
+
+/* ===== Aspecto Ascensor: botón de llamada de acero =====
+   La foto viene con el aro y la flecha YA encendidos, así que el reposo se
+   consigue apagándolos con filter (queda como un difusor sin luz) y al pulsar
+   se quita el filtro y el ámbar sale además ALREDEDOR del botón, como una
+   llamada registrada. Un solo bitmap para los dos estados. */
+.boton-ascensor {
+  transition: box-shadow 0.35s ease;
+}
+
+.boton-ascensor .boton-logo {
+  filter: saturate(0.12) brightness(0.68);
+  transition: filter 0.35s ease;
+}
+
+.boton-ascensor.enviando .boton-logo,
+.boton-ascensor.exito .boton-logo {
+  filter: none;
+}
+
+.boton-ascensor.enviando,
+.boton-ascensor.exito {
+  box-shadow: 9px 9px 18px var(--sombra-oscura), -9px -9px 18px var(--sombra-clara),
+              0 0 30px 7px rgba(255, 176, 62, 0.7);
+}
