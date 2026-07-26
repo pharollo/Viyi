@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=232';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=233';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -3100,7 +3100,15 @@ async function iniciar() {
     if (!cont.clientWidth) return;
     const i = Math.max(0, ops.findIndex((a) => a.id === vestAspecto));
     const el = cont.children[i];
-    if (el) cont.scrollLeft = el.offsetLeft - (cont.clientWidth - el.offsetWidth) / 2;
+    if (!el) return;
+    // Por rectángulos y NO por offsetLeft: .vest-opciones no es
+    // position:relative, así que offsetLeft se mide contra un ancestro y el
+    // scroll salía enorme → el navegador lo recortaba al máximo y centraba la
+    // ÚLTIMA opción. No se notaba porque Jet Switch ERA la última; al entrar
+    // los skins de galería dejó de serlo y quedó marcando el skin equivocado.
+    const rc = cont.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    cont.scrollLeft += (r.left + r.width / 2) - (rc.left + rc.width / 2);
   }
 
   function renderVestuario() {
