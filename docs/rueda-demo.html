@@ -7,7 +7,7 @@
 <style>
   :root{
     --fondo:#1b1c1e; --superficie:#212225; --texto:#e8eaec; --texto-suave:#8d9297;
-    --primario:#a5ff2e; --fuego:#ff8c3a;
+    --primario:#a5ff2e; --frio:#5ec8ff;
     --sombra-oscura:rgba(0,0,0,.55); --sombra-clara:rgba(255,255,255,.05);
   }
   *{box-sizing:border-box}
@@ -21,7 +21,7 @@
     display:flex;flex-direction:column;align-items:center;gap:8px}
   .nombre{font-size:13px;font-weight:600;color:var(--texto-suave)}
   .valor{font-size:22px;font-weight:600;color:var(--primario);font-variant-numeric:tabular-nums}
-  .calor .valor{color:var(--fuego)}
+  .frio .valor{color:var(--frio)}
 
   /* ---- Control: rodillo + arco de luces ---- */
   .ctrl{position:relative;width:150px;height:150px;touch-action:pan-x;
@@ -31,7 +31,7 @@
   .led{position:absolute;width:7px;height:7px;border-radius:50%;
     background:#2c2e33;transform:translate(-50%,-50%);transition:background .12s,box-shadow .12s}
   .led.on{background:var(--primario);box-shadow:0 0 7px rgba(165,255,46,.9)}
-  .calor .led.on{background:var(--fuego);box-shadow:0 0 7px rgba(255,140,58,.9)}
+  .frio .led.on{background:var(--frio);box-shadow:0 0 7px rgba(94,200,255,.9)}
 
   .rodillo{position:absolute;left:50%;top:50%;width:52px;height:132px;
     transform:translate(-50%,-50%);border-radius:13px;overflow:hidden;
@@ -63,7 +63,7 @@
       <span class="valor" id="v-cortina">60%</span>
     </div>
 
-    <div class="tarjeta calor">
+    <div class="tarjeta frio">
       <span class="nombre">Aire Sala</span>
       <div class="ctrl" id="c-termo">
         <div class="arco"></div>
