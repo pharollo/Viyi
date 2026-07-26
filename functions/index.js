@@ -25,6 +25,9 @@ const HOMEBRIDGE_PASS = defineSecret('HOMEBRIDGE_PASS');
 const SECRETS_HB = [HOMEBRIDGE_URL, HOMEBRIDGE_USER, HOMEBRIDGE_PASS];
 // Envío de los correos propios (firebase functions:secrets:set RESEND_API_KEY).
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
+// Generación de los skins de la galería, en aistudio.google.com/apikey
+// (firebase functions:secrets:set GEMINI_API_KEY).
+const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
 
 // maxInstances: 1 a propósito. La cuota de Cloud Run "total allowable CPU per
 // project per region" (20 CPU en este proyecto, y Google no da más porque el
@@ -192,6 +195,26 @@ const dormir = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // válido a propósito: es la forma de que el vecino vuelva al botón de siempre
 // aunque el admin le haya puesto otro.
 const ASPECTOS_VALIDOS = ['normal', 'jet', 'argentina', 'bordado', 'hal', 'neon', 'acero', 'cristal', 'pop', 'cobre', 'rueda'];
+
+// Los de arriba viven en el código; los de la galería (colección `skins`) son
+// datos que el admin publica sin desplegar, así que la lista no puede ser fija.
+// Se cachean en memoria de la instancia: cambian poquísimo y esto corre en cada
+// guardado. TTL corto para que un skin recién publicado se pueda elegir ya.
+let skinsCache = { ids: null, hasta: 0 };
+async function aspectosPermitidos() {
+  if (skinsCache.ids && Date.now() < skinsCache.hasta) return skinsCache.ids;
+  let ids = new Set(ASPECTOS_VALIDOS);
+  try {
+    const snap = await db.collection('skins').select().get();
+    snap.docs.forEach((d) => ids.add(d.id));
+  } catch (e) {
+    // Sin galería disponible se sigue con los de código: peor es rechazar un
+    // aspecto que el vecino ya tenía puesto.
+    if (skinsCache.ids) return skinsCache.ids;
+  }
+  skinsCache = { ids, hasta: Date.now() + 60000 };
+  return ids;
+}
 
 const DURACIONES_MS = {
   '30m': 1800000, '1h': 3600000, '2h': 7200000, '3h': 10800000,
@@ -510,6 +533,7 @@ exports.actualizarMiPerfil = onCall(async (request) => {
   const descartados = []; // lo que no pasó validación, para que la app lo diga
   // El vestuario se guarda solo: se puede mandar sin tocar el nombre.
   if (aspectos && typeof aspectos === 'object' && !Array.isArray(aspectos)) {
+    const permitidos = await aspectosPermitidos();
     const limpio = {};
     // Las claves son ids de documento de Firestore. NO se les puede exigir el
     // formato del panel de administración (minúsculas y guiones): los
@@ -521,7 +545,7 @@ exports.actualizarMiPerfil = onCall(async (request) => {
         descartados.push(dispId);
         continue;
       }
-      if (!ASPECTOS_VALIDOS.includes(asp)) { descartados.push(`${dispId}=${asp}`); continue; }
+      if (!permitidos.has(asp)) { descartados.push(`${dispId}=${asp}`); continue; }
       limpio[dispId] = asp;
     }
     cambios.aspectos = limpio;
@@ -679,7 +703,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     // Aspecto del control (solo tiene sentido en puertas de pulso):
     // 'jet' = interruptor con tapa de seguridad; 'argentina' = botón con el
     // escudo de la selección; 'bordado' = parche que gira; otra cosa = normal.
-    aspecto: ASPECTOS_VALIDOS.includes(aspecto) ? aspecto : 'normal',
+    aspecto: (await aspectosPermitidos()).has(aspecto) ? aspecto : 'normal',
     // Segundos que tarda esta puerta en abrir completo: la animación del botón
     // dura ese tiempo. Se acota a 1-120s para que un dato malo no deje el botón
     // animándose eternamente.
@@ -795,6 +819,127 @@ exports.adminEliminarDispositivo = onCall(async (request) => {
   await db.doc(`dispositivos/${id}/privado/tuya`).delete().catch(() => {});
   await db.doc(`dispositivos/${id}`).delete();
   return { ok: true };
+});
+
+// ---- Galería de skins (fase B: los genera y cura el admin) ----
+
+// Una sola función con varias acciones a propósito: cada función desplegada
+// cuenta contra la cuota de CPU de Cloud Run (ver setGlobalOptions arriba), así
+// que tres exports serían tres slots por algo que solo usa el admin.
+const ANIMACIONES_SKIN = ['ninguna', 'girar', 'latido'];
+const TIPOS_SKIN = ['puerta', 'cortina', 'ascensor', 'luz', 'termostato', 'rele', 'otro'];
+// Un data URI de WebP de 256px ronda los 20 KB. Se topa MUY por debajo del
+// límite de 1 MB del documento para que un skin no pueda inflar la lectura de
+// la galería, que baja entera al arrancar la app.
+const MAX_IMAGEN_SKIN = 220000;
+
+// La API de imágenes de Gemini ha movido de sitio los bytes más de una vez
+// (candidates[].content.parts[].inlineData, output_image…). En vez de casarnos
+// con una forma, se busca en el árbol el primer objeto que tenga base64 y un
+// mime de imagen.
+function buscarImagen(nodo, prof = 0) {
+  if (!nodo || typeof nodo !== 'object' || prof > 8) return null;
+  const mime = nodo.mimeType || nodo.mime_type;
+  if (typeof nodo.data === 'string' && typeof mime === 'string' && mime.startsWith('image/')) {
+    return { mimeType: mime, data: nodo.data };
+  }
+  for (const v of Object.values(nodo)) {
+    const hallado = buscarImagen(v, prof + 1);
+    if (hallado) return hallado;
+  }
+  return null;
+}
+
+exports.adminSkins = onCall({ secrets: [GEMINI_API_KEY], timeoutSeconds: 120 }, async (request) => {
+  await exigirAdmin(request);
+  const { accion } = request.data || {};
+
+  if (accion === 'generar') {
+    const prompt = String((request.data || {}).prompt || '').trim();
+    if (prompt.length < 3 || prompt.length > 700) {
+      throw new HttpsError('invalid-argument', 'Describe el botón en 3 a 700 caracteres.');
+    }
+    // Se encuadra el pedido: el botón es un círculo, así que el motivo tiene que
+    // estar centrado y llenar el cuadro, o al recortarlo se corta.
+    const encuadre = 'Ilustración cuadrada para el botón redondo de una app. '
+      + 'El motivo va CENTRADO y llena el cuadro, sin texto, sin marcas de agua, '
+      + 'sin bordes ni marco, sin manos ni personas reconocibles. '
+      + 'Fondo integrado al motivo, oscuro. Motivo: ';
+    let r;
+    try {
+      r = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': GEMINI_API_KEY.value(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gemini-3.1-flash-image',
+          input: [{ type: 'text', text: encuadre + prompt }],
+        }),
+      });
+    } catch (e) {
+      throw new HttpsError('unavailable', 'No se pudo hablar con el generador de imágenes.');
+    }
+    const cuerpo = await r.json().catch(() => null);
+    if (!r.ok) {
+      const msg = cuerpo && cuerpo.error && cuerpo.error.message;
+      console.error('Gemini imagen', r.status, msg || '');
+      throw new HttpsError('internal', msg ? `El generador respondió: ${msg}` : 'El generador falló.');
+    }
+    const img = buscarImagen(cuerpo);
+    if (!img) {
+      // Suele pasar cuando el filtro de seguridad bloquea el prompt.
+      throw new HttpsError('failed-precondition', 'No devolvió imagen. Prueba a describirlo de otra forma.');
+    }
+    return { ok: true, mimeType: img.mimeType, data: img.data };
+  }
+
+  if (accion === 'publicar') {
+    const d = request.data || {};
+    const id = String(d.id || '').trim().toLowerCase();
+    const nombre = String(d.nombre || '').trim();
+    const imagen = String(d.imagen || '');
+    const animacion = ANIMACIONES_SKIN.includes(d.animacion) ? d.animacion : 'ninguna';
+    const tipos = Array.isArray(d.tipos) ? d.tipos.filter((t) => TIPOS_SKIN.includes(t)) : [];
+    if (!/^[a-z0-9-]{2,40}$/.test(id)) {
+      throw new HttpsError('invalid-argument', 'El id debe ser minúsculas, números y guiones.');
+    }
+    if (ASPECTOS_VALIDOS.includes(id)) {
+      throw new HttpsError('already-exists', 'Ese id ya lo usa un aspecto de la app.');
+    }
+    if (!nombre || nombre.length > 24) {
+      throw new HttpsError('invalid-argument', 'Ponle un nombre de hasta 24 caracteres.');
+    }
+    if (!/^data:image\/(webp|jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(imagen)) {
+      throw new HttpsError('invalid-argument', 'La imagen no llegó en el formato esperado.');
+    }
+    if (imagen.length > MAX_IMAGEN_SKIN) {
+      throw new HttpsError('invalid-argument', 'La imagen pesa demasiado.');
+    }
+    await db.doc(`skins/${id}`).set({
+      nombre, imagen, animacion, tipos,
+      prompt: String(d.prompt || '').slice(0, 700),
+      autor: request.auth.uid,
+      publico: true,
+      usos: 0,
+      creado: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    skinsCache = { ids: null, hasta: 0 };   // que se pueda elegir de una vez
+    return { ok: true, id };
+  }
+
+  if (accion === 'eliminar') {
+    const id = String((request.data || {}).id || '').trim();
+    if (!/^[a-z0-9-]{2,40}$/.test(id)) {
+      throw new HttpsError('invalid-argument', 'Falta el id.');
+    }
+    await db.doc(`skins/${id}`).delete();
+    skinsCache = { ids: null, hasta: 0 };
+    return { ok: true };
+  }
+
+  throw new HttpsError('invalid-argument', 'Acción no válida.');
 });
 
 // ---- Pases: acceso temporal compartido por enlace ----
