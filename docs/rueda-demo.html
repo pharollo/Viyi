@@ -207,40 +207,73 @@
       opts.salida.textContent = opts.fmt(valor);
     }
 
-    var y0 = null, acumulado = 0, base = 0, ultimoPaso = 0;
-    var PX_POR_PASO = 7;    // menos px por paso = se siente más vivo
+    // Gesto con inercia: al soltar, la rueda sigue girando y frenando sola,
+    // marcando sus detentes, en vez de congelarse en seco. El comando sale
+    // cuando de verdad se detiene.
+    var PX_PASO = 7;          // px de arrastre por escalón
+    var FRICCION = 0.94;      // cuánto conserva por frame (a 60fps)
+    var VEL_MIN = 0.03;       // px/ms por debajo de lo cual se considera parada
+    var giro = 0;             // px acumulados (mueve la textura)
+    var giroAncla = 0, valorAncla = valor;
+    var arrastrando = false, yUlt = 0, tUlt = 0, vel = 0, raf = null, valorAlTocar = valor;
 
-    cont.addEventListener('pointerdown', function(e){
-      prepararAudio(); canalAbrir();
-      y0 = e.clientY; base = acumulado; ultimoPaso = 0;
-      if (cont.setPointerCapture) cont.setPointerCapture(e.pointerId);
-    });
-    cont.addEventListener('pointermove', function(e){
-      if (y0 === null) return;
-      var dy = y0 - e.clientY;                 // arriba = sube
-      acumulado = base + dy;
-      // módulo 150 (alto del tile) para no alejarse nunca del recorte
-      moleteado.style.transform = 'translate3d(0,' + (((-acumulado % 150) + 150) % 150) + 'px,0)';
-      var pasos = Math.round(dy / PX_POR_PASO);
-      if (pasos !== ultimoPaso) {
-        var nuevo = Math.min(opts.max, Math.max(opts.min,
-          opts.inicialArrastre + (pasos * opts.paso)));
-        if (nuevo !== valor) { tic(); valor = nuevo; pintar(); }
-        ultimoPaso = pasos;
-      }
-    });
-    function fin(){
-      if (y0 === null) return;
-      y0 = null; canalCerrarLuego();
+    function aplicarGiro(){
+      moleteado.style.transform =
+        'translate3d(0,' + (((-giro % 150) + 150) % 150) + 'px,0)';
+      var pasos = Math.round((giro - giroAncla) / PX_PASO);
+      var bruto = valorAncla + pasos * opts.paso;
+      var nuevo = Math.min(opts.max, Math.max(opts.min,
+        Math.round(bruto / opts.paso) * opts.paso));
+      if (nuevo !== valor) { tic(); valor = nuevo; pintar(); }
+      // Tope: al llegar al extremo la inercia se corta, como un fin de carrera.
+      if ((valor === opts.max && vel > 0) || (valor === opts.min && vel < 0)) vel = 0;
+    }
+
+    function asentado(){
+      canalCerrarLuego();
+      if (valor === valorAlTocar) return;      // no cambió: nada que mandar
       opts.salida.textContent = opts.fmt(valor) + ' ✓';   // aquí saldría el comando
       setTimeout(function(){ opts.salida.textContent = opts.fmt(valor); }, 900);
     }
-    cont.addEventListener('pointerup', fin);
-    cont.addEventListener('pointercancel', fin);
-    // el valor de partida de cada arrastre
-    cont.addEventListener('pointerdown', function(){ opts.inicialArrastre = valor; });
 
-    opts.inicialArrastre = valor;
+    function inercia(){
+      var t = performance.now();
+      var dt = Math.min(34, t - tUlt);         // si el frame se atrasó, no saltar
+      tUlt = t;
+      giro += vel * dt;
+      vel *= Math.pow(FRICCION, dt / 16.67);   // fricción independiente del fps
+      aplicarGiro();
+      if (Math.abs(vel) < VEL_MIN) { raf = null; asentado(); return; }
+      raf = requestAnimationFrame(inercia);
+    }
+
+    cont.addEventListener('pointerdown', function(e){
+      prepararAudio(); canalAbrir();
+      if (raf) { cancelAnimationFrame(raf); raf = null; }   // atajar la inercia
+      arrastrando = true;
+      yUlt = e.clientY; tUlt = performance.now(); vel = 0;
+      giroAncla = giro; valorAncla = valor; valorAlTocar = valor;
+      if (cont.setPointerCapture) cont.setPointerCapture(e.pointerId);
+    });
+    cont.addEventListener('pointermove', function(e){
+      if (!arrastrando) return;
+      var t = performance.now();
+      var dy = yUlt - e.clientY;               // arrastrar hacia arriba sube
+      var dt = Math.max(1, t - tUlt);
+      vel = dy / dt;                           // px/ms, para la inercia
+      yUlt = e.clientY; tUlt = t;
+      giro += dy;
+      aplicarGiro();
+    });
+    function soltar(){
+      if (!arrastrando) return;
+      arrastrando = false;
+      if (Math.abs(vel) > VEL_MIN) { tUlt = performance.now(); raf = requestAnimationFrame(inercia); }
+      else asentado();
+    }
+    cont.addEventListener('pointerup', soltar);
+    cont.addEventListener('pointercancel', soltar);
+
     pintar();
   }
 
