@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=222';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=223';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -240,7 +240,7 @@ async function iniciar() {
     { id: 'cobre', nombre: 'Cobre', modos: ['cortina', 'termostato', 'dimmer'], piel: true, imgMuestra: 'perilla-cobre.jpg?v=1' },
     // Rueda NO es piel: reemplaza el control entero (otro gesto y otro layout),
     // como hace el Jet Switch en los portones.
-    { id: 'rueda', nombre: 'Rueda', modos: MODOS_RUEDA, imgMuestra: 'rueda-base.jpg?v=1' },
+    { id: 'rueda', nombre: 'Rueda', modos: MODOS_RUEDA, imgMuestra: 'rueda-marco.jpg?v=1' },
     { id: 'hal', nombre: 'Hal', modos: ['pulso'], soloPuerta: true },
     { id: 'bordado', nombre: 'Bordado', modos: ['pulso'], soloPuerta: true },
     { id: 'argentina', nombre: 'Argentina', modos: ['pulso'], soloPuerta: true },
@@ -1121,7 +1121,8 @@ async function iniciar() {
     const ctrl = document.createElement('div');
     ctrl.className = 'rueda-ctrl';
     ctrl.innerHTML = '<div class="rueda-arco"></div>'
-      + '<div class="rueda-rodillo"><div class="rueda-moleteado"></div><div class="rueda-brillo"></div></div>';
+      + '<div class="rueda-marco"><div class="rueda-moleteado-caja">'
+      + '<div class="rueda-moleteado"></div><div class="rueda-brillo"></div></div></div>';
     control.appendChild(ctrl);
 
     const valTxt = document.createElement('span');
@@ -1133,17 +1134,16 @@ async function iniciar() {
     etiqueta.textContent = dispositivo.nombre;
     control.appendChild(etiqueta);
 
-    // Arco de luces a la derecha: el ángulo se mide desde el eje horizontal
-    // (cos→x, sen→y) para que se combe hacia afuera y no cruce el rodillo.
+    // Columna de luces al costado del bisel: el rodillo se mueve en vertical,
+    // así que las luces suben y bajan con él como un vúmetro.
     const arco = ctrl.querySelector('.rueda-arco');
-    const N = 13, R = 60, CX = 75, CY = 75, SPAN = 58;
+    const N = 13, LX = 135, ABAJO = 128, ARRIBA = 22;
     const leds = [];
     for (let i = 0; i < N; i++) {
-      const ang = (-SPAN + (2 * SPAN * i / (N - 1))) * Math.PI / 180;
       const d = document.createElement('span');
       d.className = 'rueda-led';
-      d.style.left = `${CX + Math.cos(ang) * R}px`;
-      d.style.top = `${CY - Math.sin(ang) * R}px`;
+      d.style.left = `${LX}px`;
+      d.style.top = `${ABAJO + (ARRIBA - ABAJO) * i / (N - 1)}px`;
       arco.appendChild(d);
       leds.push(d); // i=0 abajo … i=N-1 arriba
     }
@@ -1172,37 +1172,69 @@ async function iniciar() {
       }
     }
 
-    // Gesto: se acumula el arrastre y se salta de valor cada PX_PASO píxeles.
-    // El comando sale AL SOLTAR, no en cada paso: un flick mandaría decenas.
-    const PX_PASO = 11;
-    let y0 = null, giro = 0, giroBase = 0, pasoPrevio = 0, valorInicio = 0;
+    // Gesto con inercia: al soltar, la rueda sigue girando y frenando sola,
+    // marcando sus detentes, en vez de congelarse en seco. El comando sale
+    // cuando de verdad se detiene, no en cada paso: un flick mandaría decenas.
+    const PX_PASO = 7;        // px de arrastre por escalón
+    const FRICCION = 0.94;    // cuánto conserva por frame (a 60fps)
+    const VEL_MIN = 0.03;     // px/ms por debajo de lo cual se considera parada
+    let giro = 0, giroAncla = 0, valorAncla = valor;
+    let arrastrando = false, yUlt = 0, tUlt = 0, vel = 0, raf = null, valorAlTocar = valor;
+
+    // La textura repite cada 155px, así que el giro se toma módulo 155. Se mueve
+    // con transform (compositor) y no con background-position: esta última
+    // repinta en CPU en cada píxel y el arrastre se siente pegajoso.
+    function aplicarGiro() {
+      moleteado.style.transform = `translate3d(0,${(((-giro % 155) + 155) % 155)}px,0)`;
+      const pasos = Math.round((giro - giroAncla) / PX_PASO);
+      const bruto = valorAncla + pasos * cfg.paso;
+      const nuevo = Math.min(cfg.max, Math.max(cfg.min, Math.round(bruto / cfg.paso) * cfg.paso));
+      if (nuevo !== valor) { ticRueda(); valor = nuevo; pintar(); }
+      // Tope: al llegar al extremo la inercia se corta, como un fin de carrera.
+      if ((valor === cfg.max && vel > 0) || (valor === cfg.min && vel < 0)) vel = 0;
+    }
+
+    function asentado() {
+      if (valor !== valorAlTocar) enviar();
+    }
+
+    function inercia() {
+      const t = performance.now();
+      const dt = Math.min(34, t - tUlt);       // si el frame se atrasó, no saltar
+      tUlt = t;
+      giro += vel * dt;
+      vel *= Math.pow(FRICCION, dt / 16.67);   // fricción independiente del fps
+      aplicarGiro();
+      if (Math.abs(vel) < VEL_MIN) { raf = null; asentado(); return; }
+      raf = requestAnimationFrame(inercia);
+    }
+
     ctrl.addEventListener('pointerdown', (e) => {
       ticPrepara();
-      y0 = e.clientY;
-      giroBase = giro;
-      pasoPrevio = 0;
-      valorInicio = valor;
+      if (raf) { cancelAnimationFrame(raf); raf = null; }   // atajar la inercia
+      arrastrando = true;
+      yUlt = e.clientY; tUlt = performance.now(); vel = 0;
+      giroAncla = giro; valorAncla = valor; valorAlTocar = valor;
       if (ctrl.setPointerCapture) ctrl.setPointerCapture(e.pointerId);
     });
     ctrl.addEventListener('pointermove', (e) => {
-      if (y0 === null) return;
-      const dy = y0 - e.clientY;                    // arrastrar hacia arriba sube
-      giro = giroBase + dy;
-      moleteado.style.backgroundPositionY = `${-giro}px`;
-      const pasos = Math.round(dy / PX_PASO);
-      if (pasos === pasoPrevio) return;
-      pasoPrevio = pasos;
-      const bruto = valorInicio + pasos * cfg.paso;
-      const nuevo = Math.min(cfg.max, Math.max(cfg.min, Math.round(bruto / cfg.paso) * cfg.paso));
-      if (nuevo !== valor) { valor = nuevo; pintar(); ticRueda(); }
+      if (!arrastrando) return;
+      const t = performance.now();
+      const dy = yUlt - e.clientY;             // arrastrar hacia arriba sube
+      const dt = Math.max(1, t - tUlt);
+      vel = dy / dt;                           // px/ms, para la inercia
+      yUlt = e.clientY; tUlt = t;
+      giro += dy;
+      aplicarGiro();
     });
-    const fin = () => {
-      if (y0 === null) return;
-      y0 = null;
-      if (valor !== valorInicio) enviar();
+    const soltar = () => {
+      if (!arrastrando) return;
+      arrastrando = false;
+      if (Math.abs(vel) > VEL_MIN) { tUlt = performance.now(); raf = requestAnimationFrame(inercia); }
+      else asentado();
     };
-    ctrl.addEventListener('pointerup', fin);
-    ctrl.addEventListener('pointercancel', fin);
+    ctrl.addEventListener('pointerup', soltar);
+    ctrl.addEventListener('pointercancel', soltar);
 
     pintar();
     if (!demo) {
