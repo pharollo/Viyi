@@ -86,62 +86,83 @@
   // ---- Sonido del detente ----
   // HTMLAudio con WAV (no Web Audio: en iPhone no se desbloqueaba). Varios
   // elementos en rueda para que los clics rápidos no se pisen.
-  // Web Audio: HTMLAudio.play() en iOS llega tarde (50-150ms) y en un detente
-  // eso se siente desfasado. El contexto se crea DENTRO del primer pointerdown
-  // (gesto válido) y se despierta con un buffer mudo: ese era el fallo de antes,
-  // crearlo fuera del gesto. Si no hay Web Audio, se cae a HTMLAudio.
-  var ctx = null, buf = null, htmlPool = null, iPool = 0, crudo = null;
+  // ---- Sonido del detente ----
+  // Dos rutas: Web Audio (baja latencia) y HTMLAudio (respaldo). AMBAS se
+  // preparan y desbloquean DENTRO del primer pointerdown: iOS solo permite
+  // sonar lo que nace de un gesto. Antes el respaldo se creaba dentro de un
+  // .catch() asíncrono —fuera del gesto— y quedaba mudo para siempre: si Web
+  // Audio no decodificaba, no se oía nada en vez de oírse tarde.
+  var ctx = null, buf = null, pool = null, iPool = 0, crudo = null;
   var diag = null;
   function nota(t){ if (!diag) diag = document.getElementById('diag'); if (diag) diag.textContent = t; }
 
-  // El archivo se baja YA, al cargar: así el primer arrastre no espera la red.
-  // (Decodificarlo sí necesita un AudioContext, que solo se puede crear dentro
-  // de un gesto del usuario.)
+  // El archivo se baja al cargar, así el primer arrastre no espera la red.
   fetch('tic-rueda.wav?v=2').then(function(r){ return r.arrayBuffer(); })
     .then(function(ab){ crudo = ab; }).catch(function(){});
 
-  function desbloquear(){
-    if (ctx || htmlPool) { if (ctx && ctx.state === 'suspended') ctx.resume(); return; }
-    var AC = window.AudioContext || window.webkitAudioContext;
-    if (AC) {
+  function prepararAudio(){
+    if (pool) { if (ctx && ctx.state === 'suspended') ctx.resume(); return; }
+
+    // 1) Respaldo primero, y desbloqueado aquí mismo (dentro del gesto).
+    pool = [];
+    for (var i = 0; i < 4; i++) {
+      var a = new Audio('tic-rueda.wav?v=2');
+      a.preload = 'auto';
       try {
-        // latencyHint 'interactive' pide la menor latencia de salida posible.
-        ctx = new AC({ latencyHint: 'interactive' });
-        var mudo = ctx.createBufferSource();
-        mudo.buffer = ctx.createBuffer(1, 1, 22050);
-        mudo.connect(ctx.destination); mudo.start(0);
-        if (ctx.state === 'suspended') ctx.resume();
-        var lat = Math.round(((ctx.baseLatency || 0) + (ctx.outputLatency || 0)) * 1000);
-        nota('audio: Web Audio · salida ~' + lat + ' ms · decodificando…');
-        var listo = crudo ? Promise.resolve(crudo)
-          : fetch('tic-rueda.wav?v=2').then(function(r){ return r.arrayBuffer(); });
-        listo.then(function(ab){ return ctx.decodeAudioData(ab.slice(0)); })
-          .then(function(b){ buf = b;
-            var l2 = Math.round(((ctx.baseLatency || 0) + (ctx.outputLatency || 0)) * 1000);
-            nota('audio: Web Audio ✓ · salida ~' + l2 + ' ms'); })
-          .catch(function(){ ctx = null; caerAHtml(); });
-        return;
-      } catch(e){ ctx = null; }
+        a.muted = true;
+        var pr = a.play();
+        if (pr && pr.then) pr.then(function(){ this.pause(); this.currentTime = 0; this.muted = false; }.bind(a))
+                             .catch(function(){ this.muted = false; }.bind(a));
+        else { a.pause(); a.muted = false; }
+      } catch(e){}
+      pool.push(a);
     }
-    caerAHtml();
+    nota('audio: listo (respaldo) · probando Web Audio…');
+
+    // 2) Web Audio encima, si se puede: es el que suena a tiempo.
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { nota('audio: HTMLAudio (sin Web Audio)'); return; }
+    try {
+      ctx = new AC({ latencyHint: 'interactive' });
+      var mudo = ctx.createBufferSource();
+      mudo.buffer = ctx.createBuffer(1, 1, 22050);
+      mudo.connect(ctx.destination); mudo.start(0);
+      if (ctx.state === 'suspended') ctx.resume();
+      var listo = crudo ? Promise.resolve(crudo)
+        : fetch('tic-rueda.wav?v=2').then(function(r){ return r.arrayBuffer(); });
+      listo.then(function(ab){ return ctx.decodeAudioData(ab.slice(0)); })
+        .then(function(b){
+          buf = b;
+          var l = Math.round(((ctx.baseLatency||0) + (ctx.outputLatency||0)) * 1000);
+          nota('audio: Web Audio ✓ · salida ~' + l + ' ms');
+        })
+        .catch(function(err){
+          ctx = null;   // se sigue oyendo por el respaldo, que ya está vivo
+          nota('audio: HTMLAudio · Web Audio no decodificó');
+        });
+    } catch(e){ ctx = null; nota('audio: HTMLAudio · Web Audio no arrancó'); }
   }
-  function caerAHtml(){
-    if (htmlPool) return;
-    htmlPool = [];
-    for (var i = 0; i < 4; i++) { var a = new Audio('tic-rueda.wav?v=2'); a.preload='auto'; htmlPool.push(a); }
-    nota('audio: HTMLAudio (respaldo) — llega más tarde');
+
+  function tic(){
+    if (ctx && buf) {
+      try { var s = ctx.createBufferSource(); s.buffer = buf; s.connect(ctx.destination); s.start(0); return; } catch(e){}
+    }
+    if (pool) {
+      var a = pool[iPool++ % pool.length];
+      try { a.currentTime = 0; var p = a.play(); if (p && p.catch) p.catch(function(){}); } catch(e){}
+    }
   }
+
   // En la app instalada (standalone) iOS deja dormir la sesión de audio y la
   // despierta en cada sonido: ahí se va la latencia (en Safari no pasa). Se
-  // mantiene el canal abierto con un tono inaudible mientras se usa la rueda,
-  // y se apaga unos segundos después de soltar.
+  // mantiene el canal abierto con un tono inaudible mientras se usa la rueda.
   var vivo = null, vivoTimer = null;
   function canalAbrir(){
     clearTimeout(vivoTimer);
     if (!ctx || vivo) return;
     try {
       var osc = ctx.createOscillator(), g = ctx.createGain();
-      g.gain.value = 0.0001;                  // inaudible, pero mantiene el canal
+      g.gain.value = 0.0001;
       osc.frequency.value = 40;
       osc.connect(g).connect(ctx.destination);
       osc.start();
@@ -155,16 +176,6 @@
       try { vivo.stop(); } catch(e){}
       vivo = null;
     }, 4000);
-  }
-
-  function tic(){
-    if (ctx && buf) {
-      try { var s = ctx.createBufferSource(); s.buffer = buf; s.connect(ctx.destination); s.start(0); return; } catch(e){}
-    }
-    if (htmlPool) {
-      var a = htmlPool[iPool++ % htmlPool.length];
-      try { a.currentTime = 0; var p = a.play(); if (p && p.catch) p.catch(function(){}); } catch(e){}
-    }
   }
 
   // ---- Control ----
@@ -200,7 +211,7 @@
     var PX_POR_PASO = 7;    // menos px por paso = se siente más vivo
 
     cont.addEventListener('pointerdown', function(e){
-      desbloquear(); canalAbrir();
+      prepararAudio(); canalAbrir();
       y0 = e.clientY; base = acumulado; ultimoPaso = 0;
       if (cont.setPointerCapture) cont.setPointerCapture(e.pointerId);
     });
