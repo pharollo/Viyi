@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=230';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=231';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -3318,13 +3318,16 @@ async function iniciar() {
         tipos: tiposElegidos($('skin-tipos')),
         prompt: $('skin-prompt').value.trim(),
       });
-      await refrescarSkins();
       skinPropuesta = null;
       $('skin-previa').classList.add('oculto');
       $('skin-prompt').value = '';
       $('skin-nombre').value = '';
       pintarChipsTipos($('skin-tipos'), null);
       msgSkin('Publicado. Ya se puede elegir en el Locker.');
+      // Repintar va en su PROPIO try: en este punto ya está guardado, y si
+      // fallara el repintado decir "no se pudo publicar" sería mentira y te
+      // haría gastar otra generación repitiéndolo.
+      try { await refrescarSkins(); } catch (e) { /* se verá al recargar */ }
     } catch (err) {
       msgSkin((err && err.message) || 'No se pudo publicar.', true);
     } finally {
