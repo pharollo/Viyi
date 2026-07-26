@@ -507,12 +507,22 @@ exports.actualizarMiPerfil = onCall(async (request) => {
   // aquí para que no se autoasignen.
   const { nombre, apellido, aspectos } = request.data || {};
   const cambios = {};
+  const descartados = []; // lo que no pasó validación, para que la app lo diga
   // El vestuario se guarda solo: se puede mandar sin tocar el nombre.
   if (aspectos && typeof aspectos === 'object' && !Array.isArray(aspectos)) {
     const limpio = {};
+    // Las claves son ids de documento de Firestore. NO se les puede exigir el
+    // formato del panel de administración (minúsculas y guiones): los
+    // dispositivos creados a mano antes del panel traen mayúsculas, guion bajo
+    // o espacios, y se descartaban en silencio (el vecino elegía el estilo y al
+    // refrescar lo perdía). Aquí solo se rechaza lo que Firestore no admite.
     for (const [dispId, asp] of Object.entries(aspectos)) {
-      if (!/^[a-z0-9-]{2,40}$/.test(dispId)) continue;
-      if (ASPECTOS_VALIDOS.includes(asp)) limpio[dispId] = asp;
+      if (!dispId || dispId.length > 120 || /[.\/[\]*`]/.test(dispId) || /^__.*__$/.test(dispId)) {
+        descartados.push(dispId);
+        continue;
+      }
+      if (!ASPECTOS_VALIDOS.includes(asp)) { descartados.push(`${dispId}=${asp}`); continue; }
+      limpio[dispId] = asp;
     }
     cambios.aspectos = limpio;
   }
@@ -525,7 +535,7 @@ exports.actualizarMiPerfil = onCall(async (request) => {
   }
   if (typeof apellido === 'string') cambios.apellido = nombrePropio(apellido);
   await db.doc(`usuarios/${uid}`).set(cambios, { merge: true });
-  return { ok: true, perfil: cambios };
+  return { ok: true, perfil: cambios, descartados };
 });
 
 // Crea o actualiza un inmueble del catálogo (solo admin).

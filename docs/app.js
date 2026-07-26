@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=221';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=222';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2871,7 +2871,8 @@ async function iniciar() {
       // que decirlo aquí, no dejar que se vea como si se hubiera guardado.
       const guardado = res && res.data && res.data.perfil && res.data.perfil.aspectos;
       if (guardado && guardado[dispId] !== aspectoId) {
-        toast('Ese estilo todavía no está disponible en el servidor.', 'error');
+        const motivo = ((res.data.descartados || []).join(', ') || 'motivo desconocido');
+        toast(`El servidor no guardó el estilo (${motivo}).`, 'error');
       }
     } catch (err) {
       toast('No se pudo guardar el estilo.', 'error');
