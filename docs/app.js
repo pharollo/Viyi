@@ -1093,13 +1093,15 @@ async function iniciar() {
 
   function controlRueda(dispositivo, demo) {
     const esTermo = dispositivo.modo === 'termostato';
+    const esDimmer = dispositivo.modo === 'dimmer';
     const cfg = esTermo
-      ? { min: TERMO_MIN, max: TERMO_MAX, paso: 0.5, frio: true,
+      ? { min: TERMO_MIN, max: TERMO_MAX, paso: 0.5, tono: 'frio',
           fmt: (v) => `${v % 1 ? v.toFixed(1) : v}°` }
-      : { min: 0, max: 100, paso: 5, frio: false, fmt: (v) => `${v}%` };
+      // El dimmer va en ámbar cálido (~2500K), como la luz que controla.
+      : { min: 0, max: 100, paso: 5, tono: esDimmer ? 'calido' : '', fmt: (v) => String(v) };
 
     const control = document.createElement('div');
-    control.className = 'control control-rueda' + (cfg.frio ? ' frio' : '');
+    control.className = 'control control-rueda' + (cfg.tono ? ` ${cfg.tono}` : '');
 
     const ctrl = document.createElement('div');
     ctrl.className = 'rueda-ctrl';

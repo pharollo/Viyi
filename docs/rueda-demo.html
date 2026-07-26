@@ -7,7 +7,7 @@
 <style>
   :root{
     --fondo:#1b1c1e; --superficie:#212225; --texto:#e8eaec; --texto-suave:#8d9297;
-    --primario:#a5ff2e; --frio:#5ec8ff;
+    --primario:#a5ff2e; --frio:#5ec8ff; --calido:#ffbe6b;
     --sombra-oscura:rgba(0,0,0,.55); --sombra-clara:rgba(255,255,255,.05);
   }
   *{box-sizing:border-box}
@@ -22,6 +22,7 @@
   .nombre{font-size:13px;font-weight:600;color:var(--texto-suave)}
   .valor{font-size:22px;font-weight:600;color:var(--primario);font-variant-numeric:tabular-nums}
   .frio .valor{color:var(--frio)}
+  .calido .valor{color:var(--calido)}
 
   /* ---- Control: rodillo + arco de luces ---- */
   .ctrl{position:relative;width:150px;height:150px;touch-action:pan-x;
@@ -32,6 +33,7 @@
     background:#2c2e33;transform:translate(-50%,-50%);transition:background .12s,box-shadow .12s}
   .led.on{background:var(--primario);box-shadow:0 0 7px rgba(165,255,46,.9)}
   .frio .led.on{background:var(--frio);box-shadow:0 0 7px rgba(94,200,255,.9)}
+  .calido .led.on{background:var(--calido);box-shadow:0 0 9px rgba(255,190,107,.95)}
 
   .rodillo{position:absolute;left:50%;top:50%;width:52px;height:132px;
     transform:translate(-50%,-50%);border-radius:13px;overflow:hidden;
@@ -63,7 +65,7 @@
         <div class="arco"></div>
         <div class="rodillo"><div class="moleteado-caja"><div class="moleteado"></div></div><div class="brillo"></div></div>
       </div>
-      <span class="valor" id="v-cortina">60%</span>
+      <span class="valor" id="v-cortina">60</span>
     </div>
 
     <div class="tarjeta frio">
@@ -73,6 +75,14 @@
         <div class="rodillo"><div class="moleteado-caja"><div class="moleteado"></div></div><div class="brillo"></div></div>
       </div>
       <span class="valor" id="v-termo">23°</span>
+    </div>
+    <div class="tarjeta calido">
+      <span class="nombre">Dimmer Master</span>
+      <div class="ctrl" id="c-dimmer">
+        <div class="arco"></div>
+        <div class="rodillo"><div class="moleteado-caja"><div class="moleteado"></div></div><div class="brillo"></div></div>
+      </div>
+      <span class="valor" id="v-dimmer">40</span>
     </div>
   </div>
 
@@ -279,8 +289,13 @@
 
   control(document.getElementById('c-cortina'), {
     min: 0, max: 100, paso: 5, inicial: 60, leds: 13,
-    fmt: function(v){ return v + '%'; },
+    fmt: function(v){ return String(v); },
     salida: document.getElementById('v-cortina'),
+  });
+  control(document.getElementById('c-dimmer'), {
+    min: 0, max: 100, paso: 5, inicial: 40, leds: 13,
+    fmt: function(v){ return String(v); },
+    salida: document.getElementById('v-dimmer'),
   });
   control(document.getElementById('c-termo'), {
     min: 16, max: 30, paso: 0.5, inicial: 23, leds: 13,

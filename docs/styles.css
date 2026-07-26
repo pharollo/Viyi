@@ -1418,6 +1418,91 @@ button:disabled {
 .perilla.piel-pop.encendido .perilla-valor,
 .perilla.piel-pop.encendido .perilla-accion { color: #14210a; }
 
+/* ===== Aspecto RUEDA: rodillo moleteado con detente y arco de luces =====
+   Reemplaza el control (no es una piel). El color sigue al dispositivo:
+   cortina en verde, termostato en azul frío, dimmer en ámbar cálido (~2500K,
+   la luz de un incandescente). */
+.control-rueda {
+  --rueda-luz: var(--primario);
+  --rueda-halo: rgba(165, 255, 46, 0.9);
+}
+.control-rueda.frio {
+  --rueda-luz: #5ec8ff;
+  --rueda-halo: rgba(94, 200, 255, 0.9);
+}
+.control-rueda.calido {
+  --rueda-luz: #ffbe6b;
+  --rueda-halo: rgba(255, 190, 107, 0.95);
+}
+
+.rueda-ctrl {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  /* pan-x deja el swipe horizontal al carrusel; lo vertical es de la rueda. */
+  touch-action: pan-x;
+  -webkit-tap-highlight-color: transparent;
+  cursor: grab;
+}
+.rueda-ctrl:active { cursor: grabbing; }
+
+.rueda-arco { position: absolute; inset: 0; pointer-events: none; }
+.rueda-led {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2c2e33;
+  transform: translate(-50%, -50%);
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+.rueda-led.on {
+  background: var(--rueda-luz);
+  box-shadow: 0 0 8px var(--rueda-halo);
+}
+
+.rueda-rodillo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 132px;
+  transform: translate(-50%, -50%);
+  border-radius: 13px;
+  overflow: hidden;
+  background: url("rueda-base.jpg?v=1") center/100% 100% no-repeat;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+}
+.rueda-moleteado-caja { position: absolute; left: 9px; right: 9px; top: 0; bottom: 0; overflow: hidden; }
+/* Franja alta que se desplaza con transform (compositor, sin repintar). La
+   textura repite cada 150px, así que el giro se toma módulo 150. */
+.rueda-moleteado {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -150px;
+  height: 450px;
+  background: url("rueda-textura.jpg?v=1") center top/100% 150px repeat-y;
+  opacity: 0.85;
+  will-change: transform;
+}
+/* Brillo fijo: da la sensación de cilindro mientras la textura corre. */
+.rueda-brillo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.75), rgba(255, 255, 255, 0.10) 22%,
+    rgba(255, 255, 255, 0.03) 50%, rgba(255, 255, 255, 0.10) 78%, rgba(0, 0, 0, 0.75));
+}
+
+.rueda-valor {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--rueda-luz);
+  font-variant-numeric: tabular-nums;
+}
+.control-rueda.rueda-enviando { animation: pulso-envio 0.9s ease-in-out infinite; }
+
 /* ===== Piel COBRE: perilla de audio (foto) con corona de LEDs ámbar =====
    La foto va sobre .perilla-indicador, que es justo lo que el JS rota con el
    valor: así el knob gira de verdad y su línea marca la posición, sin tocar el
