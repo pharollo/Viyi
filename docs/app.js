@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=231';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=232';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -3050,6 +3050,7 @@ async function iniciar() {
   let vestDisp = null;      // dispositivo que se está vistiendo
   let vestAspecto = null;   // opción centrada en el carrusel
   let vestTimer = null;
+  let vestTocado = false;   // ¿el último scroll del carrusel lo hizo el dedo?
 
   // Pinta el demo: el control REAL del dispositivo con el aspecto elegido, pero
   // en modo demo (se toca y se anima, sin mandarle nada al portón).
@@ -3086,7 +3087,17 @@ async function iniciar() {
       cont.appendChild(op);
     }
     activarCarrusel(cont); // coverflow + marca la centrada con .enfoque
-    // Centrar la que ya está elegida, sin animación (es el estado inicial).
+    // Este scroll es NUESTRO, no del dedo: que no se tome por una elección.
+    vestTocado = false;
+    centrarElegida(cont, ops);
+    // Si el panel todavía no estaba visible al pintar, clientWidth es 0 y el
+    // centro sale mal. Se repite en el siguiente frame, ya con layout de verdad.
+    requestAnimationFrame(() => { vestTocado = false; centrarElegida(cont, ops); });
+  }
+
+  // Deja centrada la opción que ya está elegida, sin animación (estado inicial).
+  function centrarElegida(cont, ops) {
+    if (!cont.clientWidth) return;
     const i = Math.max(0, ops.findIndex((a) => a.id === vestAspecto));
     const el = cont.children[i];
     if (el) cont.scrollLeft = el.offsetLeft - (cont.clientWidth - el.offsetWidth) / 2;
@@ -3178,7 +3189,15 @@ async function iniciar() {
     pintarOpcionesVestuario();
   });
   // El carrusel elige al asentarse el scroll (no en cada píxel).
+  // Solo el scroll que viene del dedo elige. Sin esto, el scrollLeft que pone
+  // pintarOpcionesVestuario para centrar la opción actual disparaba este mismo
+  // listener y GUARDABA en Firestore el aspecto que quedara enfocado — que al
+  // refrescar, con el panel aún oculto y clientWidth 0, era el equivocado. Un
+  // repintado nunca debe escribir nada.
+  $('vest-opciones').addEventListener('pointerdown', () => { vestTocado = true; }, { passive: true });
+  $('vest-opciones').addEventListener('wheel', () => { vestTocado = true; }, { passive: true });
   $('vest-opciones').addEventListener('scroll', () => {
+    if (!vestTocado) return;
     clearTimeout(vestTimer);
     vestTimer = setTimeout(alCentrarOpcion, 140);
   }, { passive: true });
