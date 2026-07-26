@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=223';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=224';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -1149,27 +1149,78 @@ async function iniciar() {
     }
 
     const moleteado = ctrl.querySelector('.rueda-moleteado');
+    const esCortina = !esTermo && !esDimmer;
     let valor = esTermo ? 23 : 0;
+    // Estado del toque en el centro. En la cortina es pausa/marcha (solo del
+    // lado de la app: el aparato no informa si va en camino). En el dimmer
+    // "apagado" es brillo 0, así que se deduce del valor y sobrevive al
+    // recargar; el termostato sí necesita bandera, porque apagarlo no es una
+    // temperatura.
+    let pausada = false, termoApagado = false;
+    let valorEncendido = 60;   // brillo al que vuelve el dimmer
+    let modoTermo = 'cool';    // modo al que vuelve el termostato
+    const estaApagado = () => (esDimmer ? valor === 0 : termoApagado);
+
     function pintar() {
       const frac = (valor - cfg.min) / (cfg.max - cfg.min);
-      const encendidos = Math.round(frac * N);
+      const encendidos = esTermo && termoApagado ? 0 : Math.round(frac * N);
       leds.forEach((d, i) => d.classList.toggle('on', i < encendidos));
       valTxt.textContent = cfg.fmt(valor);
+      // Sin iconos: apagado apaga las luces y apaga el número; en pausa las
+      // luces laten.
+      control.classList.toggle('rueda-apagado', !esCortina && estaApagado());
+      control.classList.toggle('rueda-pausa', esCortina && pausada);
       ctrl.setAttribute('aria-valuenow', String(valor));
     }
 
-    async function enviar() {
-      if (demo) return; // en el vestuario no se manda nada
-      const data = esTermo ? { accion: 'temperatura', valor }
-        : (dispositivo.modo === 'dimmer' ? { accion: 'brillo', valor } : { accion: 'posicion', valor });
+    async function mandar(data) {
+      if (demo) return true; // en el vestuario no se manda nada
       control.classList.add('rueda-enviando');
       try {
         await ejecutarComando({ dispositivoId: dispositivo.id, ...data });
+        return true;
       } catch (err) {
         toast(err.message || 'No se pudo enviar el comando.', 'error');
+        return false;
       } finally {
         control.classList.remove('rueda-enviando');
       }
+    }
+
+    async function enviar() {
+      pausada = false; // mover la rueda es reanudar
+      pintar();
+      await mandar(esTermo ? { accion: 'temperatura', valor }
+        : (esDimmer ? { accion: 'brillo', valor } : { accion: 'posicion', valor }));
+    }
+
+    // Toque en el rodillo, sin girarlo: en la cortina pausa y reanuda; en el
+    // dimmer y el termostato, apaga y enciende.
+    async function tocarCentro() {
+      ticRueda();
+      if (esCortina) {
+        pausada = !pausada;
+        pintar();
+        const ok = await mandar(pausada
+          ? { accion: 'pausar' }
+          : { accion: 'posicion', valor });
+        if (!ok) { pausada = !pausada; pintar(); }
+        return;
+      }
+      if (esDimmer) {
+        const previo = valor;
+        if (valor > 0) { valorEncendido = valor; valor = 0; } else { valor = valorEncendido || 60; }
+        pintar();
+        // El ancla del gesto se mueve con el valor: si no, el próximo arrastre
+        // saltaría de golpe al nivel de antes.
+        giroAncla = giro; valorAncla = valor;
+        if (!await mandar({ accion: 'brillo', valor })) { valor = previo; pintar(); }
+        return;
+      }
+      termoApagado = !termoApagado;
+      pintar();
+      const ok = await mandar({ accion: 'modo', valor: termoApagado ? 'off' : modoTermo });
+      if (!ok) { termoApagado = !termoApagado; pintar(); }
     }
 
     // Gesto con inercia: al soltar, la rueda sigue girando y frenando sola,
@@ -1209,12 +1260,16 @@ async function iniciar() {
       raf = requestAnimationFrame(inercia);
     }
 
+    let tTocar = 0, enRodillo = false;
     ctrl.addEventListener('pointerdown', (e) => {
       ticPrepara();
       if (raf) { cancelAnimationFrame(raf); raf = null; }   // atajar la inercia
       arrastrando = true;
       yUlt = e.clientY; tUlt = performance.now(); vel = 0;
       giroAncla = giro; valorAncla = valor; valorAlTocar = valor;
+      tTocar = tUlt;
+      // El toque solo cuenta sobre el rodillo, no sobre la columna de luces.
+      enRodillo = !!(e.target.closest && e.target.closest('.rueda-marco'));
       if (ctrl.setPointerCapture) ctrl.setPointerCapture(e.pointerId);
     });
     ctrl.addEventListener('pointermove', (e) => {
@@ -1227,14 +1282,23 @@ async function iniciar() {
       giro += dy;
       aplicarGiro();
     });
-    const soltar = () => {
+    const soltar = (cancelado) => {
       if (!arrastrando) return;
       arrastrando = false;
+      // Toque limpio (apenas se movió y fue corto): es el botón del centro, no
+      // un giro. Se descarta el arrastre residual para que no cambie el valor.
+      if (!cancelado && enRodillo && Math.abs(giro - giroAncla) < 5
+          && performance.now() - tTocar < 450) {
+        giro = giroAncla; vel = 0;
+        aplicarGiro();
+        tocarCentro();
+        return;
+      }
       if (Math.abs(vel) > VEL_MIN) { tUlt = performance.now(); raf = requestAnimationFrame(inercia); }
       else asentado();
     };
-    ctrl.addEventListener('pointerup', soltar);
-    ctrl.addEventListener('pointercancel', soltar);
+    ctrl.addEventListener('pointerup', () => soltar(false));
+    ctrl.addEventListener('pointercancel', () => soltar(true));
 
     pintar();
     if (!demo) {
@@ -1244,7 +1308,17 @@ async function iniciar() {
           const d = res.data || {};
           const v = esTermo ? d.temperaturaObjetivo
             : (dispositivo.modo === 'dimmer' ? d.brillo : d.posicion);
-          if (typeof v === 'number') { valor = Math.min(cfg.max, Math.max(cfg.min, v)); pintar(); }
+          if (typeof v === 'number') { valor = Math.min(cfg.max, Math.max(cfg.min, v)); }
+          // A qué nivel/modo vuelve el toque del centro cuando está apagado.
+          if (esDimmer && typeof d.brilloMemoria === 'number' && d.brilloMemoria > 0) {
+            valorEncendido = d.brilloMemoria;
+          }
+          if (esTermo && d.modoHVAC) {
+            termoApagado = d.modoHVAC === 'off';
+            if (!termoApagado) modoTermo = d.modoHVAC;
+          }
+          valorAncla = valor;
+          pintar();
         } catch (err) { /* sin estado disponible */ }
       })();
     } else {

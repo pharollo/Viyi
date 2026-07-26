@@ -1515,6 +1515,18 @@ button:disabled {
 }
 .control-rueda.rueda-enviando { animation: pulso-envio 0.9s ease-in-out infinite; }
 
+/* Tocar el rodillo (sin girarlo) apaga/enciende, y en la cortina pausa. Sin
+   iconos: lo dicen las luces y el número. Apagado = todo oscuro; en pausa las
+   luces laten, como algo detenido a medio camino. */
+.control-rueda.rueda-apagado .rueda-valor { color: var(--texto-suave); }
+.control-rueda.rueda-apagado .rueda-marco { filter: brightness(0.72); }
+@keyframes rueda-latido {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+.control-rueda.rueda-pausa .rueda-led.on { animation: rueda-latido 1.3s ease-in-out infinite; }
+.control-rueda.rueda-pausa .rueda-valor { animation: rueda-latido 1.3s ease-in-out infinite; }
+
 /* ===== Piel COBRE: perilla de audio (foto) con corona de LEDs ámbar =====
    La foto va sobre .perilla-indicador, que es justo lo que el JS rota con el
    valor: así el knob gira de verdad y su línea marca la posición, sin tocar el
