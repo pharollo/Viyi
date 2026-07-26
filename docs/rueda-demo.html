@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rueda vertical · prueba</title>
+<style>
+  :root{
+    --fondo:#1b1c1e; --superficie:#212225; --texto:#e8eaec; --texto-suave:#8d9297;
+    --primario:#a5ff2e; --fuego:#ff8c3a;
+    --sombra-oscura:rgba(0,0,0,.55); --sombra-clara:rgba(255,255,255,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--fondo);color:var(--texto);
+    font-family:system-ui,-apple-system,sans-serif;padding:26px 16px 60px;}
+  h1{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--texto-suave);text-align:center;margin:0 0 22px}
+  .fila{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+  .tarjeta{background:var(--superficie);border-radius:20px;padding:18px 16px;
+    box-shadow:9px 9px 20px var(--sombra-oscura),-9px -9px 20px var(--sombra-clara);
+    display:flex;flex-direction:column;align-items:center;gap:10px;min-width:150px}
+  .nombre{font-size:14px;font-weight:600;color:var(--texto-suave)}
+
+  /* ---- Rueda vertical ---- */
+  .rueda{position:relative;height:150px;width:118px;}
+  .pista{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none;
+    -webkit-mask-image:linear-gradient(180deg,transparent,#000 26%,#000 74%,transparent);
+    mask-image:linear-gradient(180deg,transparent,#000 26%,#000 74%,transparent);
+    /* deja que el gesto vertical sea de la rueda, no de la página */
+    overscroll-behavior:contain;}
+  .pista::-webkit-scrollbar{display:none}
+  .esp{height:53px;flex:0 0 53px}           /* (150-44)/2 para centrar extremos */
+  .op{height:44px;display:flex;align-items:center;justify-content:center;
+    scroll-snap-align:center;font-size:19px;font-weight:600;color:var(--texto-suave);
+    font-variant-numeric:tabular-nums;transition:color .12s,font-size .12s,opacity .12s;
+    opacity:.55;-webkit-tap-highlight-color:transparent;cursor:pointer}
+  .op.centro{color:var(--primario);font-size:27px;opacity:1}
+  /* ventana que enmarca el valor elegido */
+  .marco{position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%);
+    border-radius:12px;box-shadow:inset 0 0 0 1.5px rgba(165,255,46,.5);pointer-events:none}
+  .calor .op.centro{color:var(--fuego)}
+  .calor .marco{box-shadow:inset 0 0 0 1.5px rgba(255,140,58,.55)}
+
+  .pie{max-width:340px;margin:26px auto 0;font-size:13px;line-height:1.6;
+    color:var(--texto-suave);text-align:center}
+  .val{margin-top:4px;font-size:12px;color:var(--texto-suave)}
+</style>
+</head>
+<body>
+  <h1>Rueda vertical · prueba</h1>
+
+  <div class="fila">
+    <div class="tarjeta">
+      <span class="nombre">Aire Sala</span>
+      <div class="rueda calor" id="r-termo">
+        <div class="pista"></div>
+        <div class="marco"></div>
+      </div>
+      <span class="val" id="v-termo">—</span>
+    </div>
+
+    <div class="tarjeta">
+      <span class="nombre">Persiana Estudio</span>
+      <div class="rueda" id="r-cortina">
+        <div class="pista"></div>
+        <div class="marco"></div>
+      </div>
+      <span class="val" id="v-cortina">—</span>
+    </div>
+  </div>
+
+  <p class="pie">Desliza con el dedo hacia arriba o abajo. Se detiene solo en cada
+     valor. Tocar un valor también lo elige.<br>
+     El comando se manda al soltar, no en cada paso.</p>
+
+<script>
+(function(){
+  // Crea una rueda vertical. `onElegir` se llama cuando el usuario suelta y la
+  // rueda se asienta — no en cada valor que pasa.
+  function rueda(cont, valores, inicial, fmt, onElegir){
+    var pista = cont.querySelector('.pista');
+    var espArr = document.createElement('div'); espArr.className = 'esp';
+    var espAba = document.createElement('div'); espAba.className = 'esp';
+    pista.appendChild(espArr);
+    valores.forEach(function(v, i){
+      var op = document.createElement('div');
+      op.className = 'op';
+      op.textContent = fmt(v);
+      op.dataset.i = i;
+      pista.appendChild(op);
+    });
+    pista.appendChild(espAba);
+    var ops = [].slice.call(pista.querySelectorAll('.op'));
+
+    function idxCentrado(){
+      var rc = pista.getBoundingClientRect();
+      var centro = rc.top + rc.height/2;
+      var mejor = 0, mejorD = Infinity;
+      ops.forEach(function(op, i){
+        var r = op.getBoundingClientRect();
+        var d = Math.abs(r.top + r.height/2 - centro);
+        if (d < mejorD) { mejorD = d; mejor = i; }
+      });
+      return mejor;
+    }
+    function pintar(){
+      var i = idxCentrado();
+      ops.forEach(function(op, k){ op.classList.toggle('centro', k === i); });
+      return i;
+    }
+    function centrar(i, suave){
+      var op = ops[i];
+      if (!op) return;
+      pista.scrollTo({ top: op.offsetTop - (pista.clientHeight - op.offsetHeight)/2,
+                       behavior: suave ? 'smooth' : 'auto' });
+    }
+
+    var timer = null, ultimo = inicial;
+    pista.addEventListener('scroll', function(){
+      pintar();
+      clearTimeout(timer);
+      timer = setTimeout(function(){
+        var i = idxCentrado();
+        if (valores[i] !== ultimo) { ultimo = valores[i]; onElegir(valores[i]); }
+      }, 130);
+    }, { passive: true });
+
+    // Tocar un valor lo elige de una vez (no depende de que llegue el scroll).
+    pista.addEventListener('click', function(e){
+      var op = e.target.closest('.op');
+      if (!op) return;
+      var i = +op.dataset.i;
+      centrar(i, true);
+      if (valores[i] !== ultimo) { ultimo = valores[i]; onElegir(valores[i]); }
+    });
+
+    var i0 = Math.max(0, valores.indexOf(inicial));
+    centrar(i0, false);
+    pintar();
+    requestAnimationFrame(pintar);
+  }
+
+  // Termostato: 16° a 30° de medio en medio grado.
+  var temps = [];
+  for (var t = 16; t <= 30; t += 0.5) temps.push(t);
+  rueda(document.getElementById('r-termo'), temps, 23,
+    function(v){ return (v % 1 ? v.toFixed(1) : v) + '°'; },
+    function(v){ document.getElementById('v-termo').textContent = 'enviado: ' + v + '°'; });
+
+  // Cortina: 0 a 100 de 5 en 5.
+  var pcts = [];
+  for (var p = 0; p <= 100; p += 5) pcts.push(p);
+  rueda(document.getElementById('r-cortina'), pcts, 60,
+    function(v){ return v + '%'; },
+    function(v){ document.getElementById('v-cortina').textContent = 'enviado: ' + v + '%'; });
+})();
+</script>
+</body>
+</html>
