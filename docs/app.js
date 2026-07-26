@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=226';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=227';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -881,6 +881,19 @@ async function iniciar() {
     return cont;
   }
 
+  // Ancho natural de cada control, para decidir si un grupo cabe sin carrusel.
+  // El rodillo es angosto; el botón de puerta mide 168 del círculo + 26 de aro
+  // a cada lado. Son medidas de CSS, no se pueden leer del DOM aquí: al pintar,
+  // el panel todavía puede estar oculto y todo mediría 0.
+  const ANCHO_CONTROL = (d) => (aspectoDe(d) === 'rueda' ? 150 : 220);
+  const HUECO_FILA = 34;   // el gap de .grupo-controles
+  function cabenEnFila(lista, contenedor) {
+    const disponible = contenedor.clientWidth || (Math.min(640, window.innerWidth) - 32);
+    const total = lista.reduce((s, d) => s + ANCHO_CONTROL(d), 0)
+      + HUECO_FILA * (lista.length - 1);
+    return total <= disponible;
+  }
+
   function renderDispositivos(dispositivos) {
     const contenedor = $('lista-dispositivos');
     contenedor.textContent = '';
@@ -909,12 +922,15 @@ async function iniciar() {
       const dimmers = grupo.filter((d) => d.modo === 'dimmer' && aspectoDe(d) !== 'rueda');
       if (enCarrusel.length) {
         const fila = document.createElement('div');
-        fila.className = 'grupo-controles carrusel';
+        // Un carrusel de pocos siempre enseña "uno y medio" y queda corrido. Si
+        // el grupo cabe entero, va en fila centrada y se ven todos completos.
+        const plano = cabenEnFila(enCarrusel, contenedor);
+        fila.className = 'grupo-controles' + (plano ? '' : ' carrusel');
         for (const dispositivo of enCarrusel) {
           fila.appendChild(tarjetaDispositivo(dispositivo));
         }
         contenedor.appendChild(fila);
-        activarCarrusel(fila);
+        if (!plano) activarCarrusel(fila);
       }
       for (const dispositivo of dimmers) {
         // El dimmer no pasa por tarjetaDispositivo (va a lo ancho, fuera del
@@ -2689,6 +2705,20 @@ async function iniciar() {
     if (id === 'tab-pases') prepararGeneradorPases();
   }
   window.addEventListener('popstate', () => entrarTab(tabDesdeHash()));
+
+  // Al girar el teléfono puede cambiar si un grupo cabe en fila o necesita
+  // carrusel. Solo se repinta si cambió el ANCHO: en iOS abrir el teclado
+  // dispara resize por el alto, y eso no debe reiniciar los carruseles.
+  let anchoPrevio = window.innerWidth;
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (window.innerWidth === anchoPrevio) return;
+    anchoPrevio = window.innerWidth;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (misDispositivos && misDispositivos.length) renderDispositivos(misDispositivos);
+    }, 200);
+  });
 
   const abrirMenu = () => {
     $('menu-lateral').classList.add('abierto');
