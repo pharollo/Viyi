@@ -2669,13 +2669,18 @@ input:checked ~ .pase-tgl::before {
   transition: opacity 0.3s ease;
 }
 
+/* Tres halos apilados: el fino define la letra, el medio la enciende y el
+   ancho tiñe el vidrio verde alrededor, que es lo que hace que parezca luz de
+   verdad y no letras pintadas de amarillo. */
 .sabiem-luz.on {
   opacity: 1;
-  filter: drop-shadow(0 0 5px rgba(255, 205, 70, 0.85));
+  filter: drop-shadow(0 0 3px rgba(255, 225, 140, 1))
+          drop-shadow(0 0 9px rgba(255, 180, 40, 0.95))
+          drop-shadow(0 0 22px rgba(255, 150, 20, 0.6));
 }
 
-.sabiem-ocupado { background-image: url("sabiem-ocupado.png?v=1"); }
-.sabiem-llegando { background-image: url("sabiem-llegando.png?v=1"); }
+.sabiem-ocupado { background-image: url("sabiem-ocupado.png?v=2"); }
+.sabiem-llegando { background-image: url("sabiem-llegando.png?v=2"); }
 
 /* Zona de toque sobre el botón negro de la foto (medido: centro 49.7% / 65.4%,
    diámetro 22% del ancho). Se deja algo más grande que el botón para que no
