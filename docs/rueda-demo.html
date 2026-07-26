@@ -97,7 +97,7 @@
   // El archivo se baja YA, al cargar: así el primer arrastre no espera la red.
   // (Decodificarlo sí necesita un AudioContext, que solo se puede crear dentro
   // de un gesto del usuario.)
-  fetch('tic-rueda.wav?v=1').then(function(r){ return r.arrayBuffer(); })
+  fetch('tic-rueda.wav?v=2').then(function(r){ return r.arrayBuffer(); })
     .then(function(ab){ crudo = ab; }).catch(function(){});
 
   function desbloquear(){
@@ -114,7 +114,7 @@
         var lat = Math.round(((ctx.baseLatency || 0) + (ctx.outputLatency || 0)) * 1000);
         nota('audio: Web Audio · salida ~' + lat + ' ms · decodificando…');
         var listo = crudo ? Promise.resolve(crudo)
-          : fetch('tic-rueda.wav?v=1').then(function(r){ return r.arrayBuffer(); });
+          : fetch('tic-rueda.wav?v=2').then(function(r){ return r.arrayBuffer(); });
         listo.then(function(ab){ return ctx.decodeAudioData(ab.slice(0)); })
           .then(function(b){ buf = b;
             var l2 = Math.round(((ctx.baseLatency || 0) + (ctx.outputLatency || 0)) * 1000);
@@ -128,7 +128,7 @@
   function caerAHtml(){
     if (htmlPool) return;
     htmlPool = [];
-    for (var i = 0; i < 4; i++) { var a = new Audio('tic-rueda.wav?v=1'); a.preload='auto'; htmlPool.push(a); }
+    for (var i = 0; i < 4; i++) { var a = new Audio('tic-rueda.wav?v=2'); a.preload='auto'; htmlPool.push(a); }
     nota('audio: HTMLAudio (respaldo) — llega más tarde');
   }
   // En la app instalada (standalone) iOS deja dormir la sesión de audio y la

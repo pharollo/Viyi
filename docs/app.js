@@ -222,6 +222,9 @@ async function iniciar() {
     // Cobre es de la familia perilla/slider: su foto es un knob de audio, no
     // pega en un pulsador. `imgMuestra` = con qué se previsualiza en el Locker.
     { id: 'cobre', nombre: 'Cobre', modos: ['cortina', 'termostato', 'dimmer'], piel: true, imgMuestra: 'perilla-cobre.jpg?v=1' },
+    // Rueda NO es piel: reemplaza el control entero (otro gesto y otro layout),
+    // como hace el Jet Switch en los portones.
+    { id: 'rueda', nombre: 'Rueda', modos: ['cortina', 'termostato', 'dimmer'], imgMuestra: 'rueda-base.jpg?v=1' },
     { id: 'hal', nombre: 'Hal', modos: ['pulso'], soloPuerta: true },
     { id: 'bordado', nombre: 'Bordado', modos: ['pulso'], soloPuerta: true },
     { id: 'argentina', nombre: 'Argentina', modos: ['pulso'], soloPuerta: true },
@@ -1054,6 +1057,154 @@ async function iniciar() {
   // `demo` = el control del vestuario: se ve y se anima igual, pero no manda
   // nada al dispositivo ni consulta su estado. `aspectoForzado` permite
   // previsualizar un aspecto sin haberlo elegido todavía.
+  // ---- Rueda: rodillo moleteado que gira, con detente y arco de luces ----
+  // Aspecto alternativo para cortinas, termostatos y dimmers: en móvil el
+  // arrastre vertical es más preciso que un dial rotatorio, y no pelea con el
+  // carrusel horizontal de dispositivos.
+
+  // Tic del detente por HTMLAudio (Web Audio no se desbloquea en el iPhone del
+  // usuario). Varios elementos para que los clics rápidos no se pisen; se crean
+  // la primera vez que se usan, para no pedir el archivo si nadie tiene rueda.
+  let ticPool = null;
+  let ticIdx = 0;
+  function ticPrepara() {
+    if (ticPool) return;
+    ticPool = [];
+    for (let i = 0; i < 4; i++) {
+      const a = new Audio('tic-rueda.wav?v=2');
+      a.preload = 'auto';
+      ticPool.push(a);
+    }
+    // Desbloqueo one-shot: suena en silencio y se pausa (gesto válido en iOS).
+    ticPool.forEach((a) => {
+      try {
+        a.muted = true;
+        const p = a.play();
+        if (p && p.then) p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
+        else { a.pause(); a.muted = false; }
+      } catch (e) { /* sin audio */ }
+    });
+  }
+  function ticRueda() {
+    if (!ticPool) return;
+    const a = ticPool[ticIdx++ % ticPool.length];
+    try { a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ }
+  }
+
+  function controlRueda(dispositivo, demo) {
+    const esTermo = dispositivo.modo === 'termostato';
+    const cfg = esTermo
+      ? { min: TERMO_MIN, max: TERMO_MAX, paso: 0.5, frio: true,
+          fmt: (v) => `${v % 1 ? v.toFixed(1) : v}°` }
+      : { min: 0, max: 100, paso: 5, frio: false, fmt: (v) => `${v}%` };
+
+    const control = document.createElement('div');
+    control.className = 'control control-rueda' + (cfg.frio ? ' frio' : '');
+
+    const ctrl = document.createElement('div');
+    ctrl.className = 'rueda-ctrl';
+    ctrl.innerHTML = '<div class="rueda-arco"></div>'
+      + '<div class="rueda-rodillo"><div class="rueda-moleteado"></div><div class="rueda-brillo"></div></div>';
+    control.appendChild(ctrl);
+
+    const valTxt = document.createElement('span');
+    valTxt.className = 'rueda-valor';
+    control.appendChild(valTxt);
+
+    const etiqueta = document.createElement('span');
+    etiqueta.className = 'etiqueta-control';
+    etiqueta.textContent = dispositivo.nombre;
+    control.appendChild(etiqueta);
+
+    // Arco de luces a la derecha: el ángulo se mide desde el eje horizontal
+    // (cos→x, sen→y) para que se combe hacia afuera y no cruce el rodillo.
+    const arco = ctrl.querySelector('.rueda-arco');
+    const N = 13, R = 60, CX = 75, CY = 75, SPAN = 58;
+    const leds = [];
+    for (let i = 0; i < N; i++) {
+      const ang = (-SPAN + (2 * SPAN * i / (N - 1))) * Math.PI / 180;
+      const d = document.createElement('span');
+      d.className = 'rueda-led';
+      d.style.left = `${CX + Math.cos(ang) * R}px`;
+      d.style.top = `${CY - Math.sin(ang) * R}px`;
+      arco.appendChild(d);
+      leds.push(d); // i=0 abajo … i=N-1 arriba
+    }
+
+    const moleteado = ctrl.querySelector('.rueda-moleteado');
+    let valor = esTermo ? 23 : 0;
+    function pintar() {
+      const frac = (valor - cfg.min) / (cfg.max - cfg.min);
+      const encendidos = Math.round(frac * N);
+      leds.forEach((d, i) => d.classList.toggle('on', i < encendidos));
+      valTxt.textContent = cfg.fmt(valor);
+      ctrl.setAttribute('aria-valuenow', String(valor));
+    }
+
+    async function enviar() {
+      if (demo) return; // en el vestuario no se manda nada
+      const data = esTermo ? { accion: 'temperatura', valor }
+        : (dispositivo.modo === 'dimmer' ? { accion: 'brillo', valor } : { accion: 'posicion', valor });
+      control.classList.add('rueda-enviando');
+      try {
+        await ejecutarComando({ dispositivoId: dispositivo.id, ...data });
+      } catch (err) {
+        toast(err.message || 'No se pudo enviar el comando.', 'error');
+      } finally {
+        control.classList.remove('rueda-enviando');
+      }
+    }
+
+    // Gesto: se acumula el arrastre y se salta de valor cada PX_PASO píxeles.
+    // El comando sale AL SOLTAR, no en cada paso: un flick mandaría decenas.
+    const PX_PASO = 11;
+    let y0 = null, giro = 0, giroBase = 0, pasoPrevio = 0, valorInicio = 0;
+    ctrl.addEventListener('pointerdown', (e) => {
+      ticPrepara();
+      y0 = e.clientY;
+      giroBase = giro;
+      pasoPrevio = 0;
+      valorInicio = valor;
+      if (ctrl.setPointerCapture) ctrl.setPointerCapture(e.pointerId);
+    });
+    ctrl.addEventListener('pointermove', (e) => {
+      if (y0 === null) return;
+      const dy = y0 - e.clientY;                    // arrastrar hacia arriba sube
+      giro = giroBase + dy;
+      moleteado.style.backgroundPositionY = `${-giro}px`;
+      const pasos = Math.round(dy / PX_PASO);
+      if (pasos === pasoPrevio) return;
+      pasoPrevio = pasos;
+      const bruto = valorInicio + pasos * cfg.paso;
+      const nuevo = Math.min(cfg.max, Math.max(cfg.min, Math.round(bruto / cfg.paso) * cfg.paso));
+      if (nuevo !== valor) { valor = nuevo; pintar(); ticRueda(); }
+    });
+    const fin = () => {
+      if (y0 === null) return;
+      y0 = null;
+      if (valor !== valorInicio) enviar();
+    };
+    ctrl.addEventListener('pointerup', fin);
+    ctrl.addEventListener('pointercancel', fin);
+
+    pintar();
+    if (!demo) {
+      (async () => {
+        try {
+          const res = await consultarEstado({ dispositivoId: dispositivo.id });
+          const d = res.data || {};
+          const v = esTermo ? d.temperaturaObjetivo
+            : (dispositivo.modo === 'dimmer' ? d.brillo : d.posicion);
+          if (typeof v === 'number') { valor = Math.min(cfg.max, Math.max(cfg.min, v)); pintar(); }
+        } catch (err) { /* sin estado disponible */ }
+      })();
+    } else {
+      valor = esTermo ? 23 : 60; // valores de muestra para el Locker
+      pintar();
+    }
+    return control;
+  }
+
   function tarjetaDispositivo(dispositivo, demo, aspectoForzado) {
     // El aspecto sale del vestuario del vecino (o del que puso el admin).
     const aspecto = aspectoForzado || aspectoDe(dispositivo);
