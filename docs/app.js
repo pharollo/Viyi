@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=227';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=228';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -95,7 +95,7 @@ async function iniciar() {
     if (!uid || !usuarioActual) return;
     try {
       localStorage.setItem(claveCache(uid), JSON.stringify({
-        usuario: usuarioActual, dispositivos: misDispositivos,
+        usuario: usuarioActual, dispositivos: misDispositivos, skins: skinsGaleria,
       }));
     } catch (e) { /* almacenamiento lleno o bloqueado: no es crítico */ }
   }
@@ -218,6 +218,34 @@ async function iniciar() {
     hal: { img: 'hal.jpg?v=1', clase: 'boton-hal' },
   };
 
+  // ---- Galería de skins (colección `skins` de Firestore) ----
+  // Los de arriba son código: para agregar uno hay que tocar cuatro sitios y
+  // desplegar. Los de la galería son DATOS — el admin los publica desde la app
+  // y aparecen solos. Siguen el mismo patrón de una imagen dentro del botón,
+  // así que se inyectan en ASPECTOS_IMAGEN al cargarlos.
+  // La imagen viaja en el propio documento como data URI (un WebP de 256px son
+  // ~15 KB y el límite del documento es 1 MB): así no hace falta Storage y se
+  // cachea junto a los dispositivos, sin pelear con el arranque instantáneo.
+  const ANIMACIONES_SKIN = {
+    ninguna: { id: 'ninguna', nombre: 'Quieto', clase: '' },
+    girar: { id: 'girar', nombre: 'Gira', clase: 'skin-gira' },
+    latido: { id: 'latido', nombre: 'Palpita', clase: 'skin-late' },
+  };
+  let skinsGaleria = [];   // [{ id, nombre, imagen, animacion, tipos }]
+
+  // Mete los skins de la galería en las dos tablas que el resto del código ya
+  // sabe leer, para que no haya un camino aparte para ellos.
+  function aplicarSkinsGaleria(lista) {
+    for (const id of Object.keys(ASPECTOS_IMAGEN)) {
+      if (ASPECTOS_IMAGEN[id].galeria) delete ASPECTOS_IMAGEN[id];
+    }
+    skinsGaleria = Array.isArray(lista) ? lista : [];
+    for (const s of skinsGaleria) {
+      const anim = ANIMACIONES_SKIN[s.animacion] || ANIMACIONES_SKIN.ninguna;
+      ASPECTOS_IMAGEN[s.id] = { img: s.imagen, clase: anim.clase, galeria: true };
+    }
+  }
+
   // ---- Vestuario: catálogo de aspectos elegibles por el vecino ----
   // `modos` = en qué controles funciona de verdad. Las pieles solo reestilizan
   // un botón circular, así que sirven en pulso e interruptor; las cortinas,
@@ -247,9 +275,24 @@ async function iniciar() {
     { id: 'jet', nombre: 'Jet Switch', modos: ['pulso'], soloPuerta: true },
   ];
   const PIELES = CATALOGO_ASPECTOS.filter((a) => a.piel).map((a) => a.id);
+
+  // Catálogo completo = los de código + los de la galería. Un skin de galería
+  // es siempre un botón redondo con foto (modo pulso); `tipos` vacío = sirve
+  // para cualquier tipo de dispositivo.
+  function catalogoAspectos() {
+    return CATALOGO_ASPECTOS.concat(skinsGaleria.map((s) => ({
+      id: s.id,
+      nombre: s.nombre,
+      modos: ['pulso'],
+      tipos: Array.isArray(s.tipos) && s.tipos.length ? s.tipos : null,
+    })));
+  }
+
   // Aspectos que este dispositivo puede llevar de verdad.
-  const aspectosDe = (d) => CATALOGO_ASPECTOS.filter((a) =>
-    a.modos.includes(d.modo || 'pulso') && (!a.soloPuerta || d.tipo === 'puerta'));
+  const aspectosDe = (d) => catalogoAspectos().filter((a) =>
+    a.modos.includes(d.modo || 'pulso')
+    && (!a.soloPuerta || d.tipo === 'puerta')
+    && (!a.tipos || a.tipos.includes(d.tipo || 'otro')));
 
   // El aspecto que se pinta: manda la elección del vecino (usuarios/{uid}.
   // aspectos[dispositivoId]); si no eligió, el que puso el admin en el
@@ -407,6 +450,7 @@ async function iniciar() {
       try {
         const guardado = JSON.parse(localStorage.getItem(cacheKey) || 'null');
         if (guardado && guardado.usuario && Array.isArray(guardado.dispositivos)) {
+          aplicarSkinsGaleria(guardado.skins);   // antes de pintar, o salen sin foto
           pintarControles(guardado.usuario, guardado.dispositivos, true);
           yaEnPanel = true;
         }
@@ -442,7 +486,12 @@ async function iniciar() {
         return;
       }
       const usuario = perfilSnap.data();
-      const dispositivos = await cargarDispositivos(usuario);
+      // Los skins de galería bajan en paralelo con los dispositivos: son datos
+      // de la misma pantalla y encadenarlos sumaría otro viaje.
+      const [dispositivos, skins] = await Promise.all([
+        cargarDispositivos(usuario), cargarSkins(),
+      ]);
+      aplicarSkinsGaleria(skins);
       // Repinta con lo fresco (idempotente); solo cambia de vista si no venía
       // ya pintado desde la caché, para no sacar al usuario de otra pestaña.
       pintarControles(usuario, dispositivos, !yaEnPanel);
@@ -692,6 +741,18 @@ async function iniciar() {
     return documentos
       .map((s) => normalizar({ id: s.id, ...s.data() }))
       .sort((a, b) => (a.orden || 99) - (b.orden || 99));
+  }
+
+  // Skins publicados por el admin. Si falla la lectura no se rompe nada: la
+  // app se queda con los aspectos de código y el vecino ve su botón normal.
+  async function cargarSkins() {
+    try {
+      const snap = await getDocs(query(collection(db, 'skins'), orderBy('creado', 'desc')));
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        .filter((s) => s.publico !== false && typeof s.imagen === 'string');
+    } catch (e) {
+      return skinsGaleria;   // se conserva lo que ya hubiera de la caché
+    }
   }
 
   // Texto legible del tiempo restante (min / h / días).
@@ -3119,6 +3180,145 @@ async function iniciar() {
     b.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
     seleccionarAspecto(b.dataset.aspecto);
   });
+
+  // ---- Crear un skin con IA (solo admin) ----
+  // La imagen la procesa el NAVEGADOR, no la función: recortar y comprimir en
+  // el servidor obligaría a meter sharp (dependencia nativa pesada) y a que la
+  // función arrastre ese arranque en frío por algo que se usa muy de vez en
+  // cuando. Aquí es un canvas y ya.
+  const adminSkins = httpsCallable(functions, 'adminSkins');
+  let skinPropuesta = null;   // data URI del WebP ya procesado, sin publicar
+
+  // El botón es un círculo con la foto a `cover`, así que basta un cuadrado:
+  // el CSS hace el recorte. Se cuadra por el lado corto y se centra.
+  function aCuadradoWebp(fuente, lado = 256) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = lado; c.height = lado;
+        const g = c.getContext('2d');
+        const m = Math.min(img.width, img.height);
+        g.drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, lado, lado);
+        resolve(c.toDataURL('image/webp', 0.86));
+      };
+      img.onerror = () => reject(new Error('No se pudo leer la imagen generada.'));
+      img.src = fuente;
+    });
+  }
+
+  function msgSkin(texto, error) {
+    const el = $('skin-msg');
+    el.textContent = texto || '';
+    el.classList.toggle('oculto', !texto);
+    el.classList.toggle('mensaje-error', !!error);
+    el.classList.toggle('mensaje-ok', !error && !!texto);
+  }
+
+  $('btn-toggle-skin').addEventListener('click', () => {
+    const form = $('form-skin');
+    const mostrar = form.classList.contains('oculto');
+    form.classList.toggle('oculto', !mostrar);
+    $('btn-toggle-skin').setAttribute('aria-expanded', String(mostrar));
+    if (mostrar) pintarListaSkins();
+  });
+
+  $('btn-generar-skin').addEventListener('click', async () => {
+    const prompt = $('skin-prompt').value.trim();
+    if (prompt.length < 3) { msgSkin('Describe el botón.', true); return; }
+    const btn = $('btn-generar-skin');
+    btn.disabled = true;
+    btn.textContent = 'Generando…';
+    msgSkin('');
+    try {
+      const r = await adminSkins({ accion: 'generar', prompt });
+      const d = r.data || {};
+      skinPropuesta = await aCuadradoWebp(`data:${d.mimeType};base64,${d.data}`);
+      $('skin-previa-img').src = skinPropuesta;
+      $('skin-previa').classList.remove('oculto');
+      if (!$('skin-nombre').value.trim()) {
+        $('skin-nombre').value = tituloCase(prompt.split(/[\s,.]+/).slice(0, 2).join(' ')).slice(0, 24);
+      }
+    } catch (err) {
+      msgSkin((err && err.message) || 'No se pudo generar.', true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Generar';
+    }
+  });
+
+  $('btn-publicar-skin').addEventListener('click', async () => {
+    if (!skinPropuesta) return;
+    const nombre = $('skin-nombre').value.trim();
+    if (!nombre) { msgSkin('Ponle un nombre.', true); return; }
+    // El id sale del nombre; si ya existe se le añade un sufijo para no pisar
+    // un skin que algún vecino ya pueda tener puesto.
+    const base = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 34) || 'skin';
+    let id = base;
+    for (let i = 2; skinsGaleria.some((s) => s.id === id); i++) id = `${base}-${i}`;
+    const btn = $('btn-publicar-skin');
+    btn.disabled = true;
+    try {
+      await adminSkins({
+        accion: 'publicar',
+        id,
+        nombre,
+        imagen: skinPropuesta,
+        animacion: $('skin-animacion').value,
+        prompt: $('skin-prompt').value.trim(),
+      });
+      await refrescarSkins();
+      skinPropuesta = null;
+      $('skin-previa').classList.add('oculto');
+      $('skin-prompt').value = '';
+      $('skin-nombre').value = '';
+      msgSkin('Publicado. Ya se puede elegir en el Locker.');
+    } catch (err) {
+      msgSkin((err && err.message) || 'No se pudo publicar.', true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Vuelve a leer la galería y repinta todo lo que la usa.
+  async function refrescarSkins() {
+    aplicarSkinsGaleria(await cargarSkins());
+    guardarCache();
+    if (misDispositivos && misDispositivos.length) renderDispositivos(misDispositivos);
+    renderVestuario();
+    pintarListaSkins();
+  }
+
+  function pintarListaSkins() {
+    const cont = $('skin-lista');
+    cont.textContent = '';
+    if (!skinsGaleria.length) return;
+    for (const s of skinsGaleria) {
+      const fila = document.createElement('div');
+      fila.className = 'skin-fila';
+      fila.innerHTML = `<img src="${s.imagen}" alt=""><span>${escapar(s.nombre)}</span>`;
+      const bor = document.createElement('button');
+      bor.type = 'button';
+      bor.className = 'btn-borrar-skin';
+      bor.textContent = 'Borrar';
+      bor.addEventListener('click', async () => {
+        // Los vecinos que lo tuvieran puesto vuelven solos a su botón normal:
+        // aspectoDe() valida contra el catálogo y descarta lo que ya no existe.
+        if (!confirm(`¿Borrar "${s.nombre}" de la galería?`)) return;
+        bor.disabled = true;
+        try {
+          await adminSkins({ accion: 'eliminar', id: s.id });
+          await refrescarSkins();
+        } catch (err) {
+          msgSkin((err && err.message) || 'No se pudo borrar.', true);
+          bor.disabled = false;
+        }
+      });
+      fila.appendChild(bor);
+      cont.appendChild(fila);
+    }
+  }
 
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   // Al encender/apagar un dispositivo, refrescar el conteo de su grupo.

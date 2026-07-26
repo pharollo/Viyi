@@ -455,6 +455,11 @@ button:disabled {
   font-size: 14px;
 }
 
+.mensaje-ok {
+  color: var(--primario);
+  font-size: 14px;
+}
+
 .izq {
   display: flex;
   align-items: center;
@@ -1118,6 +1123,32 @@ button:disabled {
 @keyframes brillo-hal {
   0%, 100% { filter: brightness(1); }
   50% { filter: brightness(1.55) saturate(1.15); }
+}
+
+/* Animaciones de los skins de galería. Las de Bordado y Hal están atadas a
+   ellos (una gira un parche, la otra palpita en rojo de HAL); estas son
+   genéricas, para que publicar un skin nuevo no exija CSS nuevo. */
+.skin-gira.enviando .boton-logo,
+.skin-gira.exito .boton-logo {
+  animation: girar-bordado 2.5s linear infinite;
+}
+.skin-late.enviando,
+.skin-late.exito {
+  animation: latir-skin 1.5s ease-in-out infinite;
+}
+.skin-late.enviando .boton-logo,
+.skin-late.exito .boton-logo {
+  animation: brillo-hal 1.5s ease-in-out infinite;
+}
+@keyframes latir-skin {
+  0%, 100% {
+    box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara),
+                0 0 14px 2px rgba(165, 255, 46, 0.4);
+  }
+  50% {
+    box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara),
+                0 0 32px 8px rgba(165, 255, 46, 0.85);
+  }
 }
 
 /* Nombre abajo DENTRO del anillo (sobre la franja oscura, no sobre la foto)
@@ -2408,3 +2439,67 @@ input:checked ~ .pase-tgl::before {
   box-shadow: none;
   background: transparent;
 }
+
+/* ===== Crear un skin con IA (solo admin, dentro del Locker) ===== */
+/* La previa usa el MISMO anillo y botón que la app de verdad, para que lo que
+   ves antes de publicar sea exactamente lo que verá el vecino. */
+.skin-previa {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skin-previa-anillo {
+  align-self: center;
+  margin: 4px 0 8px;
+}
+
+.skin-previa .boton-circular.grande {
+  width: 168px;
+  height: 168px;
+  cursor: default;
+}
+
+.skin-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.skin-fila {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: var(--fondo);
+}
+
+.skin-fila img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+.skin-fila span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.btn-borrar-skin {
+  background: none;
+  border: none;
+  color: var(--texto-suave);
+  font-size: 13px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.btn-borrar-skin:active { color: var(--error); }

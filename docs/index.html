@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=227">
+  <link rel="stylesheet" href="styles.css?v=228">
 </head>
 <body>
   <header>
@@ -225,6 +225,32 @@
             <p id="vest-nota" class="vest-ayuda vest-nota oculto"></p>
           </div>
         </div>
+        <div class="tarjeta solo-admin oculto" id="seccion-crear-skin">
+          <button type="button" id="btn-toggle-skin" class="btn-desplegar" aria-expanded="false" aria-controls="form-skin">Crear un botón</button>
+          <form id="form-skin" class="form-desplegable oculto">
+            <label for="skin-prompt">Descríbelo</label>
+            <textarea id="skin-prompt" rows="2" maxlength="700" placeholder="Una ficha de mahjong de marfil"></textarea>
+            <button type="button" id="btn-generar-skin" class="btn-secundario">Generar</button>
+            <div id="skin-previa" class="skin-previa oculto">
+              <div class="anillo skin-previa-anillo">
+                <span class="boton-circular grande boton-imagen">
+                  <img id="skin-previa-img" class="boton-logo" alt="">
+                </span>
+              </div>
+              <label for="skin-nombre">Nombre</label>
+              <input type="text" id="skin-nombre" maxlength="24" placeholder="Mahjong">
+              <label for="skin-animacion">Al activarse</label>
+              <select id="skin-animacion">
+                <option value="ninguna">Quieto</option>
+                <option value="girar">Gira</option>
+                <option value="latido">Palpita</option>
+              </select>
+              <button type="button" id="btn-publicar-skin" class="btn-primario">Publicar en la galería</button>
+            </div>
+            <p id="skin-msg" class="mensaje-error oculto"></p>
+            <div id="skin-lista" class="skin-lista"></div>
+          </form>
+        </div>
         <div class="tarjeta" id="seccion-clave">
           <button type="button" id="btn-toggle-clave" class="btn-desplegar" aria-expanded="false" aria-controls="form-clave">Cambiar clave</button>
           <form id="form-clave" class="form-desplegable oculto">
@@ -256,6 +282,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=227"></script>
+  <script type="module" src="app.js?v=228"></script>
 </body>
 </html>
