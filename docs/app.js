@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=238';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=239';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -216,8 +216,9 @@ async function iniciar() {
   const ASPECTOS_IMAGEN = {
     bordado: { img: 'bordado.jpg?v=1', clase: 'boton-bordado' },
     hal: { img: 'hal.jpg?v=1', clase: 'boton-hal' },
-    ascensor: { img: 'ascensor.webp?v=3', clase: 'boton-ascensor' },
+    ascensor: { img: 'ascensor.webp?v=5', clase: 'boton-ascensor' },
     bronce: { img: 'bronce.webp?v=1', clase: 'boton-bronce' },
+    lobby: { img: 'lobby.webp?v=1', clase: 'boton-lobby' },
   };
 
   // ---- Galería de skins (colección `skins` de Firestore) ----
@@ -276,6 +277,9 @@ async function iniciar() {
     { id: 'ascensor', nombre: 'Llamada', modos: ['pulso'], tipos: ['ascensor'] },
     { id: 'bronce', nombre: 'Bronce', modos: ['pulso'], tipos: ['ascensor'] },
     { id: 'sabiem', nombre: 'Sabiem', modos: ['pulso'], tipos: ['ascensor'] },
+    // Lobby: 'PRESIONE PARA ABRIR', así que solo en la puerta de personas
+    // (subtipo vacío); en un portón de vehículos no diría lo mismo.
+    { id: 'lobby', nombre: 'Lobby', modos: ['pulso'], soloPuerta: true, subtipos: [''] },
     { id: 'hal', nombre: 'Hal', modos: ['pulso'], soloPuerta: true },
     { id: 'bordado', nombre: 'Bordado', modos: ['pulso'], soloPuerta: true },
     { id: 'argentina', nombre: 'Argentina', modos: ['pulso'], soloPuerta: true },
@@ -301,7 +305,8 @@ async function iniciar() {
   const aspectosDe = (d) => catalogoAspectos().filter((a) =>
     a.modos.includes(d.modo || 'pulso')
     && (!a.soloPuerta || d.tipo === 'puerta')
-    && (!a.tipos || a.tipos.includes(d.tipo || 'otro')));
+    && (!a.tipos || a.tipos.includes(d.tipo || 'otro'))
+    && (!a.subtipos || a.subtipos.includes(d.subtipo || '')));
 
   // El aspecto que se pinta: manda la elección del vecino (usuarios/{uid}.
   // aspectos[dispositivoId]); si no eligió, el que puso el admin en el

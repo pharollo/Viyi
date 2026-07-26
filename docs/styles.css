@@ -2737,3 +2737,31 @@ input:checked ~ .pase-tgl::before {
 .skin-muestra.boton-bronce img {
   filter: saturate(0.4) brightness(0.52);
 }
+
+/* ===== Aspecto Lobby: pulsador de puerta de personas =====
+   Mismo patrón que los de ascensor: la foto viene encendida y el reposo se
+   consigue apagándola. Aquí se conserva algo de saturación porque el aro y el
+   rótulo son ámbar sobre gunmetal y a saturación 0 se volvían plomo. */
+.boton-lobby {
+  transition: box-shadow 0.35s ease;
+}
+
+.boton-lobby .boton-logo {
+  filter: saturate(0.28) brightness(0.5);
+  transition: filter 0.35s ease;
+}
+
+.boton-lobby.enviando .boton-logo,
+.boton-lobby.exito .boton-logo {
+  filter: none;
+}
+
+.boton-lobby.enviando,
+.boton-lobby.exito {
+  box-shadow: 9px 9px 18px var(--sombra-oscura), -9px -9px 18px var(--sombra-clara),
+              0 0 30px 7px rgba(255, 176, 62, 0.7);
+}
+
+.skin-muestra.boton-lobby img {
+  filter: saturate(0.28) brightness(0.5);
+}

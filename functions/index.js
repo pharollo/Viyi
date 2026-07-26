@@ -192,7 +192,7 @@ const dormir = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // puede elegir el suyo en su vestuario (usuarios/{uid}.aspectos). 'normal' es
 // válido a propósito: es la forma de que el vecino vuelva al botón de siempre
 // aunque el admin le haya puesto otro.
-const ASPECTOS_VALIDOS = ['normal', 'jet', 'argentina', 'bordado', 'hal', 'neon', 'acero', 'cristal', 'pop', 'cobre', 'rueda', 'ascensor', 'sabiem', 'bronce'];
+const ASPECTOS_VALIDOS = ['normal', 'jet', 'argentina', 'bordado', 'hal', 'neon', 'acero', 'cristal', 'pop', 'cobre', 'rueda', 'ascensor', 'sabiem', 'bronce', 'lobby'];
 
 // Los de arriba viven en el código; los de la galería (colección `skins`) son
 // datos que el admin publica sin desplegar, así que la lista no puede ser fija.
