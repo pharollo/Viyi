@@ -4,6 +4,7 @@ const { setGlobalOptions } = require('firebase-functions/v2');
 const { defineSecret, defineString } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
+const { GoogleAuth } = require('google-auth-library');
 const { TuyaClient } = require('./tuya');
 const { HomebridgeClient } = require('./homebridge');
 const { plantillaResetClave, plantillaAccesoDado, enviar: enviarCorreo } = require('./correo');
@@ -25,9 +26,6 @@ const HOMEBRIDGE_PASS = defineSecret('HOMEBRIDGE_PASS');
 const SECRETS_HB = [HOMEBRIDGE_URL, HOMEBRIDGE_USER, HOMEBRIDGE_PASS];
 // Envío de los correos propios (firebase functions:secrets:set RESEND_API_KEY).
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
-// Generación de los skins de la galería, en aistudio.google.com/apikey
-// (firebase functions:secrets:set GEMINI_API_KEY).
-const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
 
 // maxInstances: 1 a propósito. La cuota de Cloud Run "total allowable CPU per
 // project per region" (20 CPU en este proyecto, y Google no da más porque el
@@ -833,6 +831,33 @@ const TIPOS_SKIN = ['puerta', 'cortina', 'ascensor', 'luz', 'termostato', 'rele'
 // la galería, que baja entera al arrancar la app.
 const MAX_IMAGEN_SKIN = 220000;
 
+// La generación va por VERTEX AI, no por la API de estudio: así se autentica
+// con la propia cuenta de servicio de la función y NO hace falta API key ni
+// secreto que rotar, y el gasto cae en la facturación que el proyecto ya tiene.
+// (La API de estudio nos dejó tirados con un fallo suyo de facturación: un
+// proyecto en Postpay respondía "prepayment credits are depleted".)
+// Endpoint global: más disponible y con menos 429 que una región suelta.
+const MODELOS_IMAGEN = [
+  'gemini-3.1-flash-image',
+  'gemini-3.1-flash-image-preview',
+  'gemini-2.5-flash-image',
+];
+const PROYECTO = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'viyi-25a09';
+const urlVertex = (modelo) => 'https://aiplatform.googleapis.com/v1/projects/'
+  + `${PROYECTO}/locations/global/publishers/google/models/${modelo}:generateContent`;
+
+let authVertex = null;
+async function tokenVertex() {
+  if (!authVertex) {
+    authVertex = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
+  }
+  const cliente = await authVertex.getClient();
+  const t = await cliente.getAccessToken();
+  const token = t && (t.token || t);
+  if (!token) throw new HttpsError('internal', 'No se pudo autenticar contra Vertex AI.');
+  return token;
+}
+
 // La API de imágenes de Gemini ha movido de sitio los bytes más de una vez
 // (candidates[].content.parts[].inlineData, output_image…). En vez de casarnos
 // con una forma, se busca en el árbol el primer objeto que tenga base64 y un
@@ -850,7 +875,7 @@ function buscarImagen(nodo, prof = 0) {
   return null;
 }
 
-exports.adminSkins = onCall({ secrets: [GEMINI_API_KEY], timeoutSeconds: 120 }, async (request) => {
+exports.adminSkins = onCall({ timeoutSeconds: 120 }, async (request) => {
   await exigirAdmin(request);
   const { accion } = request.data || {};
 
@@ -865,34 +890,41 @@ exports.adminSkins = onCall({ secrets: [GEMINI_API_KEY], timeoutSeconds: 120 }, 
       + 'El motivo va CENTRADO y llena el cuadro, sin texto, sin marcas de agua, '
       + 'sin bordes ni marco, sin manos ni personas reconocibles. '
       + 'Fondo integrado al motivo, oscuro. Motivo: ';
-    let r;
-    try {
-      r = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
-        method: 'POST',
-        headers: {
-          'x-goog-api-key': GEMINI_API_KEY.value(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gemini-3.1-flash-image',
-          input: [{ type: 'text', text: encuadre + prompt }],
-        }),
-      });
-    } catch (e) {
-      throw new HttpsError('unavailable', 'No se pudo hablar con el generador de imágenes.');
+    const cuerpoPeticion = JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: encuadre + prompt }] }],
+      generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+    });
+    const token = await tokenVertex();
+    let ultimoError = 'El generador falló.';
+    // El id del modelo de imágenes cambia de nombre entre versiones y entre la
+    // API de estudio y Vertex. Se prueban en orden y se usa el primero que
+    // exista, en vez de casarnos con uno y romper cuando Google lo renombre.
+    for (const modelo of MODELOS_IMAGEN) {
+      let r;
+      try {
+        r = await fetch(`${urlVertex(modelo)}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: cuerpoPeticion,
+        });
+      } catch (e) {
+        throw new HttpsError('unavailable', 'No se pudo hablar con el generador de imágenes.');
+      }
+      const cuerpo = await r.json().catch(() => null);
+      if (r.ok) {
+        const img = buscarImagen(cuerpo);
+        if (img) return { ok: true, mimeType: img.mimeType, data: img.data };
+        // Sin imagen y sin error suele ser el filtro de seguridad.
+        throw new HttpsError('failed-precondition', 'No devolvió imagen. Prueba a describirlo de otra forma.');
+      }
+      const msg = (cuerpo && cuerpo.error && cuerpo.error.message) || `HTTP ${r.status}`;
+      console.error('Vertex imagen', modelo, r.status, msg);
+      ultimoError = msg;
+      // 404/400 = ese id no existe aquí: se prueba el siguiente. Cualquier otra
+      // cosa (permisos, API sin habilitar, cuota) es real y hay que contarla.
+      if (r.status !== 404 && r.status !== 400) break;
     }
-    const cuerpo = await r.json().catch(() => null);
-    if (!r.ok) {
-      const msg = cuerpo && cuerpo.error && cuerpo.error.message;
-      console.error('Gemini imagen', r.status, msg || '');
-      throw new HttpsError('internal', msg ? `El generador respondió: ${msg}` : 'El generador falló.');
-    }
-    const img = buscarImagen(cuerpo);
-    if (!img) {
-      // Suele pasar cuando el filtro de seguridad bloquea el prompt.
-      throw new HttpsError('failed-precondition', 'No devolvió imagen. Prueba a describirlo de otra forma.');
-    }
-    return { ok: true, mimeType: img.mimeType, data: img.data };
+    throw new HttpsError('internal', `El generador respondió: ${ultimoError}`);
   }
 
   if (accion === 'publicar') {
