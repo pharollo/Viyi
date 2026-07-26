@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=224';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=225';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -1077,33 +1077,81 @@ async function iniciar() {
   // arrastre vertical es más preciso que un dial rotatorio, y no pelea con el
   // carrusel horizontal de dispositivos.
 
-  // Tic del detente por HTMLAudio (Web Audio no se desbloquea en el iPhone del
-  // usuario). Varios elementos para que los clics rápidos no se pisen; se crean
-  // la primera vez que se usan, para no pedir el archivo si nadie tiene rueda.
-  let ticPool = null;
-  let ticIdx = 0;
+  // Tic del detente. Web Audio cuando se puede: `HTMLAudio.play()` en iOS toca
+  // el pipeline de medios en el hilo principal, y a 15 tics por segundo eso
+  // solo trabar el arrastre. El HTMLAudio queda de respaldo, pero hay que
+  // crearlo y desbloquearlo SÍNCRONO dentro del gesto: si se crea dentro de un
+  // .then() iOS lo deja mudo para siempre.
+  let ticPool = null, ticIdx = 0, ticCtx = null, ticBuf = null;
   function ticPrepara() {
-    if (ticPool) return;
+    if (ticPool) { if (ticCtx && ticCtx.state === 'suspended') ticCtx.resume(); return; }
     ticPool = [];
     for (let i = 0; i < 4; i++) {
       const a = new Audio('tic-rueda.wav?v=3');
       a.preload = 'auto';
-      ticPool.push(a);
-    }
-    // Desbloqueo one-shot: suena en silencio y se pausa (gesto válido en iOS).
-    ticPool.forEach((a) => {
       try {
         a.muted = true;
         const p = a.play();
         if (p && p.then) p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
         else { a.pause(); a.muted = false; }
       } catch (e) { /* sin audio */ }
-    });
+      ticPool.push(a);
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try {
+      ticCtx = new AC({ latencyHint: 'interactive' });
+      const mudo = ticCtx.createBufferSource();          // desbloqueo en el gesto
+      mudo.buffer = ticCtx.createBuffer(1, 1, 22050);
+      mudo.connect(ticCtx.destination);
+      mudo.start(0);
+      if (ticCtx.state === 'suspended') ticCtx.resume();
+      fetch('tic-rueda.wav?v=3')
+        .then((r) => r.arrayBuffer())
+        .then((ab) => ticCtx.decodeAudioData(ab.slice(0)))
+        .then((b) => { ticBuf = b; })
+        .catch(() => { ticCtx = null; });  // sigue el respaldo, que ya está vivo
+    } catch (e) { ticCtx = null; }
   }
   function ticRueda() {
+    if (ticCtx && ticBuf) {
+      try {
+        const s = ticCtx.createBufferSource();
+        s.buffer = ticBuf;
+        s.connect(ticCtx.destination);
+        s.start(0);
+        return;
+      } catch (e) { /* cae al respaldo */ }
+    }
     if (!ticPool) return;
     const a = ticPool[ticIdx++ % ticPool.length];
     try { a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ }
+  }
+
+  // Instalada como app (standalone), iOS deja dormir la sesión de audio y la
+  // despierta en cada sonido: ahí se va la latencia (en Safari no pasa). Se
+  // mantiene abierta con un tono inaudible mientras se usa la rueda.
+  let ticVivo = null, ticVivoTimer = null;
+  function ticCanalAbrir() {
+    clearTimeout(ticVivoTimer);
+    if (!ticCtx || ticVivo) return;
+    try {
+      const osc = ticCtx.createOscillator();
+      const g = ticCtx.createGain();
+      g.gain.value = 0.0001;
+      osc.frequency.value = 40;
+      osc.connect(g).connect(ticCtx.destination);
+      osc.start();
+      ticVivo = osc;
+    } catch (e) { /* sin canal vivo */ }
+  }
+  function ticCanalCerrarLuego() {
+    clearTimeout(ticVivoTimer);
+    ticVivoTimer = setTimeout(() => {
+      if (!ticVivo) return;
+      try { ticVivo.stop(); } catch (e) { /* ya parado */ }
+      ticVivo = null;
+    }, 4000);
   }
 
   function controlRueda(dispositivo, demo) {
@@ -1161,15 +1209,28 @@ async function iniciar() {
     let modoTermo = 'cool';    // modo al que vuelve el termostato
     const estaApagado = () => (esDimmer ? valor === 0 : termoApagado);
 
+    // Se escribe en el DOM solo lo que de verdad cambió: durante el arrastre
+    // esto corre en cada frame y tocar 13 luces + el número por gusto se nota
+    // en el teléfono.
+    const ledOn = new Array(N).fill(false);
+    let txtPrev = '', apagPrev = null, pausaPrev = null;
     function pintar() {
       const frac = (valor - cfg.min) / (cfg.max - cfg.min);
       const encendidos = esTermo && termoApagado ? 0 : Math.round(frac * N);
-      leds.forEach((d, i) => d.classList.toggle('on', i < encendidos));
-      valTxt.textContent = cfg.fmt(valor);
+      for (let i = 0; i < N; i++) {
+        const on = i < encendidos;
+        if (ledOn[i] === on) continue;
+        ledOn[i] = on;
+        leds[i].classList.toggle('on', on);
+      }
+      const txt = cfg.fmt(valor);
+      if (txt !== txtPrev) { txtPrev = txt; valTxt.textContent = txt; }
       // Sin iconos: apagado apaga las luces y apaga el número; en pausa las
       // luces laten.
-      control.classList.toggle('rueda-apagado', !esCortina && estaApagado());
-      control.classList.toggle('rueda-pausa', esCortina && pausada);
+      const apag = !esCortina && estaApagado();
+      const pau = esCortina && pausada;
+      if (apag !== apagPrev) { apagPrev = apag; control.classList.toggle('rueda-apagado', apag); }
+      if (pau !== pausaPrev) { pausaPrev = pau; control.classList.toggle('rueda-pausa', pau); }
       ctrl.setAttribute('aria-valuenow', String(valor));
     }
 
@@ -1245,7 +1306,20 @@ async function iniciar() {
       if ((valor === cfg.max && vel > 0) || (valor === cfg.min && vel < 0)) vel = 0;
     }
 
+    // En un iPhone con ProMotion `pointermove` llega a 120 Hz y a veces varias
+    // veces por frame. Pintar en cada evento es trabajo tirado y se siente
+    // tembloroso: se acumula el arrastre y se dibuja una sola vez por frame.
+    let rafPintar = null;
+    function pedirGiro() {
+      if (rafPintar) return;
+      rafPintar = requestAnimationFrame(() => { rafPintar = null; aplicarGiro(); });
+    }
+    function cancelarGiroPendiente() {
+      if (rafPintar) { cancelAnimationFrame(rafPintar); rafPintar = null; }
+    }
+
     function asentado() {
+      ticCanalCerrarLuego();
       if (valor !== valorAlTocar) enviar();
     }
 
@@ -1263,7 +1337,9 @@ async function iniciar() {
     let tTocar = 0, enRodillo = false;
     ctrl.addEventListener('pointerdown', (e) => {
       ticPrepara();
+      ticCanalAbrir();
       if (raf) { cancelAnimationFrame(raf); raf = null; }   // atajar la inercia
+      cancelarGiroPendiente();
       arrastrando = true;
       yUlt = e.clientY; tUlt = performance.now(); vel = 0;
       giroAncla = giro; valorAncla = valor; valorAlTocar = valor;
@@ -1277,10 +1353,13 @@ async function iniciar() {
       const t = performance.now();
       const dy = yUlt - e.clientY;             // arrastrar hacia arriba sube
       const dt = Math.max(1, t - tUlt);
-      vel = dy / dt;                           // px/ms, para la inercia
+      // Media móvil: a 120 Hz cada evento trae 0 o 1 px y la velocidad cruda
+      // salta como loca; sin suavizar, el impulso al soltar sale a lo que haya
+      // pasado en los últimos 8 ms.
+      vel = vel * 0.7 + (dy / dt) * 0.3;
       yUlt = e.clientY; tUlt = t;
       giro += dy;
-      aplicarGiro();
+      pedirGiro();
     });
     const soltar = (cancelado) => {
       if (!arrastrando) return;
@@ -1289,13 +1368,16 @@ async function iniciar() {
       // un giro. Se descarta el arrastre residual para que no cambie el valor.
       if (!cancelado && enRodillo && Math.abs(giro - giroAncla) < 5
           && performance.now() - tTocar < 450) {
+        cancelarGiroPendiente();
         giro = giroAncla; vel = 0;
         aplicarGiro();
+        ticCanalCerrarLuego();
         tocarCentro();
         return;
       }
+      cancelarGiroPendiente();
       if (Math.abs(vel) > VEL_MIN) { tUlt = performance.now(); raf = requestAnimationFrame(inercia); }
-      else asentado();
+      else { aplicarGiro(); asentado(); }   // cerrar el último frame pendiente
     };
     ctrl.addEventListener('pointerup', () => soltar(false));
     ctrl.addEventListener('pointercancel', () => soltar(true));

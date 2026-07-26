@@ -1441,6 +1441,9 @@ button:disabled {
   height: 150px;
   /* pan-x deja el swipe horizontal al carrusel; lo vertical es de la rueda. */
   touch-action: pan-x;
+  /* Encierra los repintados de las luces: que encender una no invalide la
+     tarjeta ni la fila del carrusel. */
+  contain: layout paint;
   -webkit-tap-highlight-color: transparent;
   cursor: grab;
 }
@@ -1454,7 +1457,9 @@ button:disabled {
   border-radius: 50%;
   background: #2c2e33;
   transform: translate(-50%, -50%);
-  transition: background 0.12s ease, box-shadow 0.12s ease;
+  /* Sin transición: interpolar el box-shadow de 13 luces obliga a repintar el
+     halo en cada frame, y mientras se arrastra la rueda eso es justo lo que la
+     hace temblar. Un detente enciende de golpe, además, que es lo correcto. */
 }
 .rueda-led.on {
   background: var(--rueda-luz);
@@ -1512,6 +1517,10 @@ button:disabled {
   font-weight: 600;
   color: var(--rueda-luz);
   font-variant-numeric: tabular-nums;
+  /* Ancho fijo: si el número cambia de ancho (9 → 10 → 100) rehace el layout
+     de la tarjeta en pleno arrastre. */
+  min-width: 3.4em;
+  text-align: center;
 }
 .control-rueda.rueda-enviando { animation: pulso-envio 0.9s ease-in-out infinite; }
 
