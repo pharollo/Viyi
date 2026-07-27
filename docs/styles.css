@@ -2849,3 +2849,34 @@ input:checked ~ .pase-tgl::before {
 .muestra-mando {
   background: var(--superficie) url("mando.webp?v=1") center/auto 74% no-repeat;
 }
+
+/* Generar con IA o subir del carrete: las dos vías, del mismo tamaño. */
+.skin-origen {
+  display: flex;
+  gap: 10px;
+}
+
+.skin-origen > * {
+  flex: 1;
+  margin: 0;
+}
+
+/* El input de archivo va DENTRO de la etiqueta y oculto ahí, no con .oculto
+   (display:none): así el toque en la etiqueta abre el selector del teléfono de
+   forma fiable en iOS. */
+.btn-archivo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-archivo input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}

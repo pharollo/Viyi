@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=248';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=249';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -3643,6 +3643,42 @@ async function iniciar() {
     el.classList.toggle('mensaje-ok', !error && !!texto);
   }
 
+  // Deja una imagen (venga de la IA o del carrete) lista para publicar: la
+  // cuadra, la muestra en la previa y propone un nombre. Es el único sitio que
+  // toca `skinPropuesta`, así que las dos vías se comportan igual.
+  async function usarImagen(fuente, nombreSugerido) {
+    skinPropuesta = await aCuadradoWebp(fuente);
+    $('skin-previa-img').src = skinPropuesta;
+    $('skin-previa').classList.remove('oculto');
+    if (!$('skin-nombre').value.trim() && nombreSugerido) {
+      $('skin-nombre').value = tituloCase(nombreSugerido).slice(0, 24);
+    }
+  }
+
+  // Subir una foto del carrete. El navegador hace todo el trabajo: la foto de
+  // 12 MP no sale del teléfono, solo el WebP de 256px (~12 KB).
+  $('skin-archivo').addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    msgSkin('');
+    const url = URL.createObjectURL(f);
+    try {
+      // El nombre del archivo sin extensión sirve de nombre propuesto.
+      await usarImagen(url, f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '));
+    } catch (err) {
+      // Las fotos del iPhone son HEIC; Safari suele convertirlas al subirlas,
+      // pero si llega el HEIC crudo ningún navegador lo decodifica. Se avisa en
+      // vez de fallar en silencio.
+      const heic = /\.hei[cf]$/i.test(f.name);
+      msgSkin(heic
+        ? 'Esa foto está en HEIC y el navegador no la puede abrir. Ábrela en Fotos, compártela como JPG y súbela.'
+        : 'No se pudo leer esa imagen. Prueba con otra.', true);
+    } finally {
+      URL.revokeObjectURL(url);
+      e.target.value = '';   // que se pueda volver a elegir la misma foto
+    }
+  });
+
   $('btn-toggle-skin').addEventListener('click', () => {
     const form = $('form-skin');
     const mostrar = form.classList.contains('oculto');
@@ -3661,12 +3697,8 @@ async function iniciar() {
     try {
       const r = await adminSkins({ accion: 'generar', prompt });
       const d = r.data || {};
-      skinPropuesta = await aCuadradoWebp(`data:${d.mimeType};base64,${d.data}`);
-      $('skin-previa-img').src = skinPropuesta;
-      $('skin-previa').classList.remove('oculto');
-      if (!$('skin-nombre').value.trim()) {
-        $('skin-nombre').value = tituloCase(prompt.split(/[\s,.]+/).slice(0, 2).join(' ')).slice(0, 24);
-      }
+      await usarImagen(`data:${d.mimeType};base64,${d.data}`,
+        prompt.split(/[\s,.]+/).slice(0, 2).join(' '));
     } catch (err) {
       msgSkin((err && err.message) || 'No se pudo generar.', true);
     } finally {
