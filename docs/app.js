@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=245';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=246';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -281,6 +281,8 @@ async function iniciar() {
     // Lobby: 'PRESIONE PARA ABRIR', así que solo en la puerta de personas
     // (subtipo vacío); en un portón de vehículos no diría lo mismo.
     { id: 'lobby', nombre: 'Lobby', modos: ['pulso'], soloPuerta: true, subtipos: [''] },
+    // El mando de portón: solo en puertas de vehículos, que es lo que abre.
+    { id: 'mando', nombre: 'Mando', modos: ['pulso'], soloPuerta: true, subtipos: ['porton'] },
     { id: 'hal', nombre: 'Hal', modos: ['pulso'], soloPuerta: true },
     { id: 'bordado', nombre: 'Bordado', modos: ['pulso'], soloPuerta: true },
     { id: 'argentina', nombre: 'Argentina', modos: ['pulso'], soloPuerta: true },
@@ -1606,12 +1608,39 @@ async function iniciar() {
     return control;
   }
 
+  // ---- Mando: el control remoto del portón, tal cual ----
+  // No es un botón redondo sino la foto del mando recortada, así que va como
+  // control propio (igual que el Jet Switch y el Sabiem). La zona de toque está
+  // sobre el botón crema de la foto, no sobre todo el mando: es lo que se
+  // aprieta de verdad.
+  function controlMando(dispositivo, demo) {
+    const control = document.createElement('div');
+    control.className = 'control control-mando';
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'mando-cuerpo';
+    cuerpo.innerHTML = '<button type="button" class="mando-boton"></button>';
+    const boton = cuerpo.querySelector('.mando-boton');
+    boton.setAttribute('aria-label', `${dispositivo.etiquetaBoton || 'Abrir'} ${dispositivo.nombre}`);
+    const etiqueta = document.createElement('span');
+    etiqueta.className = 'etiqueta-control';
+    etiqueta.textContent = dispositivo.nombre;
+    control.append(cuerpo, etiqueta);
+    // Se reutiliza la coreografía de clases de `pulsar`, que ya respeta los
+    // segundos que tarda ese portón en abrir.
+    boton.addEventListener('click', () => (demo ? pulsarDemo(boton, dispositivo) : pulsar(boton, dispositivo)));
+    return control;
+  }
+
   function tarjetaDispositivo(dispositivo, demo, aspectoForzado) {
     // El aspecto sale del vestuario del vecino (o del que puso el admin).
     const aspecto = aspectoForzado || aspectoDe(dispositivo);
     // Puerta de pulso con aspecto Jet: interruptor con tapa de seguridad.
     if (dispositivo.modo === 'pulso' && aspecto === 'jet') {
       return controlJet(dispositivo, demo);
+    }
+    // Aspecto Mando: el control remoto del portón (control propio, no botón).
+    if (dispositivo.modo === 'pulso' && aspecto === 'mando') {
+      return controlMando(dispositivo, demo);
     }
     // Aspecto Sabiem: placa de llamada de ascensor (control propio, no botón).
     if (dispositivo.modo === 'pulso' && aspecto === 'sabiem') {
@@ -3343,6 +3372,7 @@ async function iniciar() {
     }
     if (a.id === 'jet') return { clase: 'muestra-jet', html: '' };
     if (a.id === 'sabiem') return { clase: 'muestra-sabiem', html: '' };
+    if (a.id === 'mando') return { clase: 'muestra-mando', html: '' };
     // Normal y las pieles: el icono del propio dispositivo, con la piel puesta.
     return { clase: a.piel ? `piel-${a.id}` : '', html: iconoDe(d) };
   }
