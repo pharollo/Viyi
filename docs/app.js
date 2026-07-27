@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=243';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=244';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2362,6 +2362,34 @@ async function iniciar() {
     return label;
   }
 
+  // Campo que arranca replegado. Para lo que ya no es el camino normal pero
+  // sigue estando disponible (reutiliza el mismo botón con chevrón del resto).
+  function campoDesplegable(etiqueta, control, abierto, ayuda) {
+    const caja = document.createElement('div');
+    caja.className = 'campo';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-desplegar';
+    btn.textContent = etiqueta;
+    btn.setAttribute('aria-expanded', String(!!abierto));
+    const cuerpo = document.createElement('div');
+    if (ayuda) {
+      const nota = document.createElement('p');
+      nota.className = 'campo-ayuda';
+      nota.textContent = ayuda;
+      cuerpo.appendChild(nota);
+    }
+    cuerpo.appendChild(control);
+    cuerpo.classList.toggle('oculto', !abierto);
+    btn.addEventListener('click', () => {
+      const mostrar = cuerpo.classList.contains('oculto');
+      cuerpo.classList.toggle('oculto', !mostrar);
+      btn.setAttribute('aria-expanded', String(mostrar));
+    });
+    caja.append(btn, cuerpo);
+    return { caja, etiquetar: (txt) => { btn.textContent = txt; } };
+  }
+
   function entrada(valor, placeholder, tipo) {
     const i = document.createElement('input');
     i.type = tipo || 'text';
@@ -2887,7 +2915,22 @@ async function iniciar() {
     if (!esNuevo) filas.push(cActivo.label);
     filas.push(campoAlcance);
     filas.push(campo('Inmuebles', casInm.cont));
-    filas.push(campo('Dispositivos permitidos (el admin ve todos)', casillas.cont));
+    // El acceso normal lo da el inmueble; esta lista son EXTRAS encima. Va
+    // replegada para que el camino habitual sea elegir el apartamento y nada
+    // más — verla abierta invitaba a seguir asignando a mano, que es justo el
+    // trabajo que la herencia vino a quitar.
+    const yaTieneExtras = (u.dispositivos || []).length > 0;
+    const desplExtras = campoDesplegable(
+      `Dispositivos extra${yaTieneExtras ? ` (${u.dispositivos.length})` : ''}`,
+      casillas.cont,
+      yaTieneExtras,
+      'Además de los que ya hereda de su inmueble. Normalmente no hace falta ninguno.',
+    );
+    casillas.cont.addEventListener('change', () => {
+      const n = casillas.seleccionados().length;
+      desplExtras.etiquetar(`Dispositivos extra${n ? ` (${n})` : ''}`);
+    });
+    filas.push(desplExtras.caja);
 
     sRol.addEventListener('change', actualizarAlcance);
     actualizarAlcance();
