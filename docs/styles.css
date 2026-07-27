@@ -2815,8 +2815,8 @@ input:checked ~ .pase-tgl::before {
 
 .mando-cuerpo {
   position: relative;
-  width: 116px;
-  height: 168px;   /* proporción del recorte (386x560) */
+  width: 170px;
+  height: 247px;   /* proporción del recorte (386x560) */
   background: url("mando.webp?v=1") center/100% 100% no-repeat;
   filter: drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.55));
 }
