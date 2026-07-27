@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=241';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=242';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -739,10 +739,23 @@ async function iniciar() {
   async function cargarDispositivos(usuario) {
     let documentos = [];
     if (usuario.rol === 'admin') {
-      const resultado = await getDocs(
-        query(collection(db, 'dispositivos'), where('activo', '==', true))
-      );
-      documentos = resultado.docs;
+      const alc = usuario.administraIds || [];
+      if (alc.length) {
+        // Admin de edificio: solo los de su alcance (mismo motivo que en Gestión).
+        const partes = [];
+        for (let i = 0; i < alc.length; i += 30) partes.push(alc.slice(i, i + 30));
+        const res = await Promise.all(partes.map((t) => getDocs(query(
+          collection(db, 'dispositivos'), where('inmueble', 'in', t),
+        )).catch((err) => { console.warn('alcance', err); return null; })));
+        const vistos = new Map();
+        for (const r of res) if (r) for (const d of r.docs) vistos.set(d.id, d);
+        documentos = [...vistos.values()].filter((s) => s.data().activo !== false);
+      } else {
+        const resultado = await getDocs(
+          query(collection(db, 'dispositivos'), where('activo', '==', true))
+        );
+        documentos = resultado.docs;
+      }
     } else {
       const ids = new Set(usuario.dispositivos || []);
       // Dispositivos compartidos por pases vigentes (no vencidos).
@@ -2162,17 +2175,45 @@ async function iniciar() {
   let cacheUsuarios = [];
   let cacheInmuebles = [];
 
+  // Alcance del admin que está mirando: vacío = el dueño, que ve todo.
+  const miAlcance = () => (usuarioActual && usuarioActual.administraIds) || [];
+
+  // `in` y `array-contains-any` admiten 30 valores; un alcance grande se parte.
+  const enTrozos = (lista, n = 30) => {
+    const out = [];
+    for (let i = 0; i < lista.length; i += n) out.push(lista.slice(i, i + n));
+    return out;
+  };
+  const unirDocs = (resultados) => {
+    const vistos = new Map();
+    for (const r of resultados) {
+      if (!r) continue;
+      for (const d of r.docs) vistos.set(d.id, d);
+    }
+    return [...vistos.values()];
+  };
+
   async function cargarGestion() {
     try {
-      const [dispSnap, usuSnap, inmSnap] = await Promise.all([
-        getDocs(collection(db, 'dispositivos')),
-        getDocs(collection(db, 'usuarios')),
-        getDocs(collection(db, 'inmuebles')),
+      // Un admin de edificio tiene que pedir SOLO lo suyo: la regla de Firestore
+      // se evalúa por documento, así que una consulta sin filtrar le fallaría
+      // entera en cuanto cayera algo de otro edificio.
+      const alc = miAlcance();
+      const pedirDisp = alc.length
+        ? Promise.all(enTrozos(alc).map((t) => getDocs(query(
+            collection(db, 'dispositivos'), where('inmueble', 'in', t))))).then(unirDocs)
+        : getDocs(collection(db, 'dispositivos')).then((r) => r.docs);
+      const pedirUsu = alc.length
+        ? Promise.all(enTrozos(alc).map((t) => getDocs(query(
+            collection(db, 'usuarios'), where('inmueblesIds', 'array-contains-any', t))))).then(unirDocs)
+        : getDocs(collection(db, 'usuarios')).then((r) => r.docs);
+      const [dispDocs, usuDocs, inmSnap] = await Promise.all([
+        pedirDisp, pedirUsu, getDocs(collection(db, 'inmuebles')),
       ]);
-      cacheDispositivos = dispSnap.docs
+      cacheDispositivos = dispDocs
         .map((s) => normalizar({ id: s.id, ...s.data() }))
         .sort((a, b) => (a.orden || 99) - (b.orden || 99));
-      cacheUsuarios = usuSnap.docs
+      cacheUsuarios = usuDocs
         .map((s) => ({ uid: s.id, ...s.data() }))
         .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
       cacheInmuebles = inmSnap.docs
@@ -2364,6 +2405,21 @@ async function iniciar() {
     for (const d of cacheDispositivos) {
       const { label, c } = casilla(d.nombre, set.has(d.id));
       mapa.set(d.id, c);
+      cont.appendChild(label);
+    }
+    return { cont, seleccionados: () => [...mapa].filter(([, c]) => c.checked).map(([id]) => id) };
+  }
+
+  // Alcance de un administrador: qué inmuebles administra. Solo lo reparte el
+  // dueño, y solo tiene sentido si el rol es admin. Vacío = admin global.
+  function casillasAlcance(ids) {
+    const cont = document.createElement('div');
+    cont.className = 'casillas';
+    const set = new Set(ids || []);
+    const mapa = new Map();
+    for (const inm of cacheInmuebles) {
+      const { label, c } = casilla(rutaInmueble(inm.id), set.has(inm.id));
+      mapa.set(inm.id, c);
       cont.appendChild(label);
     }
     return { cont, seleccionados: () => [...mapa].filter(([, c]) => c.checked).map(([id]) => id) };
@@ -2812,6 +2868,14 @@ async function iniciar() {
     const cActivo = casilla('Cuenta activa', u.activo !== false);
     const casillas = casillasDispositivos(u.dispositivos);
     const casInm = casillasInmuebles(u.inmuebles);
+    // El campo de alcance solo lo ve el dueño (admin global): un admin de
+    // edificio no puede repartir alcance, y el backend también lo rechaza.
+    const casAlcance = casillasAlcance(u.administra);
+    const campoAlcance = campo('Administra (vacío = todo el condominio)', casAlcance.cont);
+    const soyDueno = !miAlcance().length;
+    const actualizarAlcance = () => {
+      campoAlcance.classList.toggle('oculto', !soyDueno || sRol.value !== 'admin');
+    };
 
     const filas = [
       campo('Nombre', iNombre),
@@ -2821,8 +2885,12 @@ async function iniciar() {
       campo('Rol', sRol),
     ];
     if (!esNuevo) filas.push(cActivo.label);
+    filas.push(campoAlcance);
     filas.push(campo('Inmuebles', casInm.cont));
     filas.push(campo('Dispositivos permitidos (el admin ve todos)', casillas.cont));
+
+    sRol.addEventListener('change', actualizarAlcance);
+    actualizarAlcance();
 
     const accionesUsuario = [
       botonForm('Guardar', 'btn-primario', async (ev) => {
@@ -2846,6 +2914,7 @@ async function iniciar() {
               nombre: iNombre.value.trim(),
               apellido: iApellido.value.trim(),
               rol: sRol.value,
+              ...(soyDueno ? { administra: sRol.value === 'admin' ? casAlcance.seleccionados() : [] } : {}),
               activo: cActivo.c.checked,
               dispositivos: casillas.seleccionados(),
               inmuebles: casInm.seleccionados(),

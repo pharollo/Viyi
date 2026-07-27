@@ -250,9 +250,12 @@ async function autorizar(uid, dispositivoId) {
   if (usuario.activo === false) {
     throw new HttpsError('permission-denied', 'Tu cuenta está desactivada.');
   }
-  const esAdmin = usuario.rol === 'admin';
+  // El admin global sigue pudiendo todo; el de un edificio, solo lo suyo (se
+  // resuelve más abajo con el inmueble del dispositivo, junto a la herencia).
+  const alcance = usuario.rol === 'admin' ? alcanceDe(usuario) : undefined;
+  const esAdminGlobal = usuario.rol === 'admin' && !alcance;
   const permitidos = usuario.dispositivos || [];
-  let tienePermiso = esAdmin || permitidos.includes(dispositivoId);
+  let tienePermiso = esAdminGlobal || permitidos.includes(dispositivoId);
   // Acceso temporal por un pase compartido: válido si no ha vencido.
   if (!tienePermiso) {
     const acceso = (usuario.accesos || {})[dispositivoId];
@@ -264,7 +267,14 @@ async function autorizar(uid, dispositivoId) {
   // dispositivo si las otras vías no alcanzaron, para no gastar una lectura en
   // el camino habitual.
   if (!tienePermiso) {
-    tienePermiso = await alcanzaPorInmueble(usuario, dispositivoId);
+    if (alcance) {
+      // Admin de edificio: puede con lo que esté dentro de su alcance.
+      const snap = await db.doc(`dispositivos/${dispositivoId}`).get();
+      const inm = snap.exists ? (snap.data().inmueble || '') : '';
+      tienePermiso = !!inm && alcance.has(inm);
+    } else {
+      tienePermiso = await alcanzaPorInmueble(usuario, dispositivoId);
+    }
   }
   if (!tienePermiso) {
     await registrar({
@@ -438,7 +448,7 @@ async function exigirAdmin(request) {
 }
 
 exports.adminCrearUsuario = onCall(async (request) => {
-  await exigirAdmin(request);
+  const alcance = alcanceDe(await exigirAdmin(request));
   const { email, password, nombre, apellido, unidad, rol, dispositivos, inmuebles } = request.data || {};
   if (!email || !password || !nombre) {
     throw new HttpsError('invalid-argument', 'Faltan correo, contraseña o nombre.');
@@ -459,6 +469,12 @@ exports.adminCrearUsuario = onCall(async (request) => {
     throw new HttpsError('internal', 'No se pudo crear la cuenta.');
   }
   const inmInicial = limpiarInmuebles(inmuebles) || [];
+  exigirInmueblesAsignables(alcance, inmInicial);
+  // Solo el dueño (admin global) crea administradores. Un admin de edificio
+  // crea vecinos y nada más: si no, podría fabricarse pares y escalar.
+  if (alcance && rol === 'admin') {
+    throw new HttpsError('permission-denied', 'No puedes crear administradores.');
+  }
   await db.doc(`usuarios/${user.uid}`).set({
     nombre: nombrePropio(nombre),
     apellido: nombrePropio(apellido),
@@ -474,10 +490,24 @@ exports.adminCrearUsuario = onCall(async (request) => {
 });
 
 exports.adminActualizarUsuario = onCall(async (request) => {
-  await exigirAdmin(request);
-  const { uid, nombre, apellido, unidad, rol, activo, dispositivos, password, inmuebles } = request.data || {};
+  const alcanceMio = alcanceDe(await exigirAdmin(request));
+  const { uid, nombre, apellido, unidad, rol, activo, dispositivos, password, inmuebles, administra } = request.data || {};
   if (!uid || typeof uid !== 'string') {
     throw new HttpsError('invalid-argument', 'Falta el uid.');
+  }
+  const destinoSnap = await db.doc(`usuarios/${uid}`).get();
+  if (!destinoSnap.exists) {
+    throw new HttpsError('not-found', 'Ese vecino no existe.');
+  }
+  // Un admin de edificio solo toca vecinos de su alcance, no puede cambiar
+  // roles ni repartir alcance (ambas cosas son escalada de privilegios).
+  if (alcanceMio) {
+    if (!vecinoEnAlcance(alcanceMio, destinoSnap.data())) {
+      throw new HttpsError('permission-denied', 'Ese vecino no pertenece a lo que administras.');
+    }
+    if (rol !== undefined || administra !== undefined) {
+      throw new HttpsError('permission-denied', 'No puedes cambiar roles ni alcance.');
+    }
   }
   if (uid === request.auth.uid && (activo === false || (rol && rol !== 'admin'))) {
     throw new HttpsError('failed-precondition', 'No puedes quitarte el acceso a ti mismo.');
@@ -487,9 +517,16 @@ exports.adminActualizarUsuario = onCall(async (request) => {
   if (typeof apellido === 'string') cambios.apellido = nombrePropio(apellido);
   if (typeof unidad === 'string') cambios.unidad = unidad;
   if (rol === 'admin' || rol === 'vecino') cambios.rol = rol;
+  // Alcance del administrador: solo lo reparte el dueño. Vacío = admin global.
+  if (!alcanceMio && Array.isArray(administra)) {
+    const limpio = administra.filter((x) => typeof x === 'string' && x);
+    cambios.administra = limpio;
+    cambios.administraIds = await subarbolInmuebles(limpio);
+  }
   if (typeof activo === 'boolean') cambios.activo = activo;
   if (Array.isArray(dispositivos)) cambios.dispositivos = dispositivos;
   const inmLimpios = limpiarInmuebles(inmuebles);
+  exigirInmueblesAsignables(alcanceMio, inmLimpios);
   if (inmLimpios) {
     cambios.inmuebles = inmLimpios;
     // La cadena expandida (asignados + ancestros) es lo que consultan los
@@ -565,15 +602,89 @@ async function resincronizarInmuebles() {
   const batch = db.batch();
   let hay = false;
   for (const snap of usuarios.docs) {
-    const asignados = (snap.data().inmuebles || []).map((x) => x && x.id).filter(Boolean);
+    const d = snap.data();
+    const cambios = {};
+    const asignados = (d.inmuebles || []).map((x) => x && x.id).filter(Boolean);
     const expandidos = await conAncestros(asignados);
-    const antes = snap.data().inmueblesIds || [];
+    const antes = d.inmueblesIds || [];
     if (antes.length !== expandidos.length || expandidos.some((x) => !antes.includes(x))) {
-      hay = true;
-      batch.set(snap.ref, { inmueblesIds: expandidos }, { merge: true });
+      cambios.inmueblesIds = expandidos;
     }
+    // El alcance del admin también depende del árbol: mover un padre cambia
+    // qué queda dentro de su edificio.
+    if (Array.isArray(d.administra) && d.administra.length) {
+      const sub = await subarbolInmuebles(d.administra);
+      const antesSub = d.administraIds || [];
+      if (antesSub.length !== sub.length || sub.some((x) => !antesSub.includes(x))) {
+        cambios.administraIds = sub;
+      }
+    }
+    if (Object.keys(cambios).length) { hay = true; batch.set(snap.ref, cambios, { merge: true }); }
   }
   if (hay) await batch.commit();
+}
+
+// ---- Alcance del administrador (admin por edificio) ----
+// `usuarios/{uid}.administra` = inmuebles que administra, asignados por el
+// dueño. **Vacío = admin GLOBAL** (el dueño de ViYi), que es como se comportaba
+// todo hasta ahora: por eso el cambio no le quita nada a nadie.
+// `administraIds` = ese alcance expandido HACIA ABAJO (el inmueble y todos sus
+// descendientes).
+//
+// ⚠️ Las dos herencias van en direcciones OPUESTAS, y es a propósito:
+//   · el VECINO hereda hacia ARRIBA  → su apto alcanza lo común del edificio
+//   · el ADMIN  hereda hacia ABAJO   → quien administra la torre administra sus aptos
+// Confundirlas sería un agujero: hacia arriba le daría al admin de una torre el
+// portón del conjunto entero.
+async function subarbolInmuebles(ids) {
+  const raices = [...new Set((ids || []).filter((x) => typeof x === 'string' && x))];
+  if (!raices.length) return [];
+  // Se traen todos y se baja en memoria: `padre` apunta hacia arriba, así que
+  // bajar con consultas serían N viajes por nivel. En un condominio son decenas.
+  const todos = await db.collection('inmuebles').get();
+  const hijos = new Map();
+  todos.forEach((snap) => {
+    const padre = snap.data().padre || '';
+    if (!hijos.has(padre)) hijos.set(padre, []);
+    hijos.get(padre).push(snap.id);
+  });
+  const vistos = new Set();
+  let frente = raices;
+  for (let n = 0; n < MAX_NIVELES_INMUEBLE && frente.length; n++) {
+    frente.forEach((id) => vistos.add(id));
+    frente = frente.flatMap((id) => hijos.get(id) || []).filter((id) => !vistos.has(id));
+  }
+  return [...vistos];
+}
+
+// null = sin límite (admin global). Set = solo esos inmuebles.
+function alcanceDe(usuario) {
+  const ids = usuario.administraIds || usuario.administra || [];
+  return ids.length ? new Set(ids) : null;
+}
+
+// Corta si el admin no alcanza ese inmueble. Un dispositivo o inmueble SIN
+// inmueble asignado solo lo toca el admin global: si no, un admin de edificio
+// podría apropiarse de lo que está suelto.
+function exigirInmueble(alcance, inmuebleId, queEs = 'Eso') {
+  if (!alcance) return;
+  if (!inmuebleId || !alcance.has(inmuebleId)) {
+    throw new HttpsError('permission-denied', `${queEs} no pertenece a lo que administras.`);
+  }
+}
+
+// ¿Este vecino cae dentro de lo que administro? Se compara contra sus inmuebles
+// ASIGNADOS (no la cadena expandida): la expandida incluye los ancestros, que
+// están POR ENCIMA del admin de un edificio y no le corresponden.
+function vecinoEnAlcance(alcance, usuario) {
+  if (!alcance) return true;
+  return (usuario.inmuebles || []).some((x) => x && alcance.has(x.id));
+}
+
+// Los inmuebles que un admin puede asignar: solo los de su alcance.
+function exigirInmueblesAsignables(alcance, lista) {
+  if (!alcance) return;
+  for (const x of lista || []) exigirInmueble(alcance, x && x.id, 'Ese inmueble');
 }
 
 // Dispositivos de la lista que este usuario puede compartir: los suyos
@@ -581,9 +692,12 @@ async function resincronizarInmuebles() {
 // re-comparte (siempre fue así y se mantiene).
 async function puedeCompartir(usuario, ids) {
   const pedidos = [...new Set((ids || []).filter((x) => typeof x === 'string'))];
-  if (usuario.rol === 'admin') return pedidos;
+  const alcanceAdmin = usuario.rol === 'admin' ? alcanceDe(usuario) : undefined;
+  if (usuario.rol === 'admin' && !alcanceAdmin) return pedidos;   // admin global
   const alcanza = new Set(usuario.dispositivos || []);
-  const mios = inmueblesDelUsuario(usuario);
+  // Un admin de edificio comparte lo de su alcance; un vecino, lo de su
+  // inmueble. La lista contra la que se compara es la única diferencia.
+  const mios = alcanceAdmin ? [...alcanceAdmin] : inmueblesDelUsuario(usuario);
   const fuera = pedidos.filter((id) => !alcanza.has(id));
   if (mios.length && fuera.length) {
     const snaps = await Promise.all(fuera.map((id) => db.doc(`dispositivos/${id}`).get()));
@@ -657,7 +771,7 @@ exports.actualizarMiPerfil = onCall(async (request) => {
 
 // Crea o actualiza un inmueble del catálogo (solo admin).
 exports.adminGuardarInmueble = onCall(async (request) => {
-  await exigirAdmin(request);
+  const alcance = alcanceDe(await exigirAdmin(request));
   const { id, tipo, nombre, ciudad, estado, zona, padre } = request.data || {};
   if (!TIPOS_INMUEBLE.includes(tipo)) {
     throw new HttpsError('invalid-argument', 'Tipo de inmueble no válido.');
@@ -681,6 +795,12 @@ exports.adminGuardarInmueble = onCall(async (request) => {
     if (id && (await conAncestros([padreFinal])).includes(id)) {
       throw new HttpsError('invalid-argument', 'Eso haría un círculo en la jerarquía.');
     }
+  }
+  // Un admin de edificio solo crea/edita dentro de su alcance: un inmueble
+  // nuevo tiene que colgarse de algo suyo, y uno existente tiene que ser suyo.
+  if (alcance) {
+    if (id) exigirInmueble(alcance, id, 'Ese inmueble');
+    else exigirInmueble(alcance, padreFinal, 'Ese inmueble padre');
   }
   const datos = {
     tipo,
@@ -719,11 +839,12 @@ exports.adminGuardarInmueble = onCall(async (request) => {
 
 // Elimina un inmueble del catálogo y lo quita de los vecinos asignados.
 exports.adminEliminarInmueble = onCall(async (request) => {
-  await exigirAdmin(request);
+  const alcance = alcanceDe(await exigirAdmin(request));
   const { id } = request.data || {};
   if (!id || typeof id !== 'string') {
     throw new HttpsError('invalid-argument', 'Falta el id.');
   }
+  exigirInmueble(alcance, id, 'Ese inmueble');
   await db.doc(`inmuebles/${id}`).delete();
   const usuarios = await db.collection('usuarios').get();
   const batch = db.batch();
@@ -750,10 +871,16 @@ exports.adminEliminarInmueble = onCall(async (request) => {
 //    copiado, así que se sigue leyendo bien sin la ficha.
 //  - El admin no puede borrarse a sí mismo, para no quedarse fuera del panel.
 exports.adminEliminarUsuario = onCall(async (request) => {
-  await exigirAdmin(request);
+  const alcance = alcanceDe(await exigirAdmin(request));
   const { uid } = request.data || {};
   if (!uid || typeof uid !== 'string') {
     throw new HttpsError('invalid-argument', 'Falta el uid.');
+  }
+  if (alcance) {
+    const destino = await db.doc(`usuarios/${uid}`).get();
+    if (!destino.exists || !vecinoEnAlcance(alcance, destino.data())) {
+      throw new HttpsError('permission-denied', 'Ese vecino no pertenece a lo que administras.');
+    }
   }
   if (uid === request.auth.uid) {
     throw new HttpsError('failed-precondition', 'No puedes eliminar tu propia cuenta.');
@@ -782,7 +909,7 @@ exports.adminEliminarUsuario = onCall(async (request) => {
 });
 
 exports.adminGuardarDispositivo = onCall(async (request) => {
-  await exigirAdmin(request);
+  const alcance = alcanceDe(await exigirAdmin(request));
   const {
     id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, segundosApertura, orden, activo, inmueble,
     proveedor, tuyaDeviceId, codigo, pulsoMs, codigoBrillo, brilloMax,
@@ -805,6 +932,13 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
       throw new HttpsError('invalid-argument', 'Ese inmueble no existe.');
     }
     inmuebleFinal = inmId;
+  }
+  // Un admin de edificio solo pone dispositivos DENTRO de lo que administra...
+  exigirInmueble(alcance, inmuebleFinal, 'Ese inmueble');
+  // ...y no puede tocar uno que hoy está en otro edificio (sería robárselo).
+  if (alcance) {
+    const antes = await db.doc(`dispositivos/${id}`).get();
+    if (antes.exists) exigirInmueble(alcance, antes.data().inmueble || '', 'Ese dispositivo');
   }
   if (provFinal === 'homebridge' ? !accesorioId : !tuyaDeviceId) {
     throw new HttpsError('invalid-argument', provFinal === 'homebridge'
@@ -937,10 +1071,14 @@ exports.adminInspeccionarDispositivo = onCall(
 );
 
 exports.adminEliminarDispositivo = onCall(async (request) => {
-  await exigirAdmin(request);
+  const alcance = alcanceDe(await exigirAdmin(request));
   const { id } = request.data || {};
   if (!id || typeof id !== 'string') {
     throw new HttpsError('invalid-argument', 'Falta el id.');
+  }
+  if (alcance) {
+    const snap = await db.doc(`dispositivos/${id}`).get();
+    exigirInmueble(alcance, snap.exists ? (snap.data().inmueble || '') : '', 'Ese dispositivo');
   }
   await db.doc(`dispositivos/${id}/privado/tuya`).delete().catch(() => {});
   await db.doc(`dispositivos/${id}`).delete();

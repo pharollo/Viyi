@@ -15,6 +15,17 @@ service cloud.firestore {
       return autenticado() && miUsuario().rol == 'admin';
     }
 
+    // Alcance del admin: los inmuebles que administra, expandidos HACIA ABAJO
+    // por las Functions. Vacío = admin GLOBAL (el dueño), que es como se
+    // comportaba todo antes de que existieran los admins por edificio.
+    function alcanceAdmin() {
+      return miUsuario().get('administraIds', []);
+    }
+
+    function esAdminGlobal() {
+      return esAdmin() && alcanceAdmin().size() == 0;
+    }
+
     // Los inmuebles que alcanza el vecino: la cadena YA EXPANDIDA que escriben
     // las Functions (su inmueble asignado más los ancestros). Se guarda plana a
     // propósito: aquí no se puede recorrer una lista de mapas ni subir un árbol.
@@ -36,21 +47,28 @@ service cloud.firestore {
     // Nadie escribe desde la app: los perfiles los administran las Functions
     // (creación por el admin y canje de pases) o la consola de Firebase.
     match /usuarios/{uid} {
-      allow get: if autenticado() && (request.auth.uid == uid || esAdmin());
-      allow list: if esAdmin();
+      allow get: if autenticado() && (request.auth.uid == uid || esAdminGlobal()
+        || (esAdmin() && resource.data.get('inmueblesIds', []).hasAny(alcanceAdmin())));
+      // El admin de edificio tiene que traer la consulta filtrada por sus
+      // inmuebles (array-contains-any): la regla se evalúa por documento, así
+      // que si cae uno de otro edificio falla la consulta entera.
+      allow list: if esAdminGlobal()
+        || (esAdmin() && resource.data.get('inmueblesIds', []).hasAny(alcanceAdmin()));
       allow write: if false;
     }
 
     // Un vecino solo puede leer los dispositivos que tiene asignados, los del
     // inmueble que le corresponde, o los compartidos por un pase vigente.
     match /dispositivos/{id} {
-      allow get: if autenticado() && (esAdmin() || tieneAcceso(id));
+      allow get: if autenticado() && (esAdminGlobal() || tieneAcceso(id)
+        || (esAdmin() && resource.data.get('inmueble', '') in alcanceAdmin()));
       // El vecino necesita LISTAR para traerse de una los de su inmueble (antes
       // solo podía pedirlos de uno en uno, porque los tenía enumerados). La
       // regla se evalúa contra cada documento devuelto, así que la consulta
       // tiene que venir filtrada por inmueble: si trae uno de otro edificio,
       // falla entera.
-      allow list: if esAdmin()
+      allow list: if esAdminGlobal()
+        || (esAdmin() && resource.data.get('inmueble', '') in alcanceAdmin())
         || (autenticado() && resource.data.get('inmueble', '') != ''
             && resource.data.inmueble in misInmuebles());
       allow write: if false;
@@ -58,7 +76,9 @@ service cloud.firestore {
       // Config Tuya: las Functions la leen con Admin SDK; el admin puede
       // verla para editarla desde el panel. Nadie escribe desde el cliente.
       match /privado/{doc} {
-        allow read: if esAdmin();
+        allow read: if esAdminGlobal()
+          || (esAdmin()
+              && get(/databases/$(database)/documents/dispositivos/$(id)).data.get('inmueble', '') in alcanceAdmin());
         allow write: if false;
       }
     }
@@ -66,13 +86,16 @@ service cloud.firestore {
     // Pases: los crea/canjea/revoca las Functions. El emisor (o el admin)
     // puede leer los suyos para listarlos y revocarlos.
     match /pases/{token} {
-      allow read: if autenticado() && (esAdmin() || resource.data.por == request.auth.uid);
+      allow read: if autenticado() && (esAdminGlobal() || resource.data.por == request.auth.uid);
       allow write: if false;
     }
 
     // El log de auditoría lo escriben las Cloud Functions y lo lee solo el admin.
     match /registros/{id} {
-      allow read: if esAdmin();
+      // Solo el dueño: el registro no guarda inmueble, así que no hay forma de
+      // acotarlo por edificio sin rediseñarlo. Mejor no verlo que ver el de
+      // otro condominio.
+      allow read: if esAdminGlobal();
       allow write: if false;
     }
 
