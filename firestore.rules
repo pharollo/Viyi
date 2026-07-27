@@ -15,11 +15,21 @@ service cloud.firestore {
       return autenticado() && miUsuario().rol == 'admin';
     }
 
-    // Acceso a un dispositivo: propio (permanente) o por un pase no vencido.
+    // Los inmuebles que alcanza el vecino: la cadena YA EXPANDIDA que escriben
+    // las Functions (su inmueble asignado más los ancestros). Se guarda plana a
+    // propósito: aquí no se puede recorrer una lista de mapas ni subir un árbol.
+    function misInmuebles() {
+      return miUsuario().get('inmueblesIds', []);
+    }
+
+    // Acceso a un dispositivo: propio (permanente), heredado del inmueble donde
+    // está, o por un pase no vencido.
     function tieneAcceso(id) {
       let u = miUsuario();
       return id in u.get('dispositivos', [])
-        || (id in u.get('accesos', {}) && u.accesos[id].expira > request.time);
+        || (id in u.get('accesos', {}) && u.accesos[id].expira > request.time)
+        || (resource.data.get('inmueble', '') != ''
+            && resource.data.inmueble in u.get('inmueblesIds', []));
     }
 
     // Cada vecino solo puede leer su propio perfil; el admin puede leer todos.
@@ -31,11 +41,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Un vecino solo puede leer los dispositivos que tiene asignados o
-    // compartidos por un pase vigente.
+    // Un vecino solo puede leer los dispositivos que tiene asignados, los del
+    // inmueble que le corresponde, o los compartidos por un pase vigente.
     match /dispositivos/{id} {
       allow get: if autenticado() && (esAdmin() || tieneAcceso(id));
-      allow list: if esAdmin();
+      // El vecino necesita LISTAR para traerse de una los de su inmueble (antes
+      // solo podía pedirlos de uno en uno, porque los tenía enumerados). La
+      // regla se evalúa contra cada documento devuelto, así que la consulta
+      // tiene que venir filtrada por inmueble: si trae uno de otro edificio,
+      // falla entera.
+      allow list: if esAdmin()
+        || (autenticado() && resource.data.get('inmueble', '') != ''
+            && resource.data.inmueble in misInmuebles());
       allow write: if false;
 
       // Config Tuya: las Functions la leen con Admin SDK; el admin puede

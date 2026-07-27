@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=239';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=240';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -751,6 +751,34 @@ async function iniciar() {
       }
       const lecturas = await Promise.all([...ids].map((id) => getDoc(doc(db, 'dispositivos', id))));
       documentos = lecturas.filter((s) => s.exists() && s.data().activo !== false);
+      // Y los del inmueble que le corresponde (su unidad más las áreas comunes
+      // del edificio y del conjunto: `inmueblesIds` viene ya con los ancestros).
+      // Van en una consulta y no de uno en uno porque el vecino no tiene la
+      // lista; la regla de Firestore exige que venga filtrada por inmueble.
+      const mios = usuario.inmueblesIds || [];
+      if (mios.length) {
+        // `in` admite 30 valores; una cadena de inmuebles nunca se acerca, pero
+        // se acota para que un dato raro no reviente la consulta entera.
+        const trozos = [];
+        for (let i = 0; i < mios.length; i += 30) trozos.push(mios.slice(i, i + 30));
+        // Un solo filtro a propósito: añadir `activo == true` haría falta un
+        // índice compuesto, y si faltara la consulta fallaría y el vecino se
+        // quedaría sin los dispositivos de su edificio sin que nada lo avise.
+        // Se filtra por activo aquí abajo, que sale gratis.
+        const porInmueble = await Promise.all(trozos.map((t) => getDocs(query(
+          collection(db, 'dispositivos'),
+          where('inmueble', 'in', t),
+        )).catch((err) => { console.warn('inmueble', err); return null; })));
+        for (const res of porInmueble) {
+          if (!res) continue;   // sin permiso: se queda con lo explícito
+          for (const s of res.docs) {
+            if (!ids.has(s.id) && s.data().activo !== false) {
+              ids.add(s.id);
+              documentos.push(s);
+            }
+          }
+        }
+      }
     }
     return documentos
       .map((s) => normalizar({ id: s.id, ...s.data() }))
@@ -2442,6 +2470,10 @@ async function iniciar() {
     // Es por dispositivo porque cada portón tarda lo suyo.
     const iSegundos = entrada(d.segundosApertura || 15, '', 'number');
     const campoSegundos = campo('Segundos en abrir (animación del botón)', iSegundos);
+    // Inmueble donde está físicamente. Hace dos cosas: los vecinos de ese
+    // inmueble heredan el acceso, y queda registrado dónde buscar el aparato si
+    // se cae la luz o el internet.
+    const sInmueble = selector(opcionesInmueble(), d.inmueble || '');
     const actualizarSub = () => {
       campoSub.classList.toggle('oculto', sTipo.value !== 'puerta');
       const esPuertaPulso = sTipo.value === 'puerta' && sModo.value === 'pulso';
@@ -2613,6 +2645,7 @@ async function iniciar() {
             subtipo: sTipo.value === 'puerta' ? sSub.value : '',
             aspecto: (sTipo.value === 'puerta' && sModo.value === 'pulso') ? sAspecto.value : 'normal',
             segundosApertura: Number(iSegundos.value) || 15,
+            inmueble: sInmueble.value,
             modo: sModo.value,
             proveedor: sProveedor.value,
             orden: Number(iOrden.value) || 99,
@@ -2659,6 +2692,7 @@ async function iniciar() {
       campoModo,
       campoAspecto,
       campoSegundos,
+      campo('Inmueble (dónde está)', sInmueble),
       campo('Proveedor', sProveedor),
       campo('Orden (menor = primero)', iOrden),
       cActivo.label,
@@ -2674,6 +2708,30 @@ async function iniciar() {
     ], acciones);
   }
 
+  // Nombre de un inmueble con su cadena hacia arriba, para que en un selector
+  // se distinga "Apto 3B" de Torre A del "Apto 3B" de Torre B.
+  function rutaInmueble(id, tope = 6) {
+    const partes = [];
+    let actual = id;
+    for (let n = 0; n < tope && actual; n++) {
+      const inm = cacheInmuebles.find((x) => x.id === actual);
+      if (!inm) break;
+      partes.push(inm.nombre);
+      actual = inm.padre || '';
+    }
+    return partes.join(' · ');
+  }
+
+  // Opciones de inmueble para un selector. `excluir` saca al propio inmueble
+  // (nadie es su padre) y a sus descendientes se los rechaza el backend.
+  function opcionesInmueble(excluir) {
+    return [['', '— sin inmueble —']].concat(
+      cacheInmuebles
+        .filter((x) => x.id !== excluir)
+        .map((x) => [x.id, rutaInmueble(x.id)]),
+    );
+  }
+
   function abrirEditorInmueble(existente) {
     const esNuevo = !existente;
     const inm = existente || {};
@@ -2683,9 +2741,14 @@ async function iniciar() {
     const iEstado = entrada(inm.estado);
     const iZona = entrada(inm.zona);
     [iNombre, iCiudad, iEstado, iZona].forEach((i) => i.setAttribute('autocapitalize', 'words'));
+    // Padre: arma la jerarquía conjunto -> edificio -> apartamento. Quien tenga
+    // asignado el apartamento alcanza también lo común del edificio y del
+    // conjunto; al revés no.
+    const sPadre = selector(opcionesInmueble(inm.id), inm.padre || '');
     const filas = [
       campo('Tipo', sTipo),
       campo('Nombre', iNombre),
+      campo('Dentro de', sPadre),
       campo('Ciudad', iCiudad),
       campo('Estado', iEstado),
       campo('Zona', iZona),
@@ -2703,6 +2766,7 @@ async function iniciar() {
             ciudad: iCiudad.value.trim(),
             estado: iEstado.value.trim(),
             zona: iZona.value.trim(),
+            padre: sPadre.value,
           });
           toast(esNuevo ? 'Inmueble creado ✓' : 'Inmueble actualizado ✓', 'ok');
           await trasGuardar();

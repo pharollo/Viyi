@@ -260,6 +260,12 @@ async function autorizar(uid, dispositivoId) {
       tienePermiso = acceso.expira.toMillis() > Date.now();
     }
   }
+  // Acceso heredado del inmueble. Va al final a propósito: solo se lee el
+  // dispositivo si las otras vías no alcanzaron, para no gastar una lectura en
+  // el camino habitual.
+  if (!tienePermiso) {
+    tienePermiso = await alcanzaPorInmueble(usuario, dispositivoId);
+  }
   if (!tienePermiso) {
     await registrar({
       uid,
@@ -452,6 +458,7 @@ exports.adminCrearUsuario = onCall(async (request) => {
     }
     throw new HttpsError('internal', 'No se pudo crear la cuenta.');
   }
+  const inmInicial = limpiarInmuebles(inmuebles) || [];
   await db.doc(`usuarios/${user.uid}`).set({
     nombre: nombrePropio(nombre),
     apellido: nombrePropio(apellido),
@@ -460,7 +467,8 @@ exports.adminCrearUsuario = onCall(async (request) => {
     rol: rol === 'admin' ? 'admin' : 'vecino',
     activo: true,
     dispositivos: Array.isArray(dispositivos) ? dispositivos : [],
-    inmuebles: limpiarInmuebles(inmuebles) || [],
+    inmuebles: inmInicial,
+    inmueblesIds: await conAncestros(inmInicial.map((x) => x.id)),
   });
   return { uid: user.uid };
 });
@@ -482,7 +490,12 @@ exports.adminActualizarUsuario = onCall(async (request) => {
   if (typeof activo === 'boolean') cambios.activo = activo;
   if (Array.isArray(dispositivos)) cambios.dispositivos = dispositivos;
   const inmLimpios = limpiarInmuebles(inmuebles);
-  if (inmLimpios) cambios.inmuebles = inmLimpios;
+  if (inmLimpios) {
+    cambios.inmuebles = inmLimpios;
+    // La cadena expandida (asignados + ancestros) es lo que consultan los
+    // chequeos de acceso y las reglas de Firestore.
+    cambios.inmueblesIds = await conAncestros(inmLimpios.map((x) => x.id));
+  }
   if (Object.keys(cambios).length) {
     await db.doc(`usuarios/${uid}`).set(cambios, { merge: true });
   }
@@ -500,6 +513,88 @@ exports.adminActualizarUsuario = onCall(async (request) => {
 
 // Catálogo de inmuebles del condominio: los crea y asigna el admin.
 const TIPOS_INMUEBLE = ['conjunto', 'residencias', 'edificio', 'quinta', 'casa', 'local', 'restaurant'];
+// ---- Jerarquía de inmuebles: conjunto -> edificio -> apartamento ----
+// Cada inmueble puede tener `padre`. La herencia va SOLO hacia arriba: quien
+// tiene asignado el apto 3B alcanza también las áreas comunes de su edificio y
+// del conjunto. Al revés NO: tener el edificio no da los controles de todos sus
+// apartamentos.
+//
+// `usuarios/{uid}.inmueblesIds` guarda la cadena YA EXPANDIDA (lo asignado más
+// sus ancestros). Existe por dos razones: las reglas de Firestore no pueden
+// recorrer una lista de mapas ni subir un árbol, y así los chequeos de acceso
+// comparan contra una lista plana, igual de simples que antes.
+const MAX_NIVELES_INMUEBLE = 6;   // corta ciclos y cadenas absurdas
+
+async function conAncestros(ids) {
+  const vistos = new Set();
+  let frente = [...new Set((ids || []).filter((x) => typeof x === 'string' && x))];
+  for (let nivel = 0; nivel < MAX_NIVELES_INMUEBLE && frente.length; nivel++) {
+    frente.forEach((id) => vistos.add(id));
+    const snaps = await Promise.all(frente.map((id) => db.doc(`inmuebles/${id}`).get()));
+    frente = snaps
+      .map((s) => (s.exists ? (s.data().padre || '') : ''))
+      .filter((p) => p && !vistos.has(p));
+  }
+  return [...vistos];
+}
+
+// Los inmuebles que alcanza este usuario. Tolera registros viejos sin el espejo
+// (se derivan del snapshot, sin ancestros) para no dejar a nadie fuera mientras
+// no se hayan vuelto a guardar.
+function inmueblesDelUsuario(usuario) {
+  if (Array.isArray(usuario.inmueblesIds) && usuario.inmueblesIds.length) return usuario.inmueblesIds;
+  return (usuario.inmuebles || []).map((x) => x && x.id).filter(Boolean);
+}
+
+// ¿Este usuario alcanza este dispositivo por el inmueble al que pertenece?
+async function alcanzaPorInmueble(usuario, dispositivoId) {
+  const mios = inmueblesDelUsuario(usuario);
+  if (!mios.length) return false;
+  const snap = await db.doc(`dispositivos/${dispositivoId}`).get();
+  const inm = snap.exists ? (snap.data().inmueble || '') : '';
+  return !!inm && mios.includes(inm);
+}
+
+// Recalcula `inmueblesIds` de TODOS los vecinos. Se llama al tocar el catálogo
+// porque cambiar un padre altera la cadena de cualquier descendiente, no solo
+// del inmueble editado: recorrer todos es O(vecinos) y en un condominio son
+// decenas, así que es más barato que razonar quién quedó afectado — y elimina
+// de raíz que la lista expandida se quede vieja.
+async function resincronizarInmuebles() {
+  const usuarios = await db.collection('usuarios').get();
+  const batch = db.batch();
+  let hay = false;
+  for (const snap of usuarios.docs) {
+    const asignados = (snap.data().inmuebles || []).map((x) => x && x.id).filter(Boolean);
+    const expandidos = await conAncestros(asignados);
+    const antes = snap.data().inmueblesIds || [];
+    if (antes.length !== expandidos.length || expandidos.some((x) => !antes.includes(x))) {
+      hay = true;
+      batch.set(snap.ref, { inmueblesIds: expandidos }, { merge: true });
+    }
+  }
+  if (hay) await batch.commit();
+}
+
+// Dispositivos de la lista que este usuario puede compartir: los suyos
+// explícitos más los que hereda de sus inmuebles. Lo recibido por un pase NO se
+// re-comparte (siempre fue así y se mantiene).
+async function puedeCompartir(usuario, ids) {
+  const pedidos = [...new Set((ids || []).filter((x) => typeof x === 'string'))];
+  if (usuario.rol === 'admin') return pedidos;
+  const alcanza = new Set(usuario.dispositivos || []);
+  const mios = inmueblesDelUsuario(usuario);
+  const fuera = pedidos.filter((id) => !alcanza.has(id));
+  if (mios.length && fuera.length) {
+    const snaps = await Promise.all(fuera.map((id) => db.doc(`dispositivos/${id}`).get()));
+    snaps.forEach((snap) => {
+      const inm = snap.exists ? (snap.data().inmueble || '') : '';
+      if (inm && mios.includes(inm)) alcanza.add(snap.id);
+    });
+  }
+  return pedidos.filter((id) => alcanza.has(id));
+}
+
 // Normaliza la lista de inmuebles asignados a un usuario (id + snapshot del
 // nombre/tipo para poder mostrarlo sin leer todo el catálogo).
 function limpiarInmuebles(inmuebles) {
@@ -563,7 +658,7 @@ exports.actualizarMiPerfil = onCall(async (request) => {
 // Crea o actualiza un inmueble del catálogo (solo admin).
 exports.adminGuardarInmueble = onCall(async (request) => {
   await exigirAdmin(request);
-  const { id, tipo, nombre, ciudad, estado, zona } = request.data || {};
+  const { id, tipo, nombre, ciudad, estado, zona, padre } = request.data || {};
   if (!TIPOS_INMUEBLE.includes(tipo)) {
     throw new HttpsError('invalid-argument', 'Tipo de inmueble no válido.');
   }
@@ -571,12 +666,29 @@ exports.adminGuardarInmueble = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Falta el nombre del inmueble.');
   }
   const texto = (v) => (typeof v === 'string' ? v.trim() : '').slice(0, 60);
+  // `padre` arma la jerarquía: apartamento -> edificio -> conjunto. Se valida
+  // que exista y que no se cuelgue de sí mismo ni de un descendiente suyo, o la
+  // cadena de herencia entraría en bucle.
+  let padreFinal = '';
+  if (typeof padre === 'string' && padre.trim()) {
+    padreFinal = padre.trim();
+    if (padreFinal === id) {
+      throw new HttpsError('invalid-argument', 'Un inmueble no puede ser su propio padre.');
+    }
+    if (!(await db.doc(`inmuebles/${padreFinal}`).get()).exists) {
+      throw new HttpsError('invalid-argument', 'Ese inmueble padre no existe.');
+    }
+    if (id && (await conAncestros([padreFinal])).includes(id)) {
+      throw new HttpsError('invalid-argument', 'Eso haría un círculo en la jerarquía.');
+    }
+  }
   const datos = {
     tipo,
     nombre: nombre.trim().slice(0, 60),
     ciudad: texto(ciudad),
     estado: texto(estado),
     zona: texto(zona),
+    padre: padreFinal,
   };
   let inmuebleId = id;
   if (id && typeof id === 'string') {
@@ -601,6 +713,7 @@ exports.adminGuardarInmueble = onCall(async (request) => {
     datos.creado = admin.firestore.FieldValue.serverTimestamp();
     await db.doc(`inmuebles/${inmuebleId}`).set(datos);
   }
+  await resincronizarInmuebles();
   return { ok: true, id: inmuebleId };
 });
 
@@ -623,6 +736,7 @@ exports.adminEliminarInmueble = onCall(async (request) => {
     }
   });
   if (hayCambios) await batch.commit();
+  await resincronizarInmuebles();
   return { ok: true };
 });
 
@@ -670,7 +784,7 @@ exports.adminEliminarUsuario = onCall(async (request) => {
 exports.adminGuardarDispositivo = onCall(async (request) => {
   await exigirAdmin(request);
   const {
-    id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, segundosApertura, orden, activo,
+    id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, segundosApertura, orden, activo, inmueble,
     proveedor, tuyaDeviceId, codigo, pulsoMs, codigoBrillo, brilloMax,
     codigoPosicion, codigoPosicionEstado, posicionInvertida,
     accesorioId, caracteristica,
@@ -681,6 +795,16 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
   const provFinal = proveedor === 'homebridge' ? 'homebridge' : 'tuya';
   if (!nombre) {
     throw new HttpsError('invalid-argument', 'Falta el nombre del dispositivo.');
+  }
+  // Se valida contra el catálogo para que no quede apuntando a uno inexistente
+  // (un id malo aquí dejaría el dispositivo sin dueño y sin herencia).
+  let inmuebleFinal = '';
+  if (typeof inmueble === 'string' && inmueble.trim()) {
+    const inmId = inmueble.trim();
+    if (!(await db.doc(`inmuebles/${inmId}`).get()).exists) {
+      throw new HttpsError('invalid-argument', 'Ese inmueble no existe.');
+    }
+    inmuebleFinal = inmId;
   }
   if (provFinal === 'homebridge' ? !accesorioId : !tuyaDeviceId) {
     throw new HttpsError('invalid-argument', provFinal === 'homebridge'
@@ -708,6 +832,10 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     segundosApertura: Math.min(120, Math.max(1, Number(segundosApertura) || 15)),
     orden: Number(orden) || 99,
     activo: activo !== false,
+    // Inmueble donde está físicamente. Sirve para dos cosas: de él hereda el
+    // acceso el vecino, y sirve para saber dónde buscar el aparato si se cae la
+    // luz o el internet (y para agrupar reportes por edificio).
+    inmueble: inmuebleFinal,
   }, { merge: true });
   const privado = {
     tuyaDeviceId: String(tuyaDeviceId || '').trim(),
@@ -1294,11 +1422,7 @@ exports.darAcceso = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
     throw new HttpsError('permission-denied', 'Tu cuenta no está activa.');
   }
   const usuario = miSnap.data();
-  const esAdmin = usuario.rol === 'admin';
-  const propios = usuario.dispositivos || [];
-  const compartir = [...new Set(dispositivos.filter(
-    (id) => typeof id === 'string' && (esAdmin || propios.includes(id)),
-  ))];
+  const compartir = await puedeCompartir(usuario, dispositivos);
   if (!compartir.length) {
     throw new HttpsError('permission-denied', 'No puedes compartir esos dispositivos.');
   }
@@ -1386,12 +1510,8 @@ exports.crearPase = onCall(async (request) => {
     throw new HttpsError('permission-denied', 'Tu cuenta no está activa.');
   }
   const usuario = snap.data();
-  const esAdmin = usuario.rol === 'admin';
-  const propios = usuario.dispositivos || [];
-  // Solo puede compartir dispositivos a los que tiene acceso permanente.
-  const compartir = [...new Set(dispositivos.filter(
-    (id) => typeof id === 'string' && (esAdmin || propios.includes(id)),
-  ))];
+  // Solo comparte lo que alcanza de forma permanente (propio o por inmueble).
+  const compartir = await puedeCompartir(usuario, dispositivos);
   if (!compartir.length) {
     throw new HttpsError('permission-denied', 'No puedes compartir esos dispositivos.');
   }
