@@ -512,7 +512,7 @@ exports.adminActualizarUsuario = onCall(async (request) => {
 });
 
 // Catálogo de inmuebles del condominio: los crea y asigna el admin.
-const TIPOS_INMUEBLE = ['conjunto', 'residencias', 'edificio', 'quinta', 'casa', 'local', 'restaurant'];
+const TIPOS_INMUEBLE = ['conjunto', 'residencias', 'edificio', 'apartamento', 'quinta', 'casa', 'local', 'restaurant'];
 // ---- Jerarquía de inmuebles: conjunto -> edificio -> apartamento ----
 // Cada inmueble puede tener `padre`. La herencia va SOLO hacia arriba: quien
 // tiene asignado el apto 3B alcanza también las áreas comunes de su edificio y

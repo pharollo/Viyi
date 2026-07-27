@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=240';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=241';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -184,6 +184,7 @@ async function iniciar() {
     conjunto: 'Conjunto Residencial',
     residencias: 'Residencias',
     edificio: 'Edificio',
+    apartamento: 'Apartamento',
     quinta: 'Quinta',
     casa: 'Casa',
     local: 'Local',
@@ -2473,7 +2474,7 @@ async function iniciar() {
     // Inmueble donde está físicamente. Hace dos cosas: los vecinos de ese
     // inmueble heredan el acceso, y queda registrado dónde buscar el aparato si
     // se cae la luz o el internet.
-    const sInmueble = selector(opcionesInmueble(), d.inmueble || '');
+    const sInmueble = selector(opcionesInmueble(undefined, '— sin asignar —'), d.inmueble || '');
     const actualizarSub = () => {
       campoSub.classList.toggle('oculto', sTipo.value !== 'puerta');
       const esPuertaPulso = sTipo.value === 'puerta' && sModo.value === 'pulso';
@@ -2724,8 +2725,8 @@ async function iniciar() {
 
   // Opciones de inmueble para un selector. `excluir` saca al propio inmueble
   // (nadie es su padre) y a sus descendientes se los rechaza el backend.
-  function opcionesInmueble(excluir) {
-    return [['', '— sin inmueble —']].concat(
+  function opcionesInmueble(excluir, vacio = '— sin inmueble —') {
+    return [['', vacio]].concat(
       cacheInmuebles
         .filter((x) => x.id !== excluir)
         .map((x) => [x.id, rutaInmueble(x.id)]),
@@ -2744,11 +2745,11 @@ async function iniciar() {
     // Padre: arma la jerarquía conjunto -> edificio -> apartamento. Quien tenga
     // asignado el apartamento alcanza también lo común del edificio y del
     // conjunto; al revés no.
-    const sPadre = selector(opcionesInmueble(inm.id), inm.padre || '');
+    const sPadre = selector(opcionesInmueble(inm.id, '— no está dentro de nada —'), inm.padre || '');
     const filas = [
       campo('Tipo', sTipo),
       campo('Nombre', iNombre),
-      campo('Dentro de', sPadre),
+      campo('Dentro de (el conjunto o edificio que lo contiene)', sPadre),
       campo('Ciudad', iCiudad),
       campo('Estado', iEstado),
       campo('Zona', iZona),
