@@ -2773,3 +2773,34 @@ input:checked ~ .pase-tgl::before {
   margin: 6px 0 0;
   line-height: 1.45;
 }
+
+/* Encabezado de grupo dentro de una lista de gestión (Residentes/Visitantes). */
+.grupo-gestion {
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+  padding: 14px 2px 6px;
+  list-style: none;
+}
+
+.grupo-gestion:first-child { padding-top: 4px; }
+
+/* Buscador de una lista de gestión. */
+.buscador {
+  width: 100%;
+  padding: 11px 14px;
+  margin: 0 0 6px;
+  border: none;
+  border-radius: 12px;
+  background: var(--fondo);
+  color: var(--texto);
+  font-size: 15px;
+  font-family: inherit;
+  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.buscador::placeholder { color: var(--texto-suave); }

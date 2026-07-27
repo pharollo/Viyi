@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=244';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=245';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2318,26 +2318,67 @@ async function iniciar() {
       li.appendChild(filaGestion(texto, false, () => abrirEditorInmueble(inm)));
     }
 
+    renderVecinos();
+  }
+
+  // Residente = el que tiene algo permanente: su inmueble, dispositivos
+  // sueltos, o es admin. Visitante = quien entró por una invitación y solo
+  // tiene accesos temporales, sin nada asignado.
+  const esResidente = (u) => (u.inmuebles || []).length > 0
+    || (u.dispositivos || []).length > 0
+    || u.rol === 'admin';
+
+  function renderVecinos() {
     const lu = $('gestion-usuarios');
     lu.textContent = '';
-    for (const u of cacheUsuarios) {
-      const inm = (u.inmuebles || []).map((x) => x.nombre).join(', ');
-      const partes = [nombreCompleto(u), inm, u.rol === 'admin' ? 'admin' : null].filter(Boolean);
-      const fila = filaGestion(partes.join(' · '), u.activo === false, () => abrirEditorUsuario(u));
-      fila.dataset.uid = u.uid; // para colgarle después cómo entra
-      lu.appendChild(fila);
+    const q = ($('buscar-vecino').value || '').trim().toLowerCase();
+    const coincide = (u) => !q
+      || `${nombreCompleto(u)} ${u.email || ''}`.toLowerCase().includes(q);
+    const visibles = cacheUsuarios.filter(coincide);   // ya vienen por nombre
+    const grupos = [
+      ['Residentes', visibles.filter(esResidente)],
+      ['Visitantes', visibles.filter((u) => !esResidente(u))],
+    ];
+    for (const [titulo, lista] of grupos) {
+      if (!lista.length) continue;
+      const cab = document.createElement('li');
+      cab.className = 'grupo-gestion';
+      cab.textContent = `${titulo} (${lista.length})`;
+      lu.appendChild(cab);
+      for (const u of lista) {
+        const inm = (u.inmuebles || []).map((x) => x.nombre).join(', ');
+        const partes = [nombreCompleto(u), inm, u.rol === 'admin' ? 'admin' : null].filter(Boolean);
+        const fila = filaGestion(partes.join(' · '), u.activo === false, () => abrirEditorUsuario(u));
+        fila.dataset.uid = u.uid; // para colgarle después cómo entra
+        lu.appendChild(fila);
+      }
     }
+    if (!visibles.length) {
+      const vacio = document.createElement('li');
+      vacio.className = 'grupo-gestion';
+      vacio.textContent = q ? 'Nadie coincide con la búsqueda.' : 'Sin vecinos todavía.';
+      lu.appendChild(vacio);
+    }
+    marcarProveedores();   // repintar tras filtrar, o se perderían las marcas
   }
 
   // Marca cómo entra cada vecino: con Google, con clave, o las dos. El dato
   // vive en Firebase Auth, así que se pide aparte y se pinta al llegar.
+  let cacheProveedores = null;
+
   async function pintarProveedores() {
-    let mapa;
     try {
       const res = await adminProveedores();
-      mapa = (res.data && res.data.proveedores) || {};
+      cacheProveedores = (res.data && res.data.proveedores) || {};
     } catch (err) { return; }
-    for (const [uid, provs] of Object.entries(mapa)) {
+    marcarProveedores();
+  }
+
+  // Cuelga "cómo entra" de cada fila. Se llama tras cada repintado de la lista
+  // (buscar la rehace) porque las marcas viven en el DOM, no en los datos.
+  function marcarProveedores() {
+    if (!cacheProveedores) return;
+    for (const [uid, provs] of Object.entries(cacheProveedores)) {
       const fila = document.querySelector(`#gestion-usuarios li[data-uid="${uid}"]`);
       if (!fila) continue;
       const info = fila.querySelector('span');
@@ -3719,6 +3760,9 @@ async function iniciar() {
       cont.appendChild(caja);
     }
   }
+
+  // Buscar vecino: filtra sin volver a leer Firestore (ya está todo en caché).
+  $('buscar-vecino').addEventListener('input', renderVecinos);
 
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   // Al encender/apagar un dispositivo, refrescar el conteo de su grupo.
