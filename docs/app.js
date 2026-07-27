@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=247';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=248';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -1625,9 +1625,19 @@ async function iniciar() {
     etiqueta.className = 'etiqueta-control';
     etiqueta.textContent = dispositivo.nombre;
     control.append(cuerpo, etiqueta);
-    // Se reutiliza la coreografía de clases de `pulsar`, que ya respeta los
-    // segundos que tarda ese portón en abrir.
-    boton.addEventListener('click', () => (demo ? pulsarDemo(boton, dispositivo) : pulsar(boton, dispositivo)));
+    // Un mando de verdad es MOMENTARY: se hunde al apretarlo y vuelve solo,
+    // no se queda hundido los 15 s que tarda el portón en abrir. Por eso el
+    // hundido va con su propia clase y no con las de `pulsar`, que duran lo que
+    // dura la apertura.
+    let volver = null;
+    boton.addEventListener('pointerdown', jetDesbloquear);   // iOS: desbloquea el audio en el gesto
+    boton.addEventListener('click', () => {
+      jetSonar(jetTapa);                                     // el clic del plástico
+      boton.classList.add('pulsado');
+      clearTimeout(volver);
+      volver = setTimeout(() => boton.classList.remove('pulsado'), 1100);
+      if (demo) pulsarDemo(boton, dispositivo); else pulsar(boton, dispositivo);
+    });
     return control;
   }
 

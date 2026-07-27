@@ -2836,12 +2836,13 @@ input:checked ~ .pase-tgl::before {
   transition: box-shadow 0.12s ease, transform 0.12s ease;
 }
 
-/* Al apretar, el botón se hunde: es todo el aviso que da un mando real. */
+/* Al apretar, el botón se hunde y vuelve solo (`pulsado` se quita a los 1,1 s).
+   NO se usan aquí las clases .enviando/.exito de `pulsar`: esas duran lo que
+   tarda el portón en abrir, y un mando no se queda hundido 15 segundos. */
 .mando-boton:active,
-.mando-boton.enviando,
-.mando-boton.exito {
-  transform: translateY(1px) scale(0.97);
-  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.6);
+.mando-boton.pulsado {
+  transform: translateY(2px) scale(0.94);
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.75);
 }
 
 /* Miniatura del Locker: el mando entero dentro del círculo. */
