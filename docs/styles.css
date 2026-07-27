@@ -2904,3 +2904,49 @@ input:checked ~ .pase-tgl::before {
   border-radius: 0;
   transform-origin: center center;
 }
+
+/* Pista y deslizador del recorte. */
+.recorte-pista {
+  text-align: center;
+  margin: 0 0 8px;
+}
+
+.zoom-recorte {
+  width: 100%;
+  margin: 0 0 10px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: none;
+}
+
+.zoom-recorte::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--fondo);
+  box-shadow: inset 2px 2px 5px var(--sombra-oscura), inset -2px -2px 5px var(--sombra-clara);
+}
+
+.zoom-recorte::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: var(--primario);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+  cursor: grab;
+}
+
+.zoom-recorte::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--fondo);
+}
+
+.zoom-recorte::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: var(--primario);
+}

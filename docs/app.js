@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=250';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=251';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -3656,6 +3656,7 @@ async function iniciar() {
     // El scale va a la derecha (se aplica primero), así el arrastre se mide en
     // píxeles de pantalla y el dedo mueve la foto 1:1 a cualquier zoom.
     el.style.transform = `translate(-50%, -50%) translate(${recDx}px, ${recDy}px) scale(${recEsc})`;
+    $('skin-zoom').value = String(Math.min(4, recEsc));   // que la pinza mueva el deslizador
   }
 
   // El cuadrado de la imagen que está visible ahora mismo, a 256px.
@@ -3673,6 +3674,13 @@ async function iniciar() {
   // Gestos sobre el círculo: un dedo arrastra, dos hacen pinza. En escritorio,
   // la rueda del ratón hace zoom.
   function activarGestosRecorte() {
+    // Deslizador de zoom: es la vía obvia y funciona con ratón y con dedo. La
+    // pinza sigue estando, pero sin esto nada indicaba que se podía acercar.
+    $('skin-zoom').addEventListener('input', (e) => {
+      if (!recImg) return;
+      recEsc = Number(e.target.value) || 1;
+      pintarRecorte();
+    });
     const zona = $('skin-previa-img').parentElement;
     const dedos = new Map();
     let pinza = 0;

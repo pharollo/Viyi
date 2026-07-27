@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=250">
+  <link rel="stylesheet" href="styles.css?v=251">
 </head>
 <body>
   <header>
@@ -244,6 +244,8 @@
                   <img id="skin-previa-img" class="boton-logo" alt="">
                 </span>
               </div>
+              <p class="campo-ayuda recorte-pista">Arrastra la foto para encuadrarla</p>
+              <input type="range" id="skin-zoom" class="zoom-recorte" min="1" max="4" step="0.02" value="1" aria-label="Acercar la foto">
               <label class="campo-perfil">Nombre
                 <input type="text" id="skin-nombre" maxlength="24" placeholder="Mahjong">
               </label>
@@ -294,6 +296,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=250"></script>
+  <script type="module" src="app.js?v=251"></script>
 </body>
 </html>
