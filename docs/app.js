@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=242';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=243';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -4155,24 +4155,44 @@ async function iniciar() {
     const lista = $('lista-registros');
     lista.textContent = '';
     try {
-      const resultado = await getDocs(
-        query(collection(db, 'registros'), orderBy('fecha', 'desc'), limit(30))
-      );
+      // El admin de un edificio pide solo el historial de su torre (la regla se
+      // evalúa por documento, así que tiene que venir filtrado). El dueño pide
+      // todo, como siempre.
+      const alc = miAlcance();
+      const resultado = alc.length
+        ? await getDocs(query(collection(db, 'registros'),
+            where('inmueble', 'in', alc.slice(0, 30)), orderBy('fecha', 'desc'), limit(30)))
+        : await getDocs(query(collection(db, 'registros'), orderBy('fecha', 'desc'), limit(30)));
       if (resultado.empty) {
         const item = document.createElement('li');
         item.textContent = 'Sin actividad todavía.';
         lista.appendChild(item);
         return;
       }
+      // Quién fue vive en `privado/quien` y solo el dueño puede leerlo. Se
+      // piden en paralelo; el admin de edificio ni lo intenta y verá la
+      // actividad sin identificar a nadie, que es justo la intención.
+      const quienes = new Map();
+      if (!miAlcance().length) {
+        const lecturas = await Promise.all(resultado.docs.map((d) =>
+          getDoc(doc(db, 'registros', d.id, 'privado', 'quien')).catch(() => null)));
+        lecturas.forEach((snap, i) => {
+          if (snap && snap.exists()) quienes.set(resultado.docs[i].id, snap.data());
+        });
+      }
       for (const registro of resultado.docs) {
         const r = registro.data();
+        // Los registros de antes de partir el documento traen el nombre dentro.
+        const quien = quienes.get(registro.id) || { usuarioNombre: r.usuarioNombre, unidad: r.unidad };
         const item = document.createElement('li');
         item.className = r.exito ? 'registro-ok' : 'registro-error';
         const fecha = r.fecha && r.fecha.toDate
           ? r.fecha.toDate().toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })
           : '—';
         const motivo = !r.exito && r.detalle ? ` — ${r.detalle}` : '';
-        item.textContent = `${fecha} · ${r.usuarioNombre}${r.unidad ? ` (${r.unidad})` : ''} · ${r.dispositivoNombre} · ${r.accion} ${r.exito ? '✓' : '✗'}${motivo}`;
+        const quienTxt = quien.usuarioNombre
+          ? `${quien.usuarioNombre}${quien.unidad ? ` (${quien.unidad})` : ''} · ` : '';
+        item.textContent = `${fecha} · ${quienTxt}${r.dispositivoNombre} · ${r.accion} ${r.exito ? '✓' : '✗'}${motivo}`;
         lista.appendChild(item);
       }
     } catch (err) {

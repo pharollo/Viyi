@@ -91,12 +91,24 @@ service cloud.firestore {
     }
 
     // El log de auditoría lo escriben las Cloud Functions y lo lee solo el admin.
+    // Historial de actividad. El documento dice QUÉ pasó y DÓNDE, nunca quién:
+    // el admin de un edificio puede ver la actividad de su torre, pero la
+    // identidad del vecino vive en el subdocumento `privado/quien` y es solo
+    // del dueño. Se separó porque las reglas no pueden ocultar campos.
     match /registros/{id} {
-      // Solo el dueño: el registro no guarda inmueble, así que no hay forma de
-      // acotarlo por edificio sin rediseñarlo. Mejor no verlo que ver el de
-      // otro condominio.
-      allow read: if esAdminGlobal();
+      allow get: if esAdminGlobal()
+        || (esAdmin() && resource.data.get('inmueble', '') in alcanceAdmin());
+      // El admin de edificio tiene que filtrar por sus inmuebles: la regla se
+      // evalúa por documento y si cae uno de otro edificio falla la consulta.
+      allow list: if esAdminGlobal()
+        || (esAdmin() && resource.data.get('inmueble', '') in alcanceAdmin());
       allow write: if false;
+
+      // Quién lo hizo: dato privado de la app, solo el dueño.
+      match /privado/{doc} {
+        allow read: if esAdminGlobal();
+        allow write: if false;
+      }
     }
 
     // Catálogo de inmuebles del condominio. Lo crean, editan y asignan las

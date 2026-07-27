@@ -227,18 +227,37 @@ const msDeDuracion = (d) => (d === 'indef' ? null : DURACIONES_MS[d] || null);
 // Sentinela "sin vencimiento" (fácil de comparar en reglas y backend).
 const FIN_INDEFINIDO = admin.firestore.Timestamp.fromDate(new Date('9999-12-31T00:00:00Z'));
 
-function registrar({ uid, usuario, dispositivoId, dispositivoNombre, accion, exito, detalle }) {
-  return db.collection('registros').add({
-    uid,
-    usuarioNombre: (usuario && usuario.nombre) || '(desconocido)',
-    unidad: (usuario && usuario.unidad) || '',
+// El registro va PARTIDO en dos a propósito:
+//   · `registros/{id}`               → qué pasó y dónde (sin identificar a nadie)
+//   · `registros/{id}/privado/quien` → quién lo hizo
+// Las reglas de Firestore no pueden ocultar campos —dan el documento entero o
+// nada—, así que la única forma de que el admin de un edificio vea la actividad
+// de su torre SIN saber qué vecino fue es separar la identidad en otro
+// documento. Quién fue es dato privado de la app: solo el dueño.
+async function registrar({ uid, usuario, dispositivoId, dispositivoNombre, accion, exito, detalle, inmueble }) {
+  // `inmueble` es lo que permite filtrar el historial por edificio. Si el
+  // llamador no lo trae, se busca: un registro sin inmueble sería invisible
+  // para el admin de su propio edificio.
+  let inm = typeof inmueble === 'string' ? inmueble : null;
+  if (inm === null) {
+    const snap = await db.doc(`dispositivos/${dispositivoId}`).get().catch(() => null);
+    inm = snap && snap.exists ? (snap.data().inmueble || '') : '';
+  }
+  const ref = await db.collection('registros').add({
     dispositivoId,
     dispositivoNombre: dispositivoNombre || dispositivoId,
+    inmueble: inm,
     accion,
     exito,
     detalle: detalle || '',
     fecha: admin.firestore.FieldValue.serverTimestamp(),
   });
+  await ref.collection('privado').doc('quien').set({
+    uid,
+    usuarioNombre: (usuario && usuario.nombre) || '(desconocido)',
+    unidad: (usuario && usuario.unidad) || '',
+  }).catch(() => {});
+  return ref;
 }
 
 async function autorizar(uid, dispositivoId) {
