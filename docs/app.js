@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=249';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=250';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -3577,7 +3577,8 @@ async function iniciar() {
   // función arrastre ese arranque en frío por algo que se usa muy de vez en
   // cuando. Aquí es un canvas y ya.
   const adminSkins = httpsCallable(functions, 'adminSkins');
-  let skinPropuesta = null;   // data URI del WebP ya procesado, sin publicar
+  // La imagen sin publicar vive en `recImg` + el estado del recorte; el WebP se
+  // genera al publicar, para no rehacerlo en cada frame del gesto.
 
   // A qué tipos puede aplicar un skin: solo donde el control ES un botón
   // redondo. Cortinas, dimmers y termostatos son perillas, ruedas o sliders y
@@ -3619,20 +3620,95 @@ async function iniciar() {
 
   // El botón es un círculo con la foto a `cover`, así que basta un cuadrado:
   // el CSS hace el recorte. Se cuadra por el lado corto y se centra.
-  function aCuadradoWebp(fuente, lado = 256) {
+  // ---- Recorte ajustable de la previa ----
+  // La previa ES el botón real, así que se recorta ahí mismo: arrastras y haces
+  // pinza dentro del círculo que vas a publicar. El WebP definitivo se genera al
+  // publicar, no en cada frame del gesto.
+  const CAJA_PREVIA = 168;    // diámetro del botón .grande, en px
+  let gestosRecorteListos = false;
+  let recImg = null;          // la imagen fuente cargada
+  let recBase = 1;            // px de pantalla por px de imagen, con el lado corto justo cubriendo
+  let recEsc = 1, recDx = 0, recDy = 0;
+
+  function cargarImagen(fuente) {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = lado; c.height = lado;
-        const g = c.getContext('2d');
-        const m = Math.min(img.width, img.height);
-        g.drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, lado, lado);
-        resolve(c.toDataURL('image/webp', 0.86));
-      };
-      img.onerror = () => reject(new Error('No se pudo leer la imagen generada.'));
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('No se pudo leer la imagen.'));
       img.src = fuente;
     });
+  }
+
+  // Mantiene la foto cubriendo el círculo: sin huecos por los bordes.
+  function acotarRecorte() {
+    recEsc = Math.min(6, Math.max(1, recEsc));
+    const margenX = (recImg.naturalWidth * recBase * recEsc - CAJA_PREVIA) / 2;
+    const margenY = (recImg.naturalHeight * recBase * recEsc - CAJA_PREVIA) / 2;
+    recDx = Math.max(-margenX, Math.min(margenX, recDx));
+    recDy = Math.max(-margenY, Math.min(margenY, recDy));
+  }
+
+  function pintarRecorte() {
+    const el = $('skin-previa-img');
+    acotarRecorte();
+    el.style.width = `${recImg.naturalWidth * recBase}px`;
+    el.style.height = `${recImg.naturalHeight * recBase}px`;
+    // El scale va a la derecha (se aplica primero), así el arrastre se mide en
+    // píxeles de pantalla y el dedo mueve la foto 1:1 a cualquier zoom.
+    el.style.transform = `translate(-50%, -50%) translate(${recDx}px, ${recDy}px) scale(${recEsc})`;
+  }
+
+  // El cuadrado de la imagen que está visible ahora mismo, a 256px.
+  function recorteWebp(lado = 256) {
+    const t = recBase * recEsc;                       // imagen -> pantalla
+    const medio = (CAJA_PREVIA / 2) / t;              // medio lado, en px de imagen
+    const cx = recImg.naturalWidth / 2 - recDx / t;
+    const cy = recImg.naturalHeight / 2 - recDy / t;
+    const c = document.createElement('canvas');
+    c.width = lado; c.height = lado;
+    c.getContext('2d').drawImage(recImg, cx - medio, cy - medio, medio * 2, medio * 2, 0, 0, lado, lado);
+    return c.toDataURL('image/webp', 0.86);
+  }
+
+  // Gestos sobre el círculo: un dedo arrastra, dos hacen pinza. En escritorio,
+  // la rueda del ratón hace zoom.
+  function activarGestosRecorte() {
+    const zona = $('skin-previa-img').parentElement;
+    const dedos = new Map();
+    let pinza = 0;
+    zona.addEventListener('pointerdown', (e) => {
+      if (!recImg) return;
+      dedos.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (dedos.size === 2) {
+        const [a, b] = [...dedos.values()];
+        pinza = Math.hypot(a.x - b.x, a.y - b.y);
+      }
+      if (zona.setPointerCapture) zona.setPointerCapture(e.pointerId);
+    });
+    zona.addEventListener('pointermove', (e) => {
+      if (!recImg || !dedos.has(e.pointerId)) return;
+      const prev = dedos.get(e.pointerId);
+      dedos.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (dedos.size === 1) {
+        recDx += e.clientX - prev.x;
+        recDy += e.clientY - prev.y;
+      } else if (dedos.size === 2 && pinza) {
+        const [a, b] = [...dedos.values()];
+        const ahora = Math.hypot(a.x - b.x, a.y - b.y);
+        recEsc *= ahora / pinza;
+        pinza = ahora;
+      }
+      pintarRecorte();
+    });
+    const soltar = (e) => { dedos.delete(e.pointerId); pinza = 0; };
+    zona.addEventListener('pointerup', soltar);
+    zona.addEventListener('pointercancel', soltar);
+    zona.addEventListener('wheel', (e) => {
+      if (!recImg) return;
+      e.preventDefault();
+      recEsc *= e.deltaY < 0 ? 1.08 : 1 / 1.08;
+      pintarRecorte();
+    }, { passive: false });
   }
 
   function msgSkin(texto, error) {
@@ -3645,11 +3721,15 @@ async function iniciar() {
 
   // Deja una imagen (venga de la IA o del carrete) lista para publicar: la
   // cuadra, la muestra en la previa y propone un nombre. Es el único sitio que
-  // toca `skinPropuesta`, así que las dos vías se comportan igual.
+  // monta el recorte, así que las dos vías se comportan igual.
   async function usarImagen(fuente, nombreSugerido) {
-    skinPropuesta = await aCuadradoWebp(fuente);
-    $('skin-previa-img').src = skinPropuesta;
+    recImg = await cargarImagen(fuente);
+    // El lado corto cubre justo el círculo: es el zoom mínimo sin huecos.
+    recBase = CAJA_PREVIA / Math.min(recImg.naturalWidth, recImg.naturalHeight);
+    recEsc = 1; recDx = 0; recDy = 0;
+    $('skin-previa-img').src = recImg.src;
     $('skin-previa').classList.remove('oculto');
+    pintarRecorte();
     if (!$('skin-nombre').value.trim() && nombreSugerido) {
       $('skin-nombre').value = tituloCase(nombreSugerido).slice(0, 24);
     }
@@ -3684,7 +3764,11 @@ async function iniciar() {
     const mostrar = form.classList.contains('oculto');
     form.classList.toggle('oculto', !mostrar);
     $('btn-toggle-skin').setAttribute('aria-expanded', String(mostrar));
-    if (mostrar) { pintarChipsTipos($('skin-tipos'), null); pintarListaSkins(); }
+    if (mostrar) {
+      pintarChipsTipos($('skin-tipos'), null);
+      pintarListaSkins();
+      if (!gestosRecorteListos) { activarGestosRecorte(); gestosRecorteListos = true; }
+    }
   });
 
   $('btn-generar-skin').addEventListener('click', async () => {
@@ -3708,7 +3792,7 @@ async function iniciar() {
   });
 
   $('btn-publicar-skin').addEventListener('click', async () => {
-    if (!skinPropuesta) return;
+    if (!recImg) return;
     const nombre = $('skin-nombre').value.trim();
     if (!nombre) { msgSkin('Ponle un nombre.', true); return; }
     // El id sale del nombre; si ya existe se le añade un sufijo para no pisar
@@ -3724,12 +3808,12 @@ async function iniciar() {
         accion: 'publicar',
         id,
         nombre,
-        imagen: skinPropuesta,
+        imagen: recorteWebp(),
         animacion: $('skin-animacion').value,
         tipos: tiposElegidos($('skin-tipos')),
         prompt: $('skin-prompt').value.trim(),
       });
-      skinPropuesta = null;
+      recImg = null;
       $('skin-previa').classList.add('oculto');
       $('skin-prompt').value = '';
       $('skin-nombre').value = '';

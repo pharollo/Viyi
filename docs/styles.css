@@ -2880,3 +2880,27 @@ input:checked ~ .pase-tgl::before {
   opacity: 0;
   pointer-events: none;
 }
+
+/* La previa es recortable: la foto se posiciona y transforma a mano, así que se
+   anulan el 100%/cover de .boton-logo. El contenedor circular la recorta. */
+.skin-previa .boton-circular {
+  cursor: grab;
+  touch-action: none;   /* los gestos son nuestros, no del navegador */
+}
+
+.skin-previa .boton-circular:active { cursor: grabbing; }
+
+.skin-previa .boton-logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: auto;
+  height: auto;
+  max-width: none;
+  /* `fill`, no `none`: con `none` el bitmap se dibuja a tamaño natural y se
+     ignora el width/height que le pone el JS, así que la previa no coincidía
+     con lo que se publica. El recuadro ya lleva la proporción correcta. */
+  object-fit: fill;
+  border-radius: 0;
+  transform-origin: center center;
+}
