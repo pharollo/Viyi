@@ -3034,3 +3034,55 @@ input:checked ~ .pase-tgl::before {
 .tuya-lista > .dps-detectados {
   margin-top: 0;
 }
+
+/* Inmuebles en árbol: un edificio se pliega y sus apartamentos van dentro.
+   La fila del padre imita a `.lista-gestion li` (que aquí no aplica, porque el
+   li solo envuelve al <details>), y la flecha reaprovecha .pase-grupo-flecha:
+   solo hace falta añadirle el giro, que allí está atado a .pase-grupo[open]. */
+.lista-gestion li.inm-rama {
+  display: block;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.inm-rama > details > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 10px 12px;
+  border-radius: 12px;
+  background: var(--fondo);
+  box-shadow: inset 3px 3px 7px var(--sombra-oscura), inset -3px -3px 7px var(--sombra-clara);
+  cursor: pointer;
+  list-style: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.inm-rama > details > summary::-webkit-details-marker { display: none; }
+
+.lista-gestion li.inm-hoja {
+  padding-left: 40px;   /* 12 del summary + 18 de la flecha + 10 del hueco */
+}
+
+.inm-rama > details > summary > span {
+  flex: 1;
+}
+
+/* El conteo de lo que hay dentro, sin gritar. */
+.inm-rama > details > summary em {
+  font-style: normal;
+  color: var(--texto-suave);
+}
+
+.inm-rama > details[open] .pase-grupo-flecha {
+  transform: rotate(90deg);
+}
+
+/* Los hijos, sangrados y colgando de una línea, para que se lea de un vistazo
+   qué está dentro de qué. */
+.inm-rama > details > .lista-gestion {
+  margin: 9px 0 0 14px;
+  padding-left: 14px;
+  border-left: 1px solid var(--sombra-oscura);
+}

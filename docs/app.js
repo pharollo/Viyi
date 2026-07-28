@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=276';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=277';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -181,6 +181,84 @@ async function iniciar() {
   const autoNombre = (input) => input.addEventListener('blur', () => {
     input.value = nombrePropio(input.value);
   });
+
+
+  // Ciudades de Venezuela con su estado. Sirven para dos cosas: sugerir la
+  // ciudad mientras se escribe y rellenar el estado solo, que es un dato que
+  // no cambia y no tiene sentido teclear en cada inmueble.
+  const CIUDADES_VE = {
+    'Puerto Ayacucho': 'Amazonas',
+    'Barcelona': 'Anzoátegui', 'Puerto La Cruz': 'Anzoátegui', 'Lechería': 'Anzoátegui',
+    'El Tigre': 'Anzoátegui', 'Anaco': 'Anzoátegui', 'Cantaura': 'Anzoátegui', 'Guanta': 'Anzoátegui',
+    'San Fernando de Apure': 'Apure', 'Guasdualito': 'Apure', 'Achaguas': 'Apure', 'Biruaca': 'Apure',
+    'Maracay': 'Aragua', 'Turmero': 'Aragua', 'La Victoria': 'Aragua', 'Cagua': 'Aragua',
+    'Villa de Cura': 'Aragua', 'Palo Negro': 'Aragua', 'El Limón': 'Aragua', 'San Mateo': 'Aragua',
+    'Colonia Tovar': 'Aragua', 'Ocumare de la Costa': 'Aragua', 'Choroní': 'Aragua',
+    'Barinas': 'Barinas', 'Socopó': 'Barinas', 'Sabaneta': 'Barinas', 'Santa Bárbara de Barinas': 'Barinas',
+    'Ciudad Bolívar': 'Bolívar', 'Ciudad Guayana': 'Bolívar', 'Puerto Ordaz': 'Bolívar',
+    'San Félix': 'Bolívar', 'Upata': 'Bolívar', 'El Callao': 'Bolívar', 'Tumeremo': 'Bolívar',
+    'Caicara del Orinoco': 'Bolívar', 'Santa Elena de Uairén': 'Bolívar',
+    'Valencia': 'Carabobo', 'Naguanagua': 'Carabobo', 'San Diego': 'Carabobo', 'Guacara': 'Carabobo',
+    'Puerto Cabello': 'Carabobo', 'Los Guayos': 'Carabobo', 'Tocuyito': 'Carabobo',
+    'Morón': 'Carabobo', 'Bejuma': 'Carabobo', 'Güigüe': 'Carabobo',
+    'San Carlos': 'Cojedes', 'Tinaquillo': 'Cojedes', 'El Baúl': 'Cojedes',
+    'Tucupita': 'Delta Amacuro',
+    'Caracas': 'Distrito Capital',
+    'Coro': 'Falcón', 'Punto Fijo': 'Falcón', 'Punta Cardón': 'Falcón', 'Tucacas': 'Falcón',
+    'Chichiriviche': 'Falcón', 'Dabajuro': 'Falcón', 'Puerto Cumarebo': 'Falcón',
+    'San Juan de los Morros': 'Guárico', 'Calabozo': 'Guárico', 'Valle de la Pascua': 'Guárico',
+    'Zaraza': 'Guárico', 'Altagracia de Orituco': 'Guárico',
+    'Barquisimeto': 'Lara', 'Cabudare': 'Lara', 'Carora': 'Lara', 'El Tocuyo': 'Lara',
+    'Quíbor': 'Lara', 'Duaca': 'Lara', 'Sanare': 'Lara',
+    'Mérida': 'Mérida', 'El Vigía': 'Mérida', 'Ejido': 'Mérida', 'Tovar': 'Mérida',
+    'Santa Cruz de Mora': 'Mérida', 'Timotes': 'Mérida',
+    'Los Teques': 'Miranda', 'Guarenas': 'Miranda', 'Guatire': 'Miranda', 'Charallave': 'Miranda',
+    'Cúa': 'Miranda', 'Ocumare del Tuy': 'Miranda', 'Santa Teresa del Tuy': 'Miranda',
+    'San Antonio de los Altos': 'Miranda', 'Carrizal': 'Miranda', 'Higuerote': 'Miranda',
+    'Río Chico': 'Miranda', 'Caucagua': 'Miranda', 'Baruta': 'Miranda', 'Chacao': 'Miranda',
+    'El Hatillo': 'Miranda', 'Petare': 'Miranda', 'Los Salias': 'Miranda',
+    'Maturín': 'Monagas', 'Punta de Mata': 'Monagas', 'Caripito': 'Monagas',
+    'Caripe': 'Monagas', 'Temblador': 'Monagas',
+    'Porlamar': 'Nueva Esparta', 'La Asunción': 'Nueva Esparta', 'Pampatar': 'Nueva Esparta',
+    'Juan Griego': 'Nueva Esparta', 'Punta de Piedras': 'Nueva Esparta',
+    'Guanare': 'Portuguesa', 'Acarigua': 'Portuguesa', 'Araure': 'Portuguesa',
+    'Villa Bruzual': 'Portuguesa', 'Turén': 'Portuguesa',
+    'Cumaná': 'Sucre', 'Carúpano': 'Sucre', 'Güiria': 'Sucre', 'Cariaco': 'Sucre',
+    'San Cristóbal': 'Táchira', 'Táriba': 'Táchira', 'San Antonio del Táchira': 'Táchira',
+    'Rubio': 'Táchira', 'La Fría': 'Táchira', 'Ureña': 'Táchira', 'San Juan de Colón': 'Táchira',
+    'Trujillo': 'Trujillo', 'Valera': 'Trujillo', 'Boconó': 'Trujillo',
+    'Carvajal': 'Trujillo', 'La Puerta': 'Trujillo',
+    'La Guaira': 'La Guaira', 'Catia La Mar': 'La Guaira', 'Maiquetía': 'La Guaira',
+    'Macuto': 'La Guaira', 'Naiguatá': 'La Guaira', 'Caraballeda': 'La Guaira',
+    'San Felipe': 'Yaracuy', 'Yaritagua': 'Yaracuy', 'Chivacoa': 'Yaracuy',
+    'Nirgua': 'Yaracuy', 'Cocorote': 'Yaracuy',
+    'Maracaibo': 'Zulia', 'San Francisco': 'Zulia', 'Cabimas': 'Zulia', 'Ciudad Ojeda': 'Zulia',
+    'Santa Bárbara del Zulia': 'Zulia', 'Machiques': 'Zulia', 'La Concepción': 'Zulia',
+    'Mene Grande': 'Zulia', 'Villa del Rosario': 'Zulia', 'Los Puertos de Altagracia': 'Zulia',
+  };
+
+  const ESTADOS_VE = [...new Set(Object.values(CIUDADES_VE))].sort((a, b) => a.localeCompare(b));
+
+  // Sin tildes ni mayúsculas: quien escribe "merida" en el teléfono espera que
+  // se lo reconozca igual.
+  const sinTildes = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const ESTADO_POR_CIUDAD = new Map(Object.entries(CIUDADES_VE).map(([c, e]) => [sinTildes(c), e]));
+
+  // Un <datalist> por lista, creado una vez y reutilizado por todos los
+  // formularios que lo pidan.
+  function listaSugerencias(id, valores) {
+    let dl = document.getElementById(id);
+    if (dl) return id;
+    dl = document.createElement('datalist');
+    dl.id = id;
+    for (const v of valores) {
+      const o = document.createElement('option');
+      o.value = v;
+      dl.appendChild(o);
+    }
+    document.body.appendChild(dl);
+    return id;
+  }
 
   // Mismo tope que el servidor (MAX_LOTE en functions/index.js): se avisa en
   // la vista previa en vez de dejar que falle al guardar.
@@ -2326,6 +2404,43 @@ async function iniciar() {
     return li;
   }
 
+  // Un inmueble del listado. Si contiene otros, se pinta plegado con el
+  // conteo al lado; el botón Editar va dentro del resumen, así que abrir y
+  // editar no se pisan.
+  function nodoInmueble(inm, hijosDe) {
+    const hijos = hijosDe.get(inm.id) || [];
+    const texto = `${inm.nombre} · ${TIPO_INMUEBLE_TXT[inm.tipo] || inm.tipo}`;
+    if (!hijos.length) {
+      const hoja = filaGestion(texto, false, () => abrirEditorInmueble(inm));
+      // Sangrada lo que ocupa la flecha, para que el nombre de una casa suelta
+      // arranque en la misma vertical que el de un edificio desplegable.
+      hoja.className = 'inm-hoja';
+      return hoja;
+    }
+    const li = document.createElement('li');
+    li.className = 'inm-rama';
+    const det = document.createElement('details');
+    const sum = document.createElement('summary');
+    sum.innerHTML = '<svg class="pase-grupo-flecha" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>'
+      + `<span>${escapar(texto)} <em>(${hijos.length})</em></span>`;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-secundario';
+    btn.textContent = 'Editar';
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault();   // si no, el summary se abre o se cierra a la vez
+      ev.stopPropagation();
+      abrirEditorInmueble(inm);
+    });
+    sum.appendChild(btn);
+    const ul = document.createElement('ul');
+    ul.className = 'lista-gestion';
+    for (const h of hijos) ul.appendChild(nodoInmueble(h, hijosDe));
+    det.append(sum, ul);
+    li.appendChild(det);
+    return li;
+  }
+
   // Pinta el punto de conexión de cada dispositivo. Si no se sabe el estado no
   // se pinta nada: mejor sin dato que un rojo mentiroso.
   function pintarConexion(lista) {
@@ -2426,10 +2541,18 @@ async function iniciar() {
       vacio.textContent = 'Aún no hay inmuebles. Créalos para asignarlos a los vecinos.';
       li.appendChild(vacio);
     }
+    // En árbol: un edificio con sus 24 apartamentos en una lista plana es
+    // ilegible. Cada inmueble con hijos se pliega y solo se abre si hace falta.
+    const hijosDe = new Map();
+    const conocidos = new Set(cacheInmuebles.map((x) => x.id));
     for (const inm of cacheInmuebles) {
-      const texto = `${inm.nombre} · ${TIPO_INMUEBLE_TXT[inm.tipo] || inm.tipo}`;
-      li.appendChild(filaGestion(texto, false, () => abrirEditorInmueble(inm)));
+      // Si el padre ya no está (borrado a mano), cuelga de la raíz en vez de
+      // desaparecer del listado.
+      const padre = inm.padre && conocidos.has(inm.padre) ? inm.padre : '';
+      if (!hijosDe.has(padre)) hijosDe.set(padre, []);
+      hijosDe.get(padre).push(inm);
     }
+    for (const raiz of hijosDe.get('') || []) li.appendChild(nodoInmueble(raiz, hijosDe));
 
     renderVecinos();
   }
@@ -3087,6 +3210,17 @@ async function iniciar() {
     );
   }
 
+  // Cuántos inmuebles cuelgan de este, a cualquier profundidad.
+  function descendientesDe(id) {
+    let n = 0;
+    let frente = [id];
+    for (let nivel = 0; nivel < 6 && frente.length; nivel++) {
+      frente = cacheInmuebles.filter((x) => frente.includes(x.padre)).map((x) => x.id);
+      n += frente.length;
+    }
+    return n;
+  }
+
   function abrirEditorInmueble(existente) {
     const esNuevo = !existente;
     const inm = existente || {};
@@ -3096,6 +3230,14 @@ async function iniciar() {
     const iEstado = entrada(inm.estado);
     const iZona = entrada(inm.zona);
     [iNombre, iCiudad, iEstado, iZona].forEach((i) => i.setAttribute('autocapitalize', 'words'));
+    iCiudad.setAttribute('list', listaSugerencias('ciudades-ve', Object.keys(CIUDADES_VE).sort((a, b) => a.localeCompare(b))));
+    iEstado.setAttribute('list', listaSugerencias('estados-ve', ESTADOS_VE));
+    // El estado se deduce de la ciudad: es un dato fijo y no tiene sentido
+    // teclearlo en cada inmueble. Se sigue pudiendo escribir a mano.
+    iCiudad.addEventListener('input', () => {
+      const est = ESTADO_POR_CIUDAD.get(sinTildes(iCiudad.value));
+      if (est) iEstado.value = est;
+    });
     // Padre: arma la jerarquía conjunto -> edificio -> apartamento. Quien tenga
     // asignado el apartamento alcanza también lo común del edificio y del
     // conjunto; al revés no.
@@ -3106,7 +3248,8 @@ async function iniciar() {
     const iTorres = entrada('', 'ej: 4', 'number');
     const iPisos = entrada('', 'ej: 8', 'number');
     const iPorPiso = entrada('', 'ej: 4', 'number');
-    [iTorres, iPisos, iPorPiso].forEach((i) => {
+    const iPH = entrada('', 'ej: 1', 'number');
+    [iTorres, iPisos, iPorPiso, iPH].forEach((i) => {
       i.min = '0';
       i.inputMode = 'numeric';
     });
@@ -3115,6 +3258,7 @@ async function iniciar() {
     iTorres.max = '26';
     iPorPiso.max = '26';
     iPisos.max = '60';
+    iPH.max = '26';
     // Un conjunto no siempre son torres: puede ser de casas o quintas que
     // comparten los accesos comunes. Eso cambia qué se pregunta después.
     const sCompone = selector([
@@ -3133,6 +3277,9 @@ async function iniciar() {
     const campoTorres = campo('Torres', iTorres);
     const campoPisos = campo('Pisos', iPisos);
     const campoPorPiso = campo('Apartamentos por piso', iPorPiso);
+    // El último piso suele ser solo el PH, así que va aparte y no como un piso
+    // más: si no, saldría "13A" donde debería decir "PH".
+    const campoPH = campo('Penthouses, encima del último piso', iPH);
     const previa = document.createElement('p');
     previa.className = 'dps-detectados lote-previa';
     const filas = [
@@ -3147,6 +3294,7 @@ async function iniciar() {
       campoNombres,
       campoPisos,
       campoPorPiso,
+      campoPH,
       previa,
     ];
 
@@ -3185,6 +3333,10 @@ async function iniciar() {
             aptos.push({ nombre: `${piso}${LETRAS[k]}`, tipo: unidad(), hijos: [] });
           }
         }
+        const ph = num(iPH);
+        for (let k = 0; k < ph; k++) {
+          aptos.push({ nombre: ph === 1 ? 'PH' : `PH-${LETRAS[k]}`, tipo: unidad(), hijos: [] });
+        }
       }
       if (!bloque()) return aptos;
       if (!conTorres()) {
@@ -3203,6 +3355,7 @@ async function iniciar() {
       campoNombres.classList.toggle('oculto', !esNuevo || !bloque() || conTorres());
       campoPisos.classList.toggle('oculto', !esNuevo || !unidad());
       campoPorPiso.classList.toggle('oculto', !esNuevo || !unidad());
+      campoPH.classList.toggle('oculto', !esNuevo || !unidad());
       campoNombres.querySelector('span').textContent = bloque() === 'quinta' ? 'Nombre de cada quinta' : 'Nombre de cada casa';
       campoPisos.querySelector('span').textContent = conTorres() ? 'Pisos por torre' : 'Pisos';
       campoPorPiso.querySelector('span').textContent = unidad() === 'oficina' ? 'Oficinas por piso' : 'Apartamentos por piso';
@@ -3227,7 +3380,7 @@ async function iniciar() {
       previa.textContent = `Se crearán ${partes.join(' y ')}. ${total} inmuebles en total.`;
     }
     [sTipo, sCompone].forEach((x) => x.addEventListener('change', sincronizarLote));
-    [iTorres, iPisos, iPorPiso, tNombres].forEach((i) => i.addEventListener('input', sincronizarLote));
+    [iTorres, iPisos, iPorPiso, iPH, tNombres].forEach((i) => i.addEventListener('input', sincronizarLote));
     sincronizarLote();
     const acciones = [
       botonForm('Guardar', 'btn-primario', async (ev) => {
@@ -3267,12 +3420,18 @@ async function iniciar() {
     ];
     if (!esNuevo) {
       acciones.push(botonForm('Eliminar', 'btn-peligro', async (ev) => {
-        if (!confirm(`¿Eliminar el inmueble "${inm.nombre}"? Se quitará de los vecinos que lo tengan asignado.`)) return;
+        // Cuántos se lleva por delante: el admin tiene que verlo ANTES, no
+        // enterarse de que borró 24 apartamentos al mirar el listado.
+        const dentro = descendientesDe(inm.id);
+        const aviso = dentro
+          ? `¿Eliminar "${inm.nombre}" y los ${dentro} inmuebles que contiene? Se quitarán de los vecinos que los tengan asignados.`
+          : `¿Eliminar el inmueble "${inm.nombre}"? Se quitará de los vecinos que lo tengan asignado.`;
+        if (!confirm(aviso)) return;
         const b = ev.currentTarget;
         b.disabled = true;
         try {
-          await adminEliminarInmueble({ id: inm.id });
-          toast('Inmueble eliminado.', 'ok');
+          await adminEliminarInmueble({ id: inm.id, conDescendientes: true });
+          toast(dentro ? `${dentro + 1} inmuebles eliminados.` : 'Inmueble eliminado.', 'ok');
           await trasGuardar();
         } catch (err) {
           toast(err.message || 'No se pudo eliminar.', 'error');

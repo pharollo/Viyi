@@ -1053,25 +1053,37 @@ exports.adminCrearInmuebleLote = onCall(async (request) => {
 // Elimina un inmueble del catálogo y lo quita de los vecinos asignados.
 exports.adminEliminarInmueble = onCall(async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
-  const { id } = request.data || {};
+  const { id, conDescendientes } = request.data || {};
   if (!id || typeof id !== 'string') {
     throw new HttpsError('invalid-argument', 'Falta el id.');
   }
   exigirInmueble(alcance, id, 'Ese inmueble');
-  await db.doc(`inmuebles/${id}`).delete();
+  // Borrar solo la torre dejaría sus apartamentos colgando de un id que ya no
+  // existe: seguirían asignados a vecinos y no habría forma de llegar a ellos
+  // desde el listado. O se borra el subárbol entero, o no se borra.
+  const ids = await subarbolInmuebles([id]);
+  if (ids.length > 1 && !conDescendientes) {
+    throw new HttpsError('failed-precondition', `Ese inmueble contiene ${ids.length - 1} inmuebles más.`);
+  }
+  for (let i = 0; i < ids.length; i += 400) {
+    const batch = db.batch();
+    for (const x of ids.slice(i, i + 400)) batch.delete(db.doc(`inmuebles/${x}`));
+    await batch.commit();
+  }
+  const fuera = new Set(ids);
   const usuarios = await db.collection('usuarios').get();
   const batch = db.batch();
   let hayCambios = false;
   usuarios.forEach((s) => {
     const lista = s.data().inmuebles || [];
-    if (lista.some((x) => x.id === id)) {
+    if (lista.some((x) => fuera.has(x.id))) {
       hayCambios = true;
-      batch.set(s.ref, { inmuebles: lista.filter((x) => x.id !== id) }, { merge: true });
+      batch.set(s.ref, { inmuebles: lista.filter((x) => !fuera.has(x.id)) }, { merge: true });
     }
   });
   if (hayCambios) await batch.commit();
   await resincronizarInmuebles();
-  return { ok: true };
+  return { ok: true, total: ids.length };
 });
 
 // Borra un vecino de verdad: su cuenta de acceso y su ficha. Es irreversible.
