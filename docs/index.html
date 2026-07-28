@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=263">
+  <link rel="stylesheet" href="styles.css?v=264">
 </head>
 <body>
   <header>
@@ -226,7 +226,13 @@
             <p id="vest-nota" class="vest-ayuda vest-nota oculto"></p>
           </div>
         </div>
-        <div class="tarjeta" id="seccion-tuya">
+        <!-- Oculto: el OAuth de Tuya (Device Data Sharing) solo existe en el
+             centro de datos de Europa, y este proyecto está en Western America.
+             El backend queda escrito y no molesta; en cuanto Tuya lo habilite
+             aquí, basta quitar `oculto`. Mientras tanto, un vecino se vincula
+             con el QR de la consola (Devices -> Link App Account -> Add App
+             Account). -->
+        <div class="tarjeta oculto" id="seccion-tuya">
           <button type="button" id="btn-vincular-tuya" class="btn-secundario">Vincular mi cuenta Tuya</button>
           <p id="tuya-msg" class="campo-ayuda">Para usar en ViYi los dispositivos que ya tienes en tu app Smart Life. Eliges cuáles compartes.</p>
         </div>
@@ -300,6 +306,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=263"></script>
+  <script type="module" src="app.js?v=264"></script>
 </body>
 </html>
