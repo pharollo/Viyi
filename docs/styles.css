@@ -2950,3 +2950,35 @@ input:checked ~ .pase-tgl::before {
   border-radius: 50%;
   background: var(--primario);
 }
+
+/* ===== Carrusel de dos en dos (grupos de más de dos controles) =====
+   Cada ficha ocupa media pantalla y encaja al borde en vez de al centro, así
+   siempre se ven DOS enteros y cada deslizada pasa al par siguiente. Sin
+   coverflow: los dos van a tamaño completo. */
+.grupo-controles.carrusel.doble {
+  padding: 8px 0;
+  gap: 0;
+}
+
+.grupo-controles.carrusel.doble > .control {
+  flex: 0 0 50%;
+  scroll-snap-align: start;
+  transform: none;
+  opacity: 1;
+}
+
+/* Los botones grandes se achican para que dos quepan enteros en la pantalla:
+   220px (168 + 26 de aro a cada lado) no caben dos en un teléfono. */
+.compacto .anillo {
+  padding: 17px;
+}
+
+.compacto .boton-circular.grande {
+  width: 122px;
+  height: 122px;
+}
+
+.compacto .boton-circular.grande svg {
+  width: 46px;
+  height: 46px;
+}
