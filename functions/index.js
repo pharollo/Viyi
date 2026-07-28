@@ -789,11 +789,13 @@ exports.actualizarMiPerfil = onCall(async (request) => {
 });
 
 // ---- OAuth de Tuya: que un vecino autorice SUS propios dispositivos ----
-// A dónde vuelve Tuya tras la autorización. Tiene que coincidir EXACTAMENTE con
-// la registrada en la consola de Tuya y con el centro de datos de TUYA_BASE_URL.
-const TUYA_REDIRECT = defineString('TUYA_REDIRECT', {
-  default: 'https://us-central1-viyi-25a09.cloudfunctions.net/tuyaCallback',
-});
+// A dónde vuelve Tuya tras la autorización. Se DERIVA del proyecto y la región
+// en vez de ser un `defineString`: el workflow solo escribe TUYA_BASE_URL en
+// functions/.env, así que un parámetro nuevo se queda sin valor y tumba el
+// despliegue en CI (--non-interactive muere pidiéndolo). Y esta URL no cambia
+// nunca. Tiene que estar registrada IGUAL en la consola de Tuya, y en el mismo
+// centro de datos que TUYA_BASE_URL.
+const TUYA_REDIRECT = `https://us-central1-${process.env.GCLOUD_PROJECT || 'viyi-25a09'}.cloudfunctions.net/tuyaCallback`;
 
 // Le da al vecino el enlace para autorizar. El `state` lleva su uid firmado:
 // es lo que permite saber quién volvió, y va firmado para que nadie pueda
@@ -813,7 +815,7 @@ exports.vincularTuya = onCall(
       .update(uid).digest('hex').slice(0, 32);
     const ya = await db.doc(`tuyaAuth/${uid}`).get();
     return {
-      url: tuya().urlAutorizacion(TUYA_REDIRECT.value(), `${uid}.${firma}`),
+      url: tuya().urlAutorizacion(TUYA_REDIRECT, `${uid}.${firma}`),
       vinculada: ya.exists,
     };
   },

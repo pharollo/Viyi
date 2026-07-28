@@ -48,6 +48,10 @@ jobs:
       # TUYA_BASE_URL es un parámetro (no secreto) que en local vive en
       # functions/.env (ignorado por git). Lo recreamos aquí para el deploy.
       # Se puede sobreescribir con una variable de repo TUYA_BASE_URL.
+      #
+      # ⚠️ Si se añade otro `defineString` en functions/index.js, HAY QUE
+      # añadirlo también aquí: este paso REESCRIBE el .env, así que un parámetro
+      # que falte deja el deploy pidiéndolo y, con --non-interactive, falla.
       - name: Configurar parámetros de las functions
         run: echo "TUYA_BASE_URL=${{ vars.TUYA_BASE_URL || 'https://openapi.tuyaus.com' }}" > functions/.env
 
