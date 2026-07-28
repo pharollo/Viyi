@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=274';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=275';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -3115,6 +3115,14 @@ async function iniciar() {
     iTorres.max = '26';
     iPorPiso.max = '26';
     iPisos.max = '60';
+    // Un conjunto no siempre son torres: puede ser de casas o quintas que
+    // comparten los accesos comunes. Eso cambia qué se pregunta después.
+    const sCompone = selector([
+      ['torres', 'Torres con apartamentos'],
+      ['casa', 'Casas'],
+      ['quinta', 'Quintas'],
+    ], 'torres');
+    const campoCompone = campo('Se compone de', sCompone);
     const campoTorres = campo('Torres', iTorres);
     const campoPisos = campo('Pisos', iPisos);
     const campoPorPiso = campo('Apartamentos por piso', iPorPiso);
@@ -3127,6 +3135,7 @@ async function iniciar() {
       campo('Ciudad', iCiudad),
       campo('Estado', iEstado),
       campo('Zona', iZona),
+      campoCompone,
       campoTorres,
       campoPisos,
       campoPorPiso,
@@ -3134,40 +3143,56 @@ async function iniciar() {
     ];
 
     const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const conTorres = () => sTipo.value === 'conjunto';
-    const unidad = () => UNIDAD_DE[sTipo.value] || '';
+    const esConjunto = () => sTipo.value === 'conjunto';
+    // Lo que cuelga directamente de la raíz: torres de un conjunto, o casas y
+    // quintas si el conjunto es de esos. Vacío = la raíz no tiene ese nivel.
+    const bloque = () => (esConjunto() ? sCompone.value : '');
+    const conTorres = () => bloque() === 'torres';
+    // Y lo que cuelga de cada torre (o del edificio suelto).
+    const unidad = () => {
+      if (esConjunto()) return conTorres() ? 'apartamento' : '';
+      return UNIDAD_DE[sTipo.value] || '';
+    };
     const num = (i) => Math.min(Number(i.max), Math.max(0, parseInt(i.value, 10) || 0));
     const plural = (n, sing) => `${n} ${n === 1 ? sing : sing + 's'}`;
     const nombreUnidad = () => (unidad() === 'oficina' ? 'oficina' : 'apartamento');
+    const nombreBloque = () => (conTorres() ? 'torre' : (bloque() === 'quinta' ? 'quinta' : 'casa'));
 
     // Arma el árbol de nombres que se va a crear. Vive solo aquí: es lo mismo
     // que se enseña en la vista previa y lo que se manda al servidor, así que
     // el admin crea exactamente lo que leyó.
     function arbolLote() {
-      if (!unidad()) return [];
       const aptos = [];
-      for (let piso = 1; piso <= num(iPisos); piso++) {
-        for (let k = 0; k < num(iPorPiso); k++) {
-          aptos.push({ nombre: `${piso}${LETRAS[k]}`, tipo: unidad(), hijos: [] });
+      if (unidad()) {
+        for (let piso = 1; piso <= num(iPisos); piso++) {
+          for (let k = 0; k < num(iPorPiso); k++) {
+            aptos.push({ nombre: `${piso}${LETRAS[k]}`, tipo: unidad(), hijos: [] });
+          }
         }
       }
-      if (!conTorres()) return aptos;
+      if (!bloque()) return aptos;
+      // Las torres se nombran con letras (Torre A) y las casas con números
+      // (Casa 1), que es como se les llama de verdad.
       return Array.from({ length: num(iTorres) }, (_, i) => ({
-        nombre: `Torre ${LETRAS[i]}`,
-        tipo: 'edificio',
+        nombre: conTorres() ? `Torre ${LETRAS[i]}` : `${bloque() === 'quinta' ? 'Quinta' : 'Casa'} ${i + 1}`,
+        tipo: conTorres() ? 'edificio' : bloque(),
         hijos: aptos.map((a) => ({ ...a })),
       }));
     }
 
     function sincronizarLote() {
-      campoTorres.classList.toggle('oculto', !esNuevo || !conTorres());
+      campoCompone.classList.toggle('oculto', !esNuevo || !esConjunto());
+      campoTorres.classList.toggle('oculto', !esNuevo || !bloque());
       campoPisos.classList.toggle('oculto', !esNuevo || !unidad());
       campoPorPiso.classList.toggle('oculto', !esNuevo || !unidad());
+      // Las letras solo dan para 26; las casas van numeradas y admiten más.
+      iTorres.max = conTorres() ? '26' : '200';
+      campoTorres.querySelector('span').textContent = conTorres() ? 'Torres' : (bloque() === 'quinta' ? 'Quintas' : 'Casas');
       campoPisos.querySelector('span').textContent = conTorres() ? 'Pisos por torre' : 'Pisos';
       campoPorPiso.querySelector('span').textContent = unidad() === 'oficina' ? 'Oficinas por piso' : 'Apartamentos por piso';
       const hijos = arbolLote();
-      if (!hijos.length) { previa.textContent = ''; return; }
-      const aptos = conTorres() ? hijos[0].hijos : hijos;
+      if (!hijos.length) { previa.textContent = ''; previa.classList.remove('mensaje-error'); return; }
+      const aptos = bloque() ? hijos[0].hijos : hijos;
       const rango = (l) => (l.length > 1 ? `${l[0].nombre} … ${l[l.length - 1].nombre}` : l[0].nombre);
       const total = 1 + hijos.length + hijos.reduce((t, h) => t + h.hijos.length, 0);
       // Se avisa aquí, no al pulsar Guardar: con 26 torres de 26 pisos salen
@@ -3175,17 +3200,17 @@ async function iniciar() {
       // todo.
       previa.classList.toggle('mensaje-error', total > MAX_LOTE);
       if (total > MAX_LOTE) {
-        previa.textContent = `Son ${total} inmuebles y el máximo por lote es ${MAX_LOTE}. Créalo por torres.`;
+        previa.textContent = `Son ${total} inmuebles y el máximo por lote es ${MAX_LOTE}. Créalo por partes.`;
         return;
       }
       const partes = [];
-      if (conTorres()) partes.push(`${plural(hijos.length, 'torre')} (${rango(hijos)})`);
+      if (bloque()) partes.push(`${plural(hijos.length, nombreBloque())} (${rango(hijos)})`);
       if (aptos.length) {
-        partes.push(`${plural(aptos.length, nombreUnidad())}${conTorres() ? ' en cada una' : ''} (${rango(aptos)})`);
+        partes.push(`${plural(aptos.length, nombreUnidad())}${bloque() ? ' en cada una' : ''} (${rango(aptos)})`);
       }
       previa.textContent = `Se crearán ${partes.join(' y ')}. ${total} inmuebles en total.`;
     }
-    sTipo.addEventListener('change', sincronizarLote);
+    [sTipo, sCompone].forEach((x) => x.addEventListener('change', sincronizarLote));
     [iTorres, iPisos, iPorPiso].forEach((i) => i.addEventListener('input', sincronizarLote));
     sincronizarLote();
     const acciones = [
