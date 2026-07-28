@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=261';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=262';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -69,6 +69,7 @@ async function iniciar() {
   const adminEliminarUsuario = httpsCallable(functions, 'adminEliminarUsuario');
   const adminInspeccionarDispositivo = httpsCallable(functions, 'adminInspeccionarDispositivo');
   const adminListarAccesoriosHomebridge = httpsCallable(functions, 'adminListarAccesoriosHomebridge');
+  const adminListarDispositivosTuya = httpsCallable(functions, 'adminListarDispositivosTuya');
   const adminAccesorioCrudo = httpsCallable(functions, 'adminAccesorioCrudo');
   const crearPase = httpsCallable(functions, 'crearPase');
   const canjearPase = httpsCallable(functions, 'canjearPase');
@@ -2745,6 +2746,58 @@ async function iniciar() {
     // Proveedor: Tuya (nube) o Homebridge (API de UI-X vía túnel).
     const sProveedor = selector([['tuya', 'Tuya'], ['homebridge', 'Homebridge']], d.proveedor || 'tuya');
     const campoDevice = campo('Device ID de Tuya', iDevice);
+    // Tuya: traer la lista en vez de copiar el Device ID de la consola a mano.
+    // Al elegir uno se rellenan el id, el nombre y la etiqueta de cuenta.
+    const estadoTuya = document.createElement('div');
+    estadoTuya.className = 'dps-detectados';
+    const selTuya = document.createElement('select');
+    selTuya.classList.add('oculto');
+    selTuya.addEventListener('change', () => {
+      const op = selTuya.selectedOptions[0];
+      if (!op || !op.value) return;
+      iDevice.value = op.value;
+      if (!iNombre.value.trim()) iNombre.value = tituloCase(op.dataset.nombre || '');
+      if (!iCuenta.value.trim() && op.dataset.cuenta) iCuenta.value = op.dataset.cuenta;
+    });
+    const btnTuya = botonForm('Traer dispositivos de Tuya', 'btn-secundario', async (ev) => {
+      const b = ev.currentTarget;
+      b.disabled = true;
+      const orig = b.textContent;
+      b.textContent = 'Consultando…';
+      estadoTuya.textContent = '';
+      try {
+        const res = await adminListarDispositivosTuya({});
+        const lista = (res.data && res.data.dispositivos) || [];
+        selTuya.textContent = '';
+        const vacio = document.createElement('option');
+        vacio.value = '';
+        vacio.textContent = `— elige uno (${lista.length}) —`;
+        selTuya.appendChild(vacio);
+        for (const t of lista) {
+          const o = document.createElement('option');
+          o.value = t.id;
+          // Se marca lo que ya está dado de alta para no duplicarlo por error.
+          o.textContent = `${t.nombre}${t.online ? '' : ' · sin conexión'}`
+            + (t.yaEsta ? ` · ya es "${t.yaEsta}"` : '');
+          o.dataset.nombre = t.nombre;
+          o.dataset.cuenta = t.cuenta || '';
+          selTuya.appendChild(o);
+        }
+        selTuya.classList.toggle('oculto', !lista.length);
+        estadoTuya.textContent = lista.length
+          ? `${lista.length} dispositivos en tu cuenta Tuya.`
+          : 'Tuya no devolvió dispositivos.';
+      } catch (err) {
+        estadoTuya.textContent = err.message || 'No se pudo consultar Tuya.';
+      } finally {
+        b.disabled = false;
+        b.textContent = orig;
+      }
+    });
+    const campoTuyaLista = document.createElement('div');
+    campoTuyaLista.className = 'campo';
+    campoTuyaLista.append(btnTuya, selTuya, estadoTuya);
+
     const campoCodigo = campo('Código del interruptor (Debug Device)', iCodigo);
     // Homebridge: elegir el accesorio de la lista de UI-X.
     const selAcc = document.createElement('select');
@@ -2932,6 +2985,7 @@ async function iniciar() {
       campo('Proveedor', sProveedor),
       campo('Orden (menor = primero)', iOrden),
       cActivo.label,
+      campoTuyaLista,
       campo('Cuenta Tuya de la que viene', iCuenta),
       campoDevice,
       campoCodigo,

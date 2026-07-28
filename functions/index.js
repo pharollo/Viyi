@@ -788,6 +788,37 @@ exports.actualizarMiPerfil = onCall(async (request) => {
   return { ok: true, perfil: cambios, descartados };
 });
 
+// Lista los dispositivos que el proyecto de Tuya alcanza, para no tener que
+// copiar el Device ID a mano de la consola. Marca cuáles ya están dados de alta
+// y de qué cuenta vinculada viene cada uno (`uid`), que es lo que permite
+// rellenar solo la etiqueta de cuenta cuando haya más de una.
+exports.adminListarDispositivosTuya = onCall(
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
+  async (request) => {
+    await exigirAdmin(request);
+    const { ruta, dispositivos } = await tuya().listarTodos();
+    // Los que ya están en ViYi, para no ofrecerlos como nuevos.
+    const snap = await db.collection('dispositivos').get();
+    const yaEstan = new Map();
+    for (const doc of snap.docs) {
+      const cfg = await db.doc(`dispositivos/${doc.id}/privado/tuya`).get();
+      const tid = cfg.exists ? (cfg.data().tuyaDeviceId || '') : '';
+      if (tid) yaEstan.set(tid, doc.data().nombre || doc.id);
+    }
+    return {
+      ruta,
+      dispositivos: (dispositivos || []).map((d) => ({
+        id: d.id || d.uuid || '',
+        nombre: d.name || d.product_name || '(sin nombre)',
+        producto: d.product_name || '',
+        online: d.online === true,
+        cuenta: d.uid || d.owner_id || '',
+        yaEsta: yaEstan.get(d.id || d.uuid || '') || '',
+      })).filter((d) => d.id),
+    };
+  },
+);
+
 // Crea o actualiza un inmueble del catálogo (solo admin).
 exports.adminGuardarInmueble = onCall(async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));

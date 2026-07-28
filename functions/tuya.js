@@ -76,6 +76,31 @@ class TuyaClient {
     return this.peticion('GET', `/v1.0/iot-03/devices/${deviceId}/specification`);
   }
 
+  // Todos los dispositivos que alcanza el proyecto, vengan de la cuenta que
+  // vengan. Tuya ha movido este listado de sitio entre versiones y el que
+  // enumera usuarios exige conocer el `schema` de la app (que varía según sea
+  // Smart Life o Tuya Smart), así que se prueban varias rutas y se usa la
+  // primera que responda. Cada dispositivo trae `uid`: eso es lo que dice de
+  // QUÉ cuenta vinculada vino.
+  async listarTodos() {
+    const rutas = [
+      '/v1.0/iot-01/associated-users/devices?page_size=100',
+      '/v1.3/iot-03/devices?page_size=100',
+      '/v1.0/iot-03/devices?page_size=100',
+    ];
+    let ultimo = null;
+    for (const ruta of rutas) {
+      try {
+        const res = await this.peticion('GET', ruta);
+        const arr = Array.isArray(res) ? res : ((res && (res.devices || res.list)) || []);
+        return { ruta, dispositivos: arr };
+      } catch (e) {
+        ultimo = e;
+      }
+    }
+    throw ultimo || new Error('Tuya no devolvió la lista de dispositivos.');
+  }
+
   // Info de varios dispositivos en UNA sola llamada (trae el campo `online`).
   // Se pide por lotes porque Tuya limita cuántos ids acepta por petición.
   async infoLote(deviceIds) {
