@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=255';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=256';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -1005,10 +1005,13 @@ async function iniciar() {
   // a cada lado. Son medidas de CSS, no se pueden leer del DOM aquí: al pintar,
   // el panel todavía puede estar oculto y todo mediría 0.
   const ANCHO_CONTROL = (d) => (aspectoDe(d) === 'rueda' ? 150 : 220);
+  // En modo compacto solo se achica el botón circular (168+26+26 -> 122+17+17);
+  // la rueda no cambia de tamaño.
+  const ANCHO_COMPACTO = (d) => (aspectoDe(d) === 'rueda' ? 150 : 156);
   const HUECO_FILA = 34;   // el gap de .grupo-controles
-  function cabenEnFila(lista, contenedor) {
+  function cabenEnFila(lista, contenedor, ancho = ANCHO_CONTROL) {
     const disponible = contenedor.clientWidth || (Math.min(640, window.innerWidth) - 32);
-    const total = lista.reduce((s, d) => s + ANCHO_CONTROL(d), 0)
+    const total = lista.reduce((s, d) => s + ancho(d), 0)
       + HUECO_FILA * (lista.length - 1);
     return total <= disponible;
   }
@@ -1059,29 +1062,37 @@ async function iniciar() {
         // Un carrusel de pocos siempre enseña "uno y medio" y queda corrido. Si
         // el grupo cabe entero, va en fila centrada y se ven todos completos.
         const plano = cabenEnFila(enCarrusel, contenedor);
+        // Si no caben grandes pero SÍ compactos, van en fila centrada compacta.
+        // Antes esto caía en el carrusel de dos en dos, donde cada ficha ocupa
+        // el 50% del contenedor: con más ancho del necesario los botones se
+        // separaban y quedaba un hueco en medio (se veía en escritorio).
+        const compactoEnFila = !plano && cabenEnFila(enCarrusel, contenedor, ANCHO_COMPACTO);
         // Desde DOS, de dos en dos: media pantalla cada uno y los botones algo
         // más chicos para que quepan enteros, con el nombre debajo. Solo un
         // control solitario se queda grande y centrado — con dos ya se veía uno
         // y una rebanada, que era el problema.
-        const doble = !plano && enCarrusel.length >= 2;
-        fila.className = 'grupo-controles' + (plano ? '' : ' carrusel')
-          + (doble ? ' doble compacto' : '');
+        const doble = !plano && !compactoEnFila && enCarrusel.length >= 2;
+        fila.className = 'grupo-controles'
+          + (plano || compactoEnFila ? '' : ' carrusel')
+          + (doble ? ' doble' : '')
+          + (doble || compactoEnFila ? ' compacto' : '');
         // Los de la columna DERECHA van espejados: ahí el pulgar tapa el
         // costado derecho, que es donde vive la columna de luces de la rueda.
         // Espejar los pares deja las luces del lado que queda libre.
-        const dosPorFila = doble || enCarrusel.length === 2;
+        const menudo = doble || compactoEnFila;   // botón chico y nombre debajo
+        const dosPorFila = menudo || enCarrusel.length === 2;
         enCarrusel.forEach((dispositivo, i) => {
           const t = tarjetaDispositivo(dispositivo);
           // En dos-en-dos el botón es más chico y el nombre ya no cabe dentro
           // (ni en el círculo ni en la franja del anillo): se baja debajo.
-          if (doble) bajarNombre(t, dispositivo.nombre);
+          if (menudo) bajarNombre(t, dispositivo.nombre);
           if (dosPorFila && i % 2 === 1) t.classList.add('espejo');
           fila.appendChild(t);
         });
         contenedor.appendChild(fila);
         // El coverflow (escalar según distancia al centro) solo tiene sentido
         // cuando hay UNO en foco; de dos en dos los dos van a tamaño completo.
-        if (!plano && !doble) activarCarrusel(fila);
+        if (!plano && !compactoEnFila && !doble) activarCarrusel(fila);
       }
       for (const dispositivo of dimmers) {
         // El dimmer no pasa por tarjetaDispositivo (va a lo ancho, fuera del

@@ -2960,8 +2960,12 @@ input:checked ~ .pase-tgl::before {
   gap: 0;
 }
 
+/* Tope al hueco de cada ficha: con 50% a secas, en un contenedor ancho los
+   botones se separaban y quedaba un agujero en medio. Con el tope, en el
+   teléfono sigue siendo medio ancho (dos enteros) y en pantalla ancha entran
+   más, pero juntos. */
 .grupo-controles.carrusel.doble > .control {
-  flex: 0 0 50%;
+  flex: 0 0 min(50%, 195px);
   scroll-snap-align: start;
   transform: none;
   opacity: 1;
