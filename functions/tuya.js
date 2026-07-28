@@ -112,21 +112,42 @@ class TuyaClient {
   // QUÉ cuenta vinculada vino.
   async listarTodos() {
     const rutas = [
-      '/v1.0/iot-01/associated-users/devices?page_size=100',
-      '/v1.3/iot-03/devices?page_size=100',
-      '/v1.0/iot-03/devices?page_size=100',
+      { base: '/v1.0/iot-01/associated-users/devices', pagina: 'last_row_key' },
+      { base: '/v1.3/iot-03/devices', pagina: 'page' },
+      { base: '/v1.0/iot-03/devices', pagina: 'page' },
     ];
     let ultimo = null;
-    for (const ruta of rutas) {
+    for (const r of rutas) {
       try {
-        const res = await this.peticion('GET', ruta);
-        const arr = Array.isArray(res) ? res : ((res && (res.devices || res.list)) || []);
-        return { ruta, dispositivos: arr };
+        return { ruta: r.base, dispositivos: await this.paginar(r) };
       } catch (e) {
         ultimo = e;
       }
     }
     throw ultimo || new Error('Tuya no devolvió la lista de dispositivos.');
+  }
+
+  // Recorre TODAS las páginas. Sin esto solo llegaban las primeras 20 y los
+  // demás dispositivos desaparecían sin que nada lo avisara — el peor tipo de
+  // fallo: una lista que parece completa y no lo es.
+  async paginar({ base, pagina }) {
+    const salida = [];
+    let clave = '';
+    for (let vuelta = 0; vuelta < 50; vuelta++) {
+      const sep = base.includes('?') ? '&' : '?';
+      const q = pagina === 'last_row_key'
+        ? `${sep}size=100${clave ? `&last_row_key=${encodeURIComponent(clave)}` : ''}`
+        : `${sep}page_size=100&page_no=${vuelta + 1}`;
+      const res = await this.peticion('GET', base + q);
+      const arr = Array.isArray(res) ? res : ((res && (res.devices || res.list)) || []);
+      salida.push(...arr);
+      const hayMas = res && res.has_more === true;
+      clave = (res && res.last_row_key) || '';
+      // Se corta cuando Tuya dice que no hay más, cuando la página viene vacía,
+      // o cuando no devuelve con qué pedir la siguiente.
+      if (!arr.length || !hayMas || (pagina === 'last_row_key' && !clave)) break;
+    }
+    return salida;
   }
 
   // Info de varios dispositivos en UNA sola llamada (trae el campo `online`).

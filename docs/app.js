@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=264';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=265';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2773,15 +2773,34 @@ async function iniciar() {
         vacio.value = '';
         vacio.textContent = `— elige uno (${lista.length}) —`;
         selTuya.appendChild(vacio);
+        // Agrupados POR CUENTA: con varias cuentas vinculadas, la lista venía
+        // mezclada y no había forma de saber de cuál era cada aparato antes de
+        // elegirlo. El UID de Tuya no dice nada a la vista, así que se numeran
+        // y se muestra un trozo para poder distinguirlas.
+        const porCuenta = new Map();
         for (const t of lista) {
-          const o = document.createElement('option');
-          o.value = t.id;
-          // Se marca lo que ya está dado de alta para no duplicarlo por error.
-          o.textContent = `${t.nombre}${t.online ? '' : ' · sin conexión'}`
-            + (t.yaEsta ? ` · ya es "${t.yaEsta}"` : '');
-          o.dataset.nombre = t.nombre;
-          o.dataset.cuenta = t.cuenta || '';
-          selTuya.appendChild(o);
+          const k = t.cuenta || '';
+          if (!porCuenta.has(k)) porCuenta.set(k, []);
+          porCuenta.get(k).push(t);
+        }
+        let n = 0;
+        for (const [cuenta, items] of porCuenta) {
+          n += 1;
+          const grupo = document.createElement('optgroup');
+          grupo.label = porCuenta.size > 1
+            ? `Cuenta ${n}${cuenta ? ` · ${cuenta.slice(0, 6)}…${cuenta.slice(-4)}` : ''} (${items.length})`
+            : `Tu cuenta (${items.length})`;
+          for (const t of items) {
+            const o = document.createElement('option');
+            o.value = t.id;
+            // Se marca lo que ya está dado de alta para no duplicarlo por error.
+            o.textContent = `${t.nombre}${t.online ? '' : ' · sin conexión'}`
+              + (t.yaEsta ? ` · ya es "${t.yaEsta}"` : '');
+            o.dataset.nombre = t.nombre;
+            o.dataset.cuenta = t.cuenta || '';
+            grupo.appendChild(o);
+          }
+          selTuya.appendChild(grupo);
         }
         selTuya.classList.toggle('oculto', !lista.length);
         estadoTuya.textContent = lista.length
