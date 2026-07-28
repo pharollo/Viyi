@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=252';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=253';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -1013,6 +1013,21 @@ async function iniciar() {
     return total <= disponible;
   }
 
+  // Saca el nombre de dentro del botón y lo pone debajo. Solo toca los botones
+  // circulares (los que lo llevan dentro); la rueda, el Jet, el Sabiem y el
+  // mando ya lo traen debajo y se quedan como están.
+  function bajarNombre(control, nombre) {
+    const dentro = control.querySelectorAll('.nombre-boton, .nombre-anillo');
+    if (!dentro.length) return;
+    dentro.forEach((n) => n.remove());
+    const boton = control.querySelector('.boton-circular');
+    if (boton) boton.classList.remove('con-nombre');
+    const et = document.createElement('span');
+    et.className = 'etiqueta-control';
+    et.textContent = nombre;
+    control.appendChild(et);
+  }
+
   function renderDispositivos(dispositivos) {
     const contenedor = $('lista-dispositivos');
     contenedor.textContent = '';
@@ -1051,7 +1066,11 @@ async function iniciar() {
         fila.className = 'grupo-controles' + (plano ? '' : ' carrusel')
           + (doble ? ' doble compacto' : '');
         for (const dispositivo of enCarrusel) {
-          fila.appendChild(tarjetaDispositivo(dispositivo));
+          const t = tarjetaDispositivo(dispositivo);
+          // En dos-en-dos el botón es más chico y el nombre ya no cabe dentro
+          // (ni en el círculo ni en la franja del anillo): se baja debajo.
+          if (doble) bajarNombre(t, dispositivo.nombre);
+          fila.appendChild(t);
         }
         contenedor.appendChild(fila);
         // El coverflow (escalar según distancia al centro) solo tiene sentido
