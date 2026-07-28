@@ -1413,6 +1413,7 @@ async function revisarConexion() {
         nombre: doc.data().nombre || doc.id,
         proveedor: doc.data().proveedor || 'tuya',
         activo: doc.data().activo !== false,
+        inmueble: doc.data().inmueble || '',
         cfg: cfgSnap.exists ? cfgSnap.data() : null,
       });
     }
@@ -1456,6 +1457,23 @@ async function revisarConexion() {
         // `desde` solo se reinicia cuando el estado cambia: así se conserva la
         // hora exacta en que se cayó, que es lo que uno quiere saber.
         const desde = previo.online === online && previo.desde ? previo.desde : ahora;
+        // Al CAMBIAR de estado se cierra el tramo que termina y se guarda con su
+        // duración. `dispositivos.conexion` solo guarda el estado actual y se
+        // sobrescribe, así que sin esto el pasado no existe: no se puede
+        // reconstruir después, a diferencia de las métricas de uso, que salen de
+        // los registros crudos. Con la duración ya calculada, sumar el tiempo
+        // caído de un mes es sumar un campo.
+        if (typeof previo.online === 'boolean' && previo.online !== online && previo.desde) {
+          await db.collection('conexiones').add({
+            dispositivoId: d.id,
+            nombre: d.nombre,
+            inmueble: d.inmueble,
+            online: previo.online,        // el estado que acaba de terminar
+            desde: previo.desde,
+            hasta: ahora,
+            ms: ahora.toMillis() - previo.desde.toMillis(),
+          }).catch(() => { /* que un fallo aquí no tumbe la revisión */ });
+        }
         await db.doc(`dispositivos/${d.id}`)
           .set({ conexion: { online, revisado: ahora, desde } }, { merge: true });
         lista.push({ id: d.id, nombre: d.nombre, proveedor: d.proveedor, activo: d.activo, online, desde: desde.toMillis() });

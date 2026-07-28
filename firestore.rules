@@ -128,6 +128,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Historial de conexión: un tramo cerrado por cada cambio de estado, con su
+    // duración. Lo escriben las Functions. Lo lee el dueño, y el admin de un
+    // edificio solo lo de sus inmuebles (mismo criterio que el registro: la
+    // consulta tiene que venir filtrada o la regla la rechaza entera).
+    match /conexiones/{id} {
+      allow read: if esAdminGlobal()
+        || (esAdmin() && resource.data.get('inmueble', '') in alcanceAdmin());
+      allow write: if false;
+    }
+
     // Marca de tiempo del último correo de "olvidé mi clave" por cuenta, para
     // limitar los envíos. Solo lo tocan las Functions; nadie más lo lee, porque
     // delataría qué correos tienen cuenta.
