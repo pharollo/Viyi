@@ -1874,6 +1874,11 @@ button:disabled {
   margin-bottom: 5px;
 }
 
+/* Un campo sin etiqueta no debe dejar el hueco de la etiqueta. */
+.campo > span:empty {
+  display: none;
+}
+
 /* Selección múltiple (inmuebles, dispositivos): lista vertical con scroll. */
 .casillas {
   display: flex;
@@ -3000,7 +3005,8 @@ input:checked ~ .pase-tgl::before {
   gap: 8px;
 }
 
-.tuya-lista > .btn-secundario {
+.tuya-lista > .btn-secundario,
+.tuya-lista > select {
   margin: 0;
   width: 100%;
 }

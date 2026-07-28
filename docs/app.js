@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=269';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=270';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2834,12 +2834,13 @@ async function iniciar() {
         b.textContent = orig;
       }
     });
-    // Como un campo más del formulario (etiqueta arriba, control debajo) en
-    // vez de un botón suelto: así no se solapa con lo de arriba ni descuadra.
+    // Va dentro de un campo (aunque sin etiqueta: el botón ya dice lo que
+    // hace) para heredar el ancho y el aire del resto del formulario; suelto
+    // se solapaba con el control de arriba.
     const cajaTuya = document.createElement('div');
     cajaTuya.className = 'tuya-lista';
     cajaTuya.append(btnTuya, selTuya, estadoTuya);
-    const campoTuyaLista = campo('Dispositivos de tu cuenta Tuya', cajaTuya);
+    const campoTuyaLista = campo('', cajaTuya);
 
     const campoCodigo = campo('Código del interruptor (Debug Device)', iCodigo);
     // Homebridge: elegir el accesorio de la lista de UI-X.
