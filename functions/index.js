@@ -881,6 +881,17 @@ exports.adminListarDispositivosTuya = onCall(
       const tid = cfg.exists ? (cfg.data().tuyaDeviceId || '') : '';
       if (tid) yaEstan.set(tid, doc.data().nombre || doc.id);
     }
+    // Nombre de cada cuenta vinculada: se resuelve UNA vez por cuenta, no por
+    // dispositivo. Si Tuya no lo da, se queda el uid (mejor eso que nada).
+    const nombres = new Map();
+    for (const uid of new Set((dispositivos || []).map((d) => d.uid || d.owner_id).filter(Boolean))) {
+      try {
+        const info = await tuya().infoUsuario(uid);
+        nombres.set(uid, info.email || info.username || info.nick_name || uid);
+      } catch (e) {
+        nombres.set(uid, uid);
+      }
+    }
     return {
       ruta,
       dispositivos: (dispositivos || []).map((d) => ({
@@ -889,6 +900,7 @@ exports.adminListarDispositivosTuya = onCall(
         producto: d.product_name || '',
         online: d.online === true,
         cuenta: d.uid || d.owner_id || '',
+        cuentaNombre: nombres.get(d.uid || d.owner_id) || '',
         yaEsta: yaEstan.get(d.id || d.uuid || '') || '',
       })).filter((d) => d.id),
     };

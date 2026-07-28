@@ -150,6 +150,13 @@ class TuyaClient {
     return salida;
   }
 
+  // Quién es el dueño de una cuenta vinculada. Solo necesita el uid (no el
+  // `schema` de la app, que no sabemos cuál es), así que sirve para ponerle
+  // nombre a las cuentas en vez de enseñar un identificador ilegible.
+  infoUsuario(uid) {
+    return this.peticion('GET', `/v1.0/users/${encodeURIComponent(uid)}/infos`);
+  }
+
   // Info de varios dispositivos en UNA sola llamada (trae el campo `online`).
   // Se pide por lotes porque Tuya limita cuántos ids acepta por petición.
   async infoLote(deviceIds) {

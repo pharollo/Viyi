@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=265';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=266';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2783,13 +2783,16 @@ async function iniciar() {
           if (!porCuenta.has(k)) porCuenta.set(k, []);
           porCuenta.get(k).push(t);
         }
-        let n = 0;
         for (const [cuenta, items] of porCuenta) {
-          n += 1;
           const grupo = document.createElement('optgroup');
+          // El correo de la cuenta, que sí dice de quién es. Si Tuya no lo
+          // devuelve se cae al identificador, recortado para que no ocupe media
+          // línea.
+          const quien = (items[0] && items[0].cuentaNombre)
+            || (cuenta ? `${cuenta.slice(0, 6)}…${cuenta.slice(-4)}` : 'sin cuenta');
           grupo.label = porCuenta.size > 1
-            ? `Cuenta ${n}${cuenta ? ` · ${cuenta.slice(0, 6)}…${cuenta.slice(-4)}` : ''} (${items.length})`
-            : `Tu cuenta (${items.length})`;
+            ? `${quien} (${items.length})`
+            : `Tu cuenta · ${quien} (${items.length})`;
           for (const t of items) {
             const o = document.createElement('option');
             o.value = t.id;
@@ -2797,7 +2800,7 @@ async function iniciar() {
             o.textContent = `${t.nombre}${t.online ? '' : ' · sin conexión'}`
               + (t.yaEsta ? ` · ya es "${t.yaEsta}"` : '');
             o.dataset.nombre = t.nombre;
-            o.dataset.cuenta = t.cuenta || '';
+            o.dataset.cuenta = t.cuentaNombre || t.cuenta || '';
             grupo.appendChild(o);
           }
           selTuya.appendChild(grupo);
