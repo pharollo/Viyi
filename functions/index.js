@@ -568,7 +568,7 @@ exports.adminActualizarUsuario = onCall(async (request) => {
 });
 
 // Catálogo de inmuebles del condominio: los crea y asigna el admin.
-const TIPOS_INMUEBLE = ['conjunto', 'residencias', 'edificio', 'apartamento', 'quinta', 'casa', 'local', 'restaurant'];
+const TIPOS_INMUEBLE = ['conjunto', 'residencias', 'edificio', 'oficinas', 'apartamento', 'oficina', 'quinta', 'casa', 'local', 'galpon', 'restaurant'];
 // ---- Jerarquía de inmuebles: conjunto -> edificio -> apartamento ----
 // Cada inmueble puede tener `padre`. La herencia va SOLO hacia arriba: quien
 // tiene asignado el apto 3B alcanza también las áreas comunes de su edificio y
@@ -973,6 +973,81 @@ exports.adminGuardarInmueble = onCall(async (request) => {
   }
   await resincronizarInmuebles();
   return { ok: true, id: inmuebleId };
+});
+
+// ---- Alta en lote de inmuebles ----
+// Un conjunto no se crea solo: se crea con sus torres y cada torre con sus
+// apartamentos. El árbol de nombres lo arma el frontend (que es quien lo
+// enseña en la vista previa) y aquí se valida y se escribe; así hay UNA sola
+// implementación de cómo se nombran, y es la que el admin vio antes de crear.
+const MAX_LOTE = 600;
+
+function nodoLote(n, profundidad) {
+  if (!n || typeof n.nombre !== 'string' || !n.nombre.trim()) {
+    throw new HttpsError('invalid-argument', 'Falta el nombre de un inmueble del lote.');
+  }
+  if (!TIPOS_INMUEBLE.includes(n.tipo)) {
+    throw new HttpsError('invalid-argument', 'Tipo de inmueble no válido en el lote.');
+  }
+  const hijos = Array.isArray(n.hijos) ? n.hijos : [];
+  if (hijos.length && profundidad >= 2) {
+    throw new HttpsError('invalid-argument', 'El lote no puede anidar más de tres niveles.');
+  }
+  return {
+    nombre: n.nombre.trim().slice(0, 60),
+    tipo: n.tipo,
+    hijos: hijos.map((h) => nodoLote(h, profundidad + 1)),
+  };
+}
+
+const contarLote = (n) => 1 + n.hijos.reduce((t, h) => t + contarLote(h), 0);
+
+exports.adminCrearInmuebleLote = onCall(async (request) => {
+  const alcance = alcanceDe(await exigirAdmin(request));
+  const { raiz } = request.data || {};
+  if (!raiz) throw new HttpsError('invalid-argument', 'Falta el inmueble a crear.');
+  const arbol = nodoLote(raiz, 0);
+  const total = contarLote(arbol);
+  if (total > MAX_LOTE) {
+    throw new HttpsError('invalid-argument', `Son ${total} inmuebles y el máximo por lote es ${MAX_LOTE}.`);
+  }
+  // Mismo criterio que al crear uno suelto: si se cuelga de algo, ese algo
+  // tiene que existir, y un admin de edificio solo cuelga dentro de lo suyo.
+  let padreFinal = '';
+  if (typeof raiz.padre === 'string' && raiz.padre.trim()) {
+    padreFinal = raiz.padre.trim();
+    if (!(await db.doc(`inmuebles/${padreFinal}`).get()).exists) {
+      throw new HttpsError('invalid-argument', 'Ese inmueble padre no existe.');
+    }
+  }
+  if (alcance) exigirInmueble(alcance, padreFinal, 'Ese inmueble padre');
+  // La ubicación se hereda: los apartamentos de una torre están en la misma
+  // ciudad que la torre, y pedirla 128 veces no tendría sentido.
+  const texto = (v) => (typeof v === 'string' ? v.trim() : '').slice(0, 60);
+  const comun = {
+    ciudad: texto(raiz.ciudad),
+    estado: texto(raiz.estado),
+    zona: texto(raiz.zona),
+    creado: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  const escrituras = [];
+  const apilar = (nodo, padre) => {
+    const id = 'inm_' + crypto.randomBytes(8).toString('hex');
+    escrituras.push([id, { tipo: nodo.tipo, nombre: nodo.nombre, padre, ...comun }]);
+    for (const h of nodo.hijos) apilar(h, id);
+    return id;
+  };
+  const raizId = apilar(arbol, padreFinal);
+  // En trozos: un batch de Firestore admite 500 escrituras.
+  for (let i = 0; i < escrituras.length; i += 400) {
+    const batch = db.batch();
+    for (const [id, datos] of escrituras.slice(i, i + 400)) batch.set(db.doc(`inmuebles/${id}`), datos);
+    await batch.commit();
+  }
+  // Imprescindible: si el lote cuelga de algo que administra un admin de
+  // edificio, su alcance (administraIds) tiene que incluir lo recién creado.
+  await resincronizarInmuebles();
+  return { ok: true, id: raizId, total };
 });
 
 // Elimina un inmueble del catálogo y lo quita de los vecinos asignados.

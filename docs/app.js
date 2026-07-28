@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=273';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=274';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -66,6 +66,7 @@ async function iniciar() {
   const adminEliminarDispositivo = httpsCallable(functions, 'adminEliminarDispositivo');
   const adminGuardarInmueble = httpsCallable(functions, 'adminGuardarInmueble');
   const adminEliminarInmueble = httpsCallable(functions, 'adminEliminarInmueble');
+  const adminCrearInmuebleLote = httpsCallable(functions, 'adminCrearInmuebleLote');
   const adminEliminarUsuario = httpsCallable(functions, 'adminEliminarUsuario');
   const adminInspeccionarDispositivo = httpsCallable(functions, 'adminInspeccionarDispositivo');
   const adminListarAccesoriosHomebridge = httpsCallable(functions, 'adminListarAccesoriosHomebridge');
@@ -181,15 +182,32 @@ async function iniciar() {
     input.value = nombrePropio(input.value);
   });
 
+  // Mismo tope que el servidor (MAX_LOTE en functions/index.js): se avisa en
+  // la vista previa en vez de dejar que falle al guardar.
+  const MAX_LOTE = 600;
+
   const TIPO_INMUEBLE_TXT = {
     conjunto: 'Conjunto Residencial',
     residencias: 'Residencias',
     edificio: 'Edificio',
+    oficinas: 'Edificio de Oficinas',
     apartamento: 'Apartamento',
+    oficina: 'Oficina',
     quinta: 'Quinta',
     casa: 'Casa',
-    local: 'Local',
+    local: 'Local Comercial',
+    galpon: 'Galpón',
     restaurant: 'Restaurant',
+  };
+
+  // Qué contiene cada tipo cuando se crea en lote: el tipo elegido decide el
+  // resto del formulario. Lo que no está aquí (una casa, un galpón) se crea
+  // solo, sin pisos ni unidades.
+  const UNIDAD_DE = {
+    conjunto: 'apartamento',
+    residencias: 'apartamento',
+    edificio: 'apartamento',
+    oficinas: 'oficina',
   };
 
   const TIPOS = [
@@ -3082,6 +3100,26 @@ async function iniciar() {
     // asignado el apartamento alcanza también lo común del edificio y del
     // conjunto; al revés no.
     const sPadre = selector(opcionesInmueble(inm.id, '— no está dentro de nada —'), inm.padre || '');
+    // Alta en lote. Un conjunto no se crea solo: se crea con sus torres y cada
+    // torre con sus apartamentos. Un edificio suelto salta el paso de torres.
+    // Solo al crear: editar uno existente no debe tocarle el árbol.
+    const iTorres = entrada('', 'ej: 4', 'number');
+    const iPisos = entrada('', 'ej: 8', 'number');
+    const iPorPiso = entrada('', 'ej: 4', 'number');
+    [iTorres, iPisos, iPorPiso].forEach((i) => {
+      i.min = '0';
+      i.inputMode = 'numeric';
+    });
+    // Torres y unidades por piso se nombran con letras (A…Z), así que ahí el
+    // tope es 26. Los pisos van numerados y admiten más.
+    iTorres.max = '26';
+    iPorPiso.max = '26';
+    iPisos.max = '60';
+    const campoTorres = campo('Torres', iTorres);
+    const campoPisos = campo('Pisos', iPisos);
+    const campoPorPiso = campo('Apartamentos por piso', iPorPiso);
+    const previa = document.createElement('p');
+    previa.className = 'dps-detectados lote-previa';
     const filas = [
       campo('Tipo', sTipo),
       campo('Nombre', iNombre),
@@ -3089,23 +3127,95 @@ async function iniciar() {
       campo('Ciudad', iCiudad),
       campo('Estado', iEstado),
       campo('Zona', iZona),
+      campoTorres,
+      campoPisos,
+      campoPorPiso,
+      previa,
     ];
+
+    const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const conTorres = () => sTipo.value === 'conjunto';
+    const unidad = () => UNIDAD_DE[sTipo.value] || '';
+    const num = (i) => Math.min(Number(i.max), Math.max(0, parseInt(i.value, 10) || 0));
+    const plural = (n, sing) => `${n} ${n === 1 ? sing : sing + 's'}`;
+    const nombreUnidad = () => (unidad() === 'oficina' ? 'oficina' : 'apartamento');
+
+    // Arma el árbol de nombres que se va a crear. Vive solo aquí: es lo mismo
+    // que se enseña en la vista previa y lo que se manda al servidor, así que
+    // el admin crea exactamente lo que leyó.
+    function arbolLote() {
+      if (!unidad()) return [];
+      const aptos = [];
+      for (let piso = 1; piso <= num(iPisos); piso++) {
+        for (let k = 0; k < num(iPorPiso); k++) {
+          aptos.push({ nombre: `${piso}${LETRAS[k]}`, tipo: unidad(), hijos: [] });
+        }
+      }
+      if (!conTorres()) return aptos;
+      return Array.from({ length: num(iTorres) }, (_, i) => ({
+        nombre: `Torre ${LETRAS[i]}`,
+        tipo: 'edificio',
+        hijos: aptos.map((a) => ({ ...a })),
+      }));
+    }
+
+    function sincronizarLote() {
+      campoTorres.classList.toggle('oculto', !esNuevo || !conTorres());
+      campoPisos.classList.toggle('oculto', !esNuevo || !unidad());
+      campoPorPiso.classList.toggle('oculto', !esNuevo || !unidad());
+      campoPisos.querySelector('span').textContent = conTorres() ? 'Pisos por torre' : 'Pisos';
+      campoPorPiso.querySelector('span').textContent = unidad() === 'oficina' ? 'Oficinas por piso' : 'Apartamentos por piso';
+      const hijos = arbolLote();
+      if (!hijos.length) { previa.textContent = ''; return; }
+      const aptos = conTorres() ? hijos[0].hijos : hijos;
+      const rango = (l) => (l.length > 1 ? `${l[0].nombre} … ${l[l.length - 1].nombre}` : l[0].nombre);
+      const total = 1 + hijos.length + hijos.reduce((t, h) => t + h.hijos.length, 0);
+      // Se avisa aquí, no al pulsar Guardar: con 26 torres de 26 pisos salen
+      // miles de inmuebles y el servidor lo rechazaría después de rellenarlo
+      // todo.
+      previa.classList.toggle('mensaje-error', total > MAX_LOTE);
+      if (total > MAX_LOTE) {
+        previa.textContent = `Son ${total} inmuebles y el máximo por lote es ${MAX_LOTE}. Créalo por torres.`;
+        return;
+      }
+      const partes = [];
+      if (conTorres()) partes.push(`${plural(hijos.length, 'torre')} (${rango(hijos)})`);
+      if (aptos.length) {
+        partes.push(`${plural(aptos.length, nombreUnidad())}${conTorres() ? ' en cada una' : ''} (${rango(aptos)})`);
+      }
+      previa.textContent = `Se crearán ${partes.join(' y ')}. ${total} inmuebles en total.`;
+    }
+    sTipo.addEventListener('change', sincronizarLote);
+    [iTorres, iPisos, iPorPiso].forEach((i) => i.addEventListener('input', sincronizarLote));
+    sincronizarLote();
     const acciones = [
       botonForm('Guardar', 'btn-primario', async (ev) => {
         const b = ev.currentTarget;
         if (!iNombre.value.trim()) { toast('Escribe el nombre del inmueble.', 'error'); return; }
         b.disabled = true;
+        const datos = {
+          tipo: sTipo.value,
+          nombre: iNombre.value.trim(),
+          ciudad: iCiudad.value.trim(),
+          estado: iEstado.value.trim(),
+          zona: iZona.value.trim(),
+          padre: sPadre.value,
+        };
+        const hijos = esNuevo ? arbolLote() : [];
+        const totalLote = 1 + hijos.length + hijos.reduce((t, h) => t + h.hijos.length, 0);
+        if (totalLote > MAX_LOTE) {
+          toast(`Son ${totalLote} inmuebles y el máximo por lote es ${MAX_LOTE}.`, 'error');
+          b.disabled = false;
+          return;
+        }
         try {
-          await adminGuardarInmueble({
-            id: esNuevo ? undefined : inm.id,
-            tipo: sTipo.value,
-            nombre: iNombre.value.trim(),
-            ciudad: iCiudad.value.trim(),
-            estado: iEstado.value.trim(),
-            zona: iZona.value.trim(),
-            padre: sPadre.value,
-          });
-          toast(esNuevo ? 'Inmueble creado ✓' : 'Inmueble actualizado ✓', 'ok');
+          if (hijos.length) {
+            const res = await adminCrearInmuebleLote({ raiz: { ...datos, hijos } });
+            toast(`${(res.data && res.data.total) || ''} inmuebles creados ✓`, 'ok');
+          } else {
+            await adminGuardarInmueble({ id: esNuevo ? undefined : inm.id, ...datos });
+            toast(esNuevo ? 'Inmueble creado ✓' : 'Inmueble actualizado ✓', 'ok');
+          }
           await trasGuardar();
         } catch (err) {
           toast(err.message || 'No se pudo guardar.', 'error');
