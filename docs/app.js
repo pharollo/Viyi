@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=257';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=258';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2357,19 +2357,32 @@ async function iniciar() {
       ['Homebridge', (d) => d.proveedor === 'homebridge'],
     ];
     const MODOS = { pulso: 'pulso', interruptor: 'interruptor', cortina: 'cortina', dimmer: 'dimmer', termostato: 'termostato' };
-    for (const [titulo, filtro] of grupos) {
-      const items = cacheDispositivos.filter(filtro);
-      if (!items.length) continue;
+    const pintarFila = (d) => {
+      const texto = `${d.nombre} · ${MODOS[d.modo] || 'pulso'}`;
+      const fila = filaGestion(texto, d.activo === false, () => abrirEditorDispositivo(d));
+      fila.dataset.disp = d.id; // para colgarle después el punto de conexión
+      ld.appendChild(fila);
+    };
+    const encabezado = (txt) => {
       const cab = document.createElement('li');
       cab.className = 'grupo-gestion';
-      cab.textContent = titulo;
+      cab.textContent = txt;
       ld.appendChild(cab);
-      for (const d of items) {
-        const texto = `${d.nombre} · ${MODOS[d.modo] || 'pulso'}`;
-        const fila = filaGestion(texto, d.activo === false, () => abrirEditorDispositivo(d));
-        fila.dataset.disp = d.id; // para colgarle después el punto de conexión
-        ld.appendChild(fila);
-      }
+    };
+    // Los que aún no tienen inmueble van PRIMERO y aparte: nadie los ve, porque
+    // el vecino solo alcanza lo de su inmueble. Un aparato recién instalado se
+    // queda ahí sin que nada lo delate, así que se delata aquí.
+    const sueltos = cacheDispositivos.filter((d) => !d.inmueble);
+    if (sueltos.length) {
+      encabezado(`Sin inmueble (${sueltos.length})`);
+      sueltos.forEach(pintarFila);
+    }
+    for (const [titulo, filtro] of grupos) {
+      // Sin inmueble ya salieron arriba; aquí solo los asignados.
+      const items = cacheDispositivos.filter((d) => d.inmueble && filtro(d));
+      if (!items.length) continue;
+      encabezado(titulo);
+      items.forEach(pintarFila);
     }
     const li = $('gestion-inmuebles');
     li.textContent = '';
