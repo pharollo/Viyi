@@ -283,7 +283,8 @@ code {
 #form-skin select,
 #form-skin textarea,
 .campo input,
-.campo select {
+.campo select,
+.campo textarea {
   padding: 13px 14px;
   border: none;
   border-radius: 12px;
@@ -2517,7 +2518,8 @@ input:checked ~ .pase-tgl::before {
 
 /* El textarea hereda el estilo de los inputs, pero no su fuente ni su altura:
    sin esto sale en monospace del navegador y se puede estirar a lo ancho. */
-#form-skin textarea {
+#form-skin textarea,
+.campo textarea {
   font-family: inherit;
   line-height: 1.4;
   resize: vertical;

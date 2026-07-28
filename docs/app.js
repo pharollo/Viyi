@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=275';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=276';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -3123,6 +3123,13 @@ async function iniciar() {
       ['quinta', 'Quintas'],
     ], 'torres');
     const campoCompone = campo('Se compone de', sCompone);
+    // Las casas y quintas venezolanas tienen nombre propio ("Quinta Anaís"),
+    // a veces con número, así que no se pueden generar: se escriben. Los
+    // apartamentos sí siguen el patrón piso+letra y sí se generan.
+    const tNombres = document.createElement('textarea');
+    tNombres.rows = 4;
+    tNombres.placeholder = 'Un nombre por línea:\nQuinta Anaís\nQuinta El Roble 12\nCasa 3';
+    const campoNombres = campo('Nombres', tNombres);
     const campoTorres = campo('Torres', iTorres);
     const campoPisos = campo('Pisos', iPisos);
     const campoPorPiso = campo('Apartamentos por piso', iPorPiso);
@@ -3137,6 +3144,7 @@ async function iniciar() {
       campo('Zona', iZona),
       campoCompone,
       campoTorres,
+      campoNombres,
       campoPisos,
       campoPorPiso,
       previa,
@@ -3157,6 +3165,14 @@ async function iniciar() {
     const plural = (n, sing) => `${n} ${n === 1 ? sing : sing + 's'}`;
     const nombreUnidad = () => (unidad() === 'oficina' ? 'oficina' : 'apartamento');
     const nombreBloque = () => (conTorres() ? 'torre' : (bloque() === 'quinta' ? 'quinta' : 'casa'));
+    // Se parte por líneas y también por comas: pegar "Casa 1, Casa 2" es lo
+    // bastante natural como para que crear UNA casa llamada "Casa 1, Casa 2"
+    // sea un fallo silencioso.
+    const nombresSueltos = () => tNombres.value
+      .split(/[\n,]/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .slice(0, 200);
 
     // Arma el árbol de nombres que se va a crear. Vive solo aquí: es lo mismo
     // que se enseña en la vista previa y lo que se manda al servidor, así que
@@ -3171,23 +3187,23 @@ async function iniciar() {
         }
       }
       if (!bloque()) return aptos;
-      // Las torres se nombran con letras (Torre A) y las casas con números
-      // (Casa 1), que es como se les llama de verdad.
+      if (!conTorres()) {
+        return nombresSueltos().map((nombre) => ({ nombre, tipo: bloque(), hijos: [] }));
+      }
       return Array.from({ length: num(iTorres) }, (_, i) => ({
-        nombre: conTorres() ? `Torre ${LETRAS[i]}` : `${bloque() === 'quinta' ? 'Quinta' : 'Casa'} ${i + 1}`,
-        tipo: conTorres() ? 'edificio' : bloque(),
+        nombre: `Torre ${LETRAS[i]}`,
+        tipo: 'edificio',
         hijos: aptos.map((a) => ({ ...a })),
       }));
     }
 
     function sincronizarLote() {
       campoCompone.classList.toggle('oculto', !esNuevo || !esConjunto());
-      campoTorres.classList.toggle('oculto', !esNuevo || !bloque());
+      campoTorres.classList.toggle('oculto', !esNuevo || !conTorres());
+      campoNombres.classList.toggle('oculto', !esNuevo || !bloque() || conTorres());
       campoPisos.classList.toggle('oculto', !esNuevo || !unidad());
       campoPorPiso.classList.toggle('oculto', !esNuevo || !unidad());
-      // Las letras solo dan para 26; las casas van numeradas y admiten más.
-      iTorres.max = conTorres() ? '26' : '200';
-      campoTorres.querySelector('span').textContent = conTorres() ? 'Torres' : (bloque() === 'quinta' ? 'Quintas' : 'Casas');
+      campoNombres.querySelector('span').textContent = bloque() === 'quinta' ? 'Nombre de cada quinta' : 'Nombre de cada casa';
       campoPisos.querySelector('span').textContent = conTorres() ? 'Pisos por torre' : 'Pisos';
       campoPorPiso.querySelector('span').textContent = unidad() === 'oficina' ? 'Oficinas por piso' : 'Apartamentos por piso';
       const hijos = arbolLote();
@@ -3211,7 +3227,7 @@ async function iniciar() {
       previa.textContent = `Se crearán ${partes.join(' y ')}. ${total} inmuebles en total.`;
     }
     [sTipo, sCompone].forEach((x) => x.addEventListener('change', sincronizarLote));
-    [iTorres, iPisos, iPorPiso].forEach((i) => i.addEventListener('input', sincronizarLote));
+    [iTorres, iPisos, iPorPiso, tNombres].forEach((i) => i.addEventListener('input', sincronizarLote));
     sincronizarLote();
     const acciones = [
       botonForm('Guardar', 'btn-primario', async (ev) => {
