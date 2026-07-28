@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=260';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=261';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2723,9 +2723,14 @@ async function iniciar() {
     // Dueño: vacío = del condominio. Si es de un vecino, él puede desvincular
     // su cuenta Tuya cuando quiera, así que el edificio no debería depender de
     // ese aparato. Hoy es informativo; no cambia quién puede usarlo.
+    // Solo RESIDENTES: un visitante entró por una invitación y no vive ahí, así
+    // que no puede ser dueño de un aparato. Se reutiliza el mismo criterio que
+    // separa la lista de Vecinos, para que no haya dos definiciones.
     const sDueno = selector(
       [['', '— del condominio —']].concat(
-        cacheUsuarios.filter((u) => u.rol !== 'admin').map((u) => [u.uid, nombreCompleto(u)])),
+        cacheUsuarios
+          .filter((u) => u.rol !== 'admin' && esResidente(u))
+          .map((u) => [u.uid, nombreCompleto(u)])),
       d.dueno || '');
     const iCuenta = entrada(tuya.cuenta, 'ej: Torre A, Ana Pérez');
     const iDevice = entrada(tuya.tuyaDeviceId, 'Device ID de Tuya');
