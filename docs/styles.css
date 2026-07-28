@@ -2774,17 +2774,6 @@ input:checked ~ .pase-tgl::before {
   line-height: 1.45;
 }
 
-/* Encabezado de grupo dentro de una lista de gestión (Residentes/Visitantes). */
-.grupo-gestion {
-  font-size: 11px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--texto-suave);
-  padding: 14px 2px 6px;
-  list-style: none;
-}
-
-.grupo-gestion:first-child { padding-top: 4px; }
 
 /* Buscador de una lista de gestión. */
 .buscador {
@@ -2994,4 +2983,11 @@ input:checked ~ .pase-tgl::before {
    de qué lado quedan. El gesto es vertical, así que no se invierte nada. */
 .espejo .rueda-ctrl {
   transform: scaleX(-1);
+}
+
+/* Encabezado de grupo con algo caído: el naranja del fuego, que ya se usa para
+   avisar sin ser una alarma roja. Va con la MISMA especificidad que
+   `.lista-gestion li.grupo-gestion`, que si no le gana y no se ve. */
+.lista-gestion li.grupo-gestion.grupo-alerta {
+  color: var(--fuego);
 }

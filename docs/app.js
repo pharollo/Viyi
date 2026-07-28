@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=258';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=259';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2351,11 +2351,6 @@ async function iniciar() {
   function renderGestion() {
     const ld = $('gestion-dispositivos');
     ld.textContent = '';
-    // Agrupados por proveedor: Tuya primero, luego Homebridge.
-    const grupos = [
-      ['Tuya', (d) => (d.proveedor || 'tuya') !== 'homebridge'],
-      ['Homebridge', (d) => d.proveedor === 'homebridge'],
-    ];
     const MODOS = { pulso: 'pulso', interruptor: 'interruptor', cortina: 'cortina', dimmer: 'dimmer', termostato: 'termostato' };
     const pintarFila = (d) => {
       const texto = `${d.nombre} · ${MODOS[d.modo] || 'pulso'}`;
@@ -2363,27 +2358,40 @@ async function iniciar() {
       fila.dataset.disp = d.id; // para colgarle después el punto de conexión
       ld.appendChild(fila);
     };
-    const encabezado = (txt) => {
+    // Agrupados por INMUEBLE, no por proveedor: así una caída de todo un
+    // edificio salta a la vista (si se desvincula su cuenta Tuya, se van todos
+    // juntos). Con una cuenta por edificio el proveedor deja de ser el criterio
+    // útil para agrupar.
+    const caidos = (items) => items.filter((d) => d.conexion && d.conexion.online === false).length;
+    const encabezado = (txt, items) => {
+      const n = caidos(items);
       const cab = document.createElement('li');
-      cab.className = 'grupo-gestion';
-      cab.textContent = txt;
+      cab.className = 'grupo-gestion' + (n ? ' grupo-alerta' : '');
+      cab.textContent = n ? `${txt} · ${n} sin conexión` : txt;
       ld.appendChild(cab);
     };
-    // Los que aún no tienen inmueble van PRIMERO y aparte: nadie los ve, porque
-    // el vecino solo alcanza lo de su inmueble. Un aparato recién instalado se
-    // queda ahí sin que nada lo delate, así que se delata aquí.
+    // Primero los que no tienen inmueble: nadie los ve, porque el vecino solo
+    // alcanza lo de su inmueble, así que se quedan invisibles hasta que alguien
+    // se acuerda. Aquí se delatan.
     const sueltos = cacheDispositivos.filter((d) => !d.inmueble);
     if (sueltos.length) {
-      encabezado(`Sin inmueble (${sueltos.length})`);
+      encabezado(`Sin inmueble (${sueltos.length})`, sueltos);
       sueltos.forEach(pintarFila);
     }
-    for (const [titulo, filtro] of grupos) {
-      // Sin inmueble ya salieron arriba; aquí solo los asignados.
-      const items = cacheDispositivos.filter((d) => d.inmueble && filtro(d));
-      if (!items.length) continue;
-      encabezado(titulo);
-      items.forEach(pintarFila);
+    const porInmueble = new Map();
+    for (const d of cacheDispositivos) {
+      if (!d.inmueble) continue;
+      if (!porInmueble.has(d.inmueble)) porInmueble.set(d.inmueble, []);
+      porInmueble.get(d.inmueble).push(d);
     }
+    [...porInmueble.entries()]
+      .map(([id, items]) => ({ id, items, titulo: rutaInmueble(id) || '(inmueble borrado)' }))
+      .sort((a, b) => a.titulo.localeCompare(b.titulo))
+      .forEach(({ items, titulo }) => {
+        encabezado(titulo, items);
+        items.forEach(pintarFila);
+      });
+
     const li = $('gestion-inmuebles');
     li.textContent = '';
     if (!cacheInmuebles.length) {
