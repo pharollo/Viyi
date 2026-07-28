@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=268';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=269';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2546,6 +2546,25 @@ async function iniciar() {
     return s;
   }
 
+  // Interruptor deslizante para los formularios. Reutiliza las clases del
+  // selector de pases (.pase-casilla/.pase-tgl) en vez de crear otro estilo:
+  // una sola definición de "toggle" en toda la app.
+  function interruptor(texto, marcado) {
+    const label = document.createElement('label');
+    label.className = 'pase-casilla';
+    const c = document.createElement('input');
+    c.type = 'checkbox';
+    c.checked = Boolean(marcado);
+    const tgl = document.createElement('span');
+    tgl.className = 'pase-tgl';
+    tgl.setAttribute('aria-hidden', 'true');
+    const nom = document.createElement('span');
+    nom.className = 'pase-nom';
+    nom.textContent = texto;
+    label.append(c, tgl, nom);
+    return { label, c };
+  }
+
   function casilla(texto, marcada) {
     const label = document.createElement('label');
     label.className = 'casilla';
@@ -2720,7 +2739,7 @@ async function iniciar() {
     };
     sTipo.addEventListener('change', sincronizarModoTipo);
     const iOrden = entrada(d.orden != null ? d.orden : 10, '', 'number');
-    const cActivo = casilla('Activo', d.activo !== false);
+    const cActivo = interruptor('Activo', d.activo !== false);
     // Dueño: vacío = del condominio. Si es de un vecino, él puede desvincular
     // su cuenta Tuya cuando quiera, así que el edificio no debería depender de
     // ese aparato. Hoy es informativo; no cambia quién puede usarlo.
@@ -2806,9 +2825,8 @@ async function iniciar() {
           selTuya.appendChild(grupo);
         }
         selTuya.classList.toggle('oculto', !lista.length);
-        estadoTuya.textContent = lista.length
-          ? `${lista.length} dispositivos en tu cuenta Tuya.`
-          : 'Tuya no devolvió dispositivos.';
+        // Sin mensaje cuando va bien: el número ya está en "elige uno (N)".
+        estadoTuya.textContent = lista.length ? '' : 'Tuya no devolvió dispositivos.';
       } catch (err) {
         estadoTuya.textContent = err.message || 'No se pudo consultar Tuya.';
       } finally {
@@ -2816,9 +2834,12 @@ async function iniciar() {
         b.textContent = orig;
       }
     });
-    const campoTuyaLista = document.createElement('div');
-    campoTuyaLista.className = 'campo';
-    campoTuyaLista.append(btnTuya, selTuya, estadoTuya);
+    // Como un campo más del formulario (etiqueta arriba, control debajo) en
+    // vez de un botón suelto: así no se solapa con lo de arriba ni descuadra.
+    const cajaTuya = document.createElement('div');
+    cajaTuya.className = 'tuya-lista';
+    cajaTuya.append(btnTuya, selTuya, estadoTuya);
+    const campoTuyaLista = campo('Dispositivos de tu cuenta Tuya', cajaTuya);
 
     const campoCodigo = campo('Código del interruptor (Debug Device)', iCodigo);
     // Homebridge: elegir el accesorio de la lista de UI-X.
@@ -3006,7 +3027,6 @@ async function iniciar() {
       campo('Dueño del aparato', sDueno),
       campo('Proveedor', sProveedor),
       campo('Orden (menor = primero)', iOrden),
-      cActivo.label,
       campoTuyaLista,
       campo('Cuenta Tuya Origen', iCuenta),
       campoDevice,
@@ -3018,6 +3038,9 @@ async function iniciar() {
       campoBrilloMax,
       cInvertir.label,
       campoDetectar,
+      // Al final de la ficha: no es un dato del aparato sino el interruptor de
+      // si se usa o no, y ahí no parte el formulario en dos.
+      cActivo.label,
     ], acciones);
   }
 

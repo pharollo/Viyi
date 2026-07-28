@@ -2991,3 +2991,24 @@ input:checked ~ .pase-tgl::before {
 .lista-gestion li.grupo-gestion.grupo-alerta {
   color: var(--fuego);
 }
+
+/* Traer dispositivos de Tuya: botón y lista apilados dentro de su campo, con
+   aire propio. Antes iban sueltos y se solapaban con el control de arriba. */
+.tuya-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tuya-lista > .btn-secundario {
+  margin: 0;
+  width: 100%;
+}
+
+.tuya-lista > .dps-detectados:empty {
+  display: none;
+}
+
+.tuya-lista > .dps-detectados {
+  margin-top: 0;
+}
