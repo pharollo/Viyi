@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=253';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=254';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -1059,10 +1059,11 @@ async function iniciar() {
         // Un carrusel de pocos siempre enseña "uno y medio" y queda corrido. Si
         // el grupo cabe entero, va en fila centrada y se ven todos completos.
         const plano = cabenEnFila(enCarrusel, contenedor);
-        // Con más de dos, el carrusel va de DOS EN DOS: media pantalla cada uno
-        // y los botones un poco más chicos para que quepan enteros. Con uno y
-        // medio en pantalla se pierde de vista lo que hay al lado.
-        const doble = !plano && enCarrusel.length > 2;
+        // Desde DOS, de dos en dos: media pantalla cada uno y los botones algo
+        // más chicos para que quepan enteros, con el nombre debajo. Solo un
+        // control solitario se queda grande y centrado — con dos ya se veía uno
+        // y una rebanada, que era el problema.
+        const doble = !plano && enCarrusel.length >= 2;
         fila.className = 'grupo-controles' + (plano ? '' : ' carrusel')
           + (doble ? ' doble compacto' : '');
         for (const dispositivo of enCarrusel) {
