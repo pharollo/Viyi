@@ -3015,10 +3015,9 @@ input:checked ~ .pase-tgl::before {
 }
 
 /* En medio de una columna de campos hundidos, el relieve del botón se lee
-   como un halo. Aquí va hundido igual que ellos y es el texto en verde el
-   que dice que es una acción, como en Guardar. */
+   como un halo. Aquí va hundido igual que ellos, y el texto se queda gris:
+   en verde resaltaba más que el propio Guardar. */
 .tuya-lista > .btn-secundario {
-  color: var(--primario);
   box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
 }
 
