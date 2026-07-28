@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=256';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=257';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -1004,31 +1004,20 @@ async function iniciar() {
   // El rodillo es angosto; el botón de puerta mide 168 del círculo + 26 de aro
   // a cada lado. Son medidas de CSS, no se pueden leer del DOM aquí: al pintar,
   // el panel todavía puede estar oculto y todo mediría 0.
-  const ANCHO_CONTROL = (d) => (aspectoDe(d) === 'rueda' ? 150 : 220);
-  // En modo compacto solo se achica el botón circular (168+26+26 -> 122+17+17);
-  // la rueda no cambia de tamaño.
-  const ANCHO_COMPACTO = (d) => (aspectoDe(d) === 'rueda' ? 150 : 156);
+  // Ancho real de cada control según su aspecto. Estaba en 220 para todo, y el
+  // Mando mide 170, el Jet 157 y el Sabiem 150: con anchos tan distintos las
+  // decisiones de maquetado salían mal (se veían tres y un pedazo de otro).
+  const ANCHOS_ASPECTO = { rueda: 150, jet: 157, sabiem: 150, mando: 170 };
+  const ANCHO_CONTROL = (d) => ANCHOS_ASPECTO[aspectoDe(d)] || 220;
+  // En compacto solo se achica el botón circular (168+26+26 -> 122+17+17); los
+  // controles propios (rueda, jet, sabiem, mando) no cambian de tamaño.
+  const ANCHO_COMPACTO = (d) => ANCHOS_ASPECTO[aspectoDe(d)] || 156;
   const HUECO_FILA = 34;   // el gap de .grupo-controles
   function cabenEnFila(lista, contenedor, ancho = ANCHO_CONTROL) {
     const disponible = contenedor.clientWidth || (Math.min(640, window.innerWidth) - 32);
     const total = lista.reduce((s, d) => s + ancho(d), 0)
       + HUECO_FILA * (lista.length - 1);
     return total <= disponible;
-  }
-
-  // Saca el nombre de dentro del botón y lo pone debajo. Solo toca los botones
-  // circulares (los que lo llevan dentro); la rueda, el Jet, el Sabiem y el
-  // mando ya lo traen debajo y se quedan como están.
-  function bajarNombre(control, nombre) {
-    const dentro = control.querySelectorAll('.nombre-boton, .nombre-anillo');
-    if (!dentro.length) return;
-    dentro.forEach((n) => n.remove());
-    const boton = control.querySelector('.boton-circular');
-    if (boton) boton.classList.remove('con-nombre');
-    const et = document.createElement('span');
-    et.className = 'etiqueta-control';
-    et.textContent = nombre;
-    control.appendChild(et);
   }
 
   function renderDispositivos(dispositivos) {
@@ -1085,11 +1074,18 @@ async function iniciar() {
           const t = tarjetaDispositivo(dispositivo);
           // En dos-en-dos el botón es más chico y el nombre ya no cabe dentro
           // (ni en el círculo ni en la franja del anillo): se baja debajo.
-          if (menudo) bajarNombre(t, dispositivo.nombre);
           if (dosPorFila && i % 2 === 1) t.classList.add('espejo');
           fila.appendChild(t);
         });
         contenedor.appendChild(fila);
+        if (doble) {
+          // El hueco de cada ficha se reparte en partes ENTERAS del ancho, así
+          // se ven 2, 3 o 4 controles completos y nunca "tres y un pedazo".
+          const disp = fila.clientWidth || (Math.min(640, window.innerWidth) - 32);
+          const mayor = Math.max(...enCarrusel.map(ANCHO_COMPACTO));
+          const cuantos = Math.max(2, Math.floor(disp / mayor));
+          fila.style.setProperty('--hueco-ficha', `${100 / cuantos}%`);
+        }
         // El coverflow (escalar según distancia al centro) solo tiene sentido
         // cuando hay UNO en foco; de dos en dos los dos van a tamaño completo.
         if (!plano && !compactoEnFila && !doble) activarCarrusel(fila);
@@ -1142,13 +1138,6 @@ async function iniciar() {
   }
 
   // Coloca el nombre dentro del botón, debajo del icono.
-  function nombreEnBoton(boton, nombre) {
-    const s = document.createElement('span');
-    s.className = 'nombre-boton';
-    s.textContent = nombre;
-    boton.appendChild(s);
-    boton.classList.add('con-nombre');
-  }
 
   // Audios del Jet Switch, compartidos por todos sus controles. Dos elementos
   // separados: la tapa en MP3, el toggle en WAV (su MP3 no sonaba en iPhone).
@@ -1177,8 +1166,11 @@ async function iniciar() {
     const control = document.createElement('div');
     control.className = 'control control-jet';
 
+    // El nombre va DEBAJO como en todos los demás controles (antes iba arriba
+    // con su propio estilo de plantilla; quedaba desalineado al lado de los
+    // otros). Misma clase que el resto para que todas las etiquetas coincidan.
     const titulo = document.createElement('span');
-    titulo.className = 'jet-titulo';
+    titulo.className = 'etiqueta-control';
     titulo.textContent = dispositivo.nombre;
 
     const sw = document.createElement('div');
@@ -1197,7 +1189,7 @@ async function iniciar() {
       capas[0].appendChild(bomba);
     }
 
-    control.append(titulo, sw);
+    control.append(sw, titulo);
 
     let idx = 0, momentaryTimer = null, enviando = false;
     const pintar = () => { for (let k = 0; k < 3; k++) capas[k].style.opacity = (k === idx) ? 1 : 0; };
@@ -1738,18 +1730,6 @@ async function iniciar() {
       boton.addEventListener('click', () => (demo ? pulsarDemo(boton, dispositivo) : pulsar(boton, dispositivo)));
       anillo.appendChild(boton);
       control.appendChild(anillo);
-      if (boton.classList.contains('boton-imagen')) {
-        // Botones con foto (Argentina, Bordado): el nombre va abajo DENTRO del
-        // anillo (sobre la franja oscura, no sobre la imagen), no como etiqueta
-        // aparte; se desvanece mientras el botón está activo (CSS). El largo se
-        // limita en el campo de nombre del editor para que no se salga.
-        const nom = document.createElement('div');
-        nom.className = 'nombre-anillo';
-        nom.textContent = dispositivo.nombre;
-        anillo.appendChild(nom);
-      } else {
-        nombreEnBoton(boton, dispositivo.nombre);
-      }
     } else if (dispositivo.modo === 'cortina') {
       control.appendChild(perillaCortina(dispositivo, demo));
     } else if (dispositivo.modo === 'dimmer') {
@@ -1778,12 +1758,16 @@ async function iniciar() {
         if (demo) { pintarEstado(boton, !boton.classList.contains('activo')); return; }
         alternar(boton, dispositivo);
       });
-      nombreEnBoton(boton, dispositivo.nombre);
       control.appendChild(boton);
     }
     // Cortina y dimmer llevan el nombre debajo; el termostato lo pinta su propia
     // perilla (nombre + temperatura al lado); pulso/interruptor dentro.
-    if (dispositivo.modo === 'cortina' || dispositivo.modo === 'dimmer') {
+    // El nombre va SIEMPRE debajo, en todos los controles. Antes vivía en tres
+    // sitios según el caso —dentro del círculo, dentro del anillo sobre la foto,
+    // o debajo— y con los botones compactos no cabía en los dos primeros. Una
+    // sola regla es más consistente y una menos que recordar. El termostato lo
+    // pinta su propia perilla (nombre + temperatura al lado).
+    if (dispositivo.modo !== 'termostato') {
       const etiqueta = document.createElement('span');
       etiqueta.className = 'etiqueta-control';
       etiqueta.textContent = dispositivo.nombre;
