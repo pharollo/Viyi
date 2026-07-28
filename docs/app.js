@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=254';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=255';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -1066,13 +1066,18 @@ async function iniciar() {
         const doble = !plano && enCarrusel.length >= 2;
         fila.className = 'grupo-controles' + (plano ? '' : ' carrusel')
           + (doble ? ' doble compacto' : '');
-        for (const dispositivo of enCarrusel) {
+        // Los de la columna DERECHA van espejados: ahí el pulgar tapa el
+        // costado derecho, que es donde vive la columna de luces de la rueda.
+        // Espejar los pares deja las luces del lado que queda libre.
+        const dosPorFila = doble || enCarrusel.length === 2;
+        enCarrusel.forEach((dispositivo, i) => {
           const t = tarjetaDispositivo(dispositivo);
           // En dos-en-dos el botón es más chico y el nombre ya no cabe dentro
           // (ni en el círculo ni en la franja del anillo): se baja debajo.
           if (doble) bajarNombre(t, dispositivo.nombre);
+          if (dosPorFila && i % 2 === 1) t.classList.add('espejo');
           fila.appendChild(t);
-        }
+        });
         contenedor.appendChild(fila);
         // El coverflow (escalar según distancia al centro) solo tiene sentido
         // cuando hay UNO en foco; de dos en dos los dos van a tamaño completo.

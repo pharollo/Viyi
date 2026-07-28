@@ -2982,3 +2982,12 @@ input:checked ~ .pase-tgl::before {
   width: 46px;
   height: 46px;
 }
+
+/* ===== Control espejado (columna derecha) =====
+   En la columna derecha el pulgar tapa el costado derecho, justo donde está la
+   columna de luces de la rueda. Se espeja el control entero: el rodillo es
+   simétrico y las luces son círculos, así que lo único que cambia de verdad es
+   de qué lado quedan. El gesto es vertical, así que no se invierte nada. */
+.espejo .rueda-ctrl {
+  transform: scaleX(-1);
+}
