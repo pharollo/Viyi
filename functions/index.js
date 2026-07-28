@@ -931,6 +931,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const {
     id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, segundosApertura, orden, activo, inmueble,
+    dueno, cuentaTuya,
     proveedor, tuyaDeviceId, codigo, pulsoMs, codigoBrillo, brilloMax,
     codigoPosicion, codigoPosicionEstado, posicionInvertida,
     accesorioId, caracteristica,
@@ -952,12 +953,31 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     }
     inmuebleFinal = inmId;
   }
+  // Dueño del aparato: vacío = del condominio. Si es de un vecino, ÉL puede
+  // desvincular su cuenta Tuya cuando quiera, así que el edificio no debería
+  // depender de ese dispositivo. Por ahora es informativo (no cambia el acceso),
+  // igual que el inmueble antes de que otorgara permisos.
+  let duenoFinal = '';
+  if (typeof dueno === 'string' && dueno.trim()) {
+    const uidDueno = dueno.trim();
+    const snapDueno = await db.doc(`usuarios/${uidDueno}`).get();
+    if (!snapDueno.exists) {
+      throw new HttpsError('invalid-argument', 'Ese vecino no existe.');
+    }
+    duenoFinal = uidDueno;
+  }
   // Un admin de edificio solo pone dispositivos DENTRO de lo que administra...
   exigirInmueble(alcance, inmuebleFinal, 'Ese inmueble');
   // ...y no puede tocar uno que hoy está en otro edificio (sería robárselo).
   if (alcance) {
     const antes = await db.doc(`dispositivos/${id}`).get();
     if (antes.exists) exigirInmueble(alcance, antes.data().inmueble || '', 'Ese dispositivo');
+    if (duenoFinal) {
+      const d = await db.doc(`usuarios/${duenoFinal}`).get();
+      if (!vecinoEnAlcance(alcance, d.data() || {})) {
+        throw new HttpsError('permission-denied', 'Ese vecino no pertenece a lo que administras.');
+      }
+    }
   }
   if (provFinal === 'homebridge' ? !accesorioId : !tuyaDeviceId) {
     throw new HttpsError('invalid-argument', provFinal === 'homebridge'
@@ -989,9 +1009,15 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     // acceso el vecino, y sirve para saber dónde buscar el aparato si se cae la
     // luz o el internet (y para agrupar reportes por edificio).
     inmueble: inmuebleFinal,
+    dueno: duenoFinal,
   }, { merge: true });
   const privado = {
     tuyaDeviceId: String(tuyaDeviceId || '').trim(),
+    // De qué cuenta Smart Life vinculada vino este aparato. Con una sola cuenta
+    // da igual, pero en cuanto haya varias (una por edificio, o la de un vecino)
+    // es lo único que distingue "se cayó un aparato" de "se desvinculó una
+    // cuenta entera". Etiqueta libre: la pone quien vincula.
+    cuenta: String(cuentaTuya || '').trim().slice(0, 40),
     codigo: (codigo || 'switch_1').trim(),
     pulsoMs: Number(pulsoMs) || 1000,
     codigoBrillo: (codigoBrillo || 'bright_value_v2').trim(),

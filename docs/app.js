@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=259';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=260';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2352,8 +2352,15 @@ async function iniciar() {
     const ld = $('gestion-dispositivos');
     ld.textContent = '';
     const MODOS = { pulso: 'pulso', interruptor: 'interruptor', cortina: 'cortina', dimmer: 'dimmer', termostato: 'termostato' };
+    const nombreDueno = (uid) => {
+      const u = cacheUsuarios.find((x) => x.uid === uid);
+      return u ? nombreCompleto(u) : 'un vecino';
+    };
     const pintarFila = (d) => {
-      const texto = `${d.nombre} · ${MODOS[d.modo] || 'pulso'}`;
+      // Se marca de quién es cuando NO es del condominio: son los que pueden
+      // desaparecer si el vecino desvincula su cuenta.
+      const texto = `${d.nombre} · ${MODOS[d.modo] || 'pulso'}`
+        + (d.dueno ? ` · de ${nombreDueno(d.dueno)}` : '');
       const fila = filaGestion(texto, d.activo === false, () => abrirEditorDispositivo(d));
       fila.dataset.disp = d.id; // para colgarle después el punto de conexión
       ld.appendChild(fila);
@@ -2713,6 +2720,14 @@ async function iniciar() {
     sTipo.addEventListener('change', sincronizarModoTipo);
     const iOrden = entrada(d.orden != null ? d.orden : 10, '', 'number');
     const cActivo = casilla('Activo', d.activo !== false);
+    // Dueño: vacío = del condominio. Si es de un vecino, él puede desvincular
+    // su cuenta Tuya cuando quiera, así que el edificio no debería depender de
+    // ese aparato. Hoy es informativo; no cambia quién puede usarlo.
+    const sDueno = selector(
+      [['', '— del condominio —']].concat(
+        cacheUsuarios.filter((u) => u.rol !== 'admin').map((u) => [u.uid, nombreCompleto(u)])),
+      d.dueno || '');
+    const iCuenta = entrada(tuya.cuenta, 'ej: Torre A, Ana Pérez');
     const iDevice = entrada(tuya.tuyaDeviceId, 'Device ID de Tuya');
     const iCodigo = entrada(tuya.codigo, 'switch_1');
     const iPulso = entrada(tuya.pulsoMs, '', 'number');
@@ -2859,6 +2874,8 @@ async function iniciar() {
             aspecto: (sTipo.value === 'puerta' && sModo.value === 'pulso') ? sAspecto.value : 'normal',
             segundosApertura: Number(iSegundos.value) || 15,
             inmueble: sInmueble.value,
+            dueno: sDueno.value,
+            cuentaTuya: iCuenta.value.trim(),
             modo: sModo.value,
             proveedor: sProveedor.value,
             orden: Number(iOrden.value) || 99,
@@ -2906,9 +2923,11 @@ async function iniciar() {
       campoAspecto,
       campoSegundos,
       campo('Inmueble (dónde está)', sInmueble),
+      campo('Dueño del aparato', sDueno),
       campo('Proveedor', sProveedor),
       campo('Orden (menor = primero)', iOrden),
       cActivo.label,
+      campo('Cuenta Tuya de la que viene', iCuenta),
       campoDevice,
       campoCodigo,
       campoAccesorio,
