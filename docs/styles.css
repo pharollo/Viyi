@@ -2998,17 +2998,32 @@ input:checked ~ .pase-tgl::before {
 }
 
 /* Traer dispositivos de Tuya: botón y lista apilados dentro de su campo, con
-   aire propio. Antes iban sueltos y se solapaban con el control de arriba. */
+   aire propio. Antes iban sueltos y se solapaban con el control de arriba.
+   El margen de abajo iguala el de un input, para que el campo siguiente
+   respire lo mismo que los demás. */
 .tuya-lista {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-bottom: 8px;
 }
 
 .tuya-lista > .btn-secundario,
 .tuya-lista > select {
   margin: 0;
   width: 100%;
+}
+
+/* En medio de una columna de campos hundidos, el relieve del botón se lee
+   como un halo. Aquí va hundido igual que ellos y es el texto en verde el
+   que dice que es una acción, como en Guardar. */
+.tuya-lista > .btn-secundario {
+  color: var(--primario);
+  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
+}
+
+.tuya-lista > .btn-secundario:not(:disabled):active {
+  opacity: 0.6;
 }
 
 .tuya-lista > .dps-detectados:empty {
