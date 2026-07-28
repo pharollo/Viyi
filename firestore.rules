@@ -138,6 +138,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Tokens de Tuya de cada vecino (OAuth). NADIE los lee desde el cliente:
+    // con uno de estos se controlan sus dispositivos. Solo las Functions.
+    match /tuyaAuth/{uid} {
+      allow read, write: if false;
+    }
+
     // Marca de tiempo del último correo de "olvidé mi clave" por cuenta, para
     // limitar los envíos. Solo lo tocan las Functions; nadie más lo lee, porque
     // delataría qué correos tienen cuenta.

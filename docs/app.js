@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=262';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=263';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -4053,6 +4053,28 @@ async function iniciar() {
 
   // Buscar vecino: filtra sin volver a leer Firestore (ya está todo en caché).
   $('buscar-vecino').addEventListener('input', renderVecinos);
+
+  // Vincular la cuenta Tuya del propio vecino (OAuth). Se abre la página de
+  // Tuya, él elige qué dispositivos comparte, y vuelve al callback del backend.
+  const vincularTuya = httpsCallable(functions, 'vincularTuya');
+  $('btn-vincular-tuya').addEventListener('click', async (e) => {
+    const b = e.currentTarget;
+    b.disabled = true;
+    const orig = b.textContent;
+    b.textContent = 'Abriendo…';
+    try {
+      const r = await vincularTuya({});
+      // Se abre en otra pestaña: si volviera en la misma, la PWA instalada
+      // perdería el estado y el vecino acabaría fuera de la app.
+      window.open(r.data.url, '_blank', 'noopener');
+      $('tuya-msg').textContent = 'Autoriza en la ventana de Tuya y vuelve aquí.';
+    } catch (err) {
+      $('tuya-msg').textContent = (err && err.message) || 'No se pudo abrir Tuya.';
+    } finally {
+      b.disabled = false;
+      b.textContent = orig;
+    }
+  });
 
   $('btn-generar-pase').addEventListener('click', generarEnlacePase);
   // Al encender/apagar un dispositivo, refrescar el conteo de su grupo.

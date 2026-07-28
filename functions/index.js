@@ -1,4 +1,4 @@
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { defineSecret, defineString } = require('firebase-functions/params');
@@ -787,6 +787,80 @@ exports.actualizarMiPerfil = onCall(async (request) => {
   await db.doc(`usuarios/${uid}`).set(cambios, { merge: true });
   return { ok: true, perfil: cambios, descartados };
 });
+
+// ---- OAuth de Tuya: que un vecino autorice SUS propios dispositivos ----
+// A dónde vuelve Tuya tras la autorización. Tiene que coincidir EXACTAMENTE con
+// la registrada en la consola de Tuya y con el centro de datos de TUYA_BASE_URL.
+const TUYA_REDIRECT = defineString('TUYA_REDIRECT', {
+  default: 'https://us-central1-viyi-25a09.cloudfunctions.net/tuyaCallback',
+});
+
+// Le da al vecino el enlace para autorizar. El `state` lleva su uid firmado:
+// es lo que permite saber quién volvió, y va firmado para que nadie pueda
+// atribuirse la autorización de otro.
+exports.vincularTuya = onCall(
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
+    }
+    const uid = request.auth.uid;
+    const snap = await db.doc(`usuarios/${uid}`).get();
+    if (!snap.exists || snap.data().activo === false) {
+      throw new HttpsError('permission-denied', 'Tu cuenta no está activa.');
+    }
+    const firma = crypto.createHmac('sha256', TUYA_CLIENT_SECRET.value())
+      .update(uid).digest('hex').slice(0, 32);
+    const ya = await db.doc(`tuyaAuth/${uid}`).get();
+    return {
+      url: tuya().urlAutorizacion(TUYA_REDIRECT.value(), `${uid}.${firma}`),
+      vinculada: ya.exists,
+    };
+  },
+);
+
+// Aquí vuelve el vecino tras autorizar. Cambia el código por su token y lo
+// guarda. El token NO se expone nunca al cliente: vive en una colección que las
+// reglas niegan a todo el mundo y solo tocan las Functions.
+exports.tuyaCallback = onRequest(
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
+  async (req, res) => {
+    const pagina = (titulo, detalle) => res.status(200).send(
+      `<!doctype html><meta charset="utf-8">`
+      + `<meta name="viewport" content="width=device-width,initial-scale=1">`
+      + `<body style="background:#1b1c1e;color:#e8eaec;font:16px/1.5 system-ui;`
+      + `display:flex;flex-direction:column;align-items:center;justify-content:center;`
+      + `height:100vh;margin:0;padding:24px;text-align:center">`
+      + `<h2 style="margin:0 0 8px">${titulo}</h2>`
+      + `<p style="color:#8d9297;margin:0;max-width:32ch">${detalle}</p></body>`);
+
+    const { code, state } = req.query || {};
+    if (!code || !state) {
+      return pagina('Faltan datos', 'Tuya no devolvió el código de autorización. Vuelve a intentarlo desde la app.');
+    }
+    const [uid, firma] = String(state).split('.');
+    const esperada = crypto.createHmac('sha256', TUYA_CLIENT_SECRET.value())
+      .update(uid || '').digest('hex').slice(0, 32);
+    if (!uid || firma !== esperada) {
+      console.error('tuyaCallback: state inválido');
+      return pagina('Enlace no válido', 'Vuelve a empezar desde la app.');
+    }
+    try {
+      const r = await tuya().tokenPorCodigo(String(code));
+      await db.doc(`tuyaAuth/${uid}`).set({
+        accessToken: r.access_token,
+        refreshToken: r.refresh_token,
+        expira: Date.now() + (r.expire_time || 0) * 1000,
+        uidTuya: r.uid || '',
+        vinculado: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return pagina('Cuenta vinculada ✓', 'Ya puedes cerrar esta página y volver a ViYi.');
+    } catch (err) {
+      console.error('tuyaCallback', err && err.message);
+      return pagina('No se pudo vincular', String((err && err.message) || err));
+    }
+  },
+);
 
 // Lista los dispositivos que el proyecto de Tuya alcanza, para no tener que
 // copiar el Device ID a mano de la consola. Marca cuáles ya están dados de alta

@@ -21,22 +21,50 @@ class TuyaClient {
       .toUpperCase();
   }
 
-  async obtenerToken() {
-    if (this.token && Date.now() < this.tokenExpira - 60000) return this.token;
-    const path = '/v1.0/token?grant_type=1';
+  // Peticiones al propio endpoint de token: se firman SIN access_token (todavía
+  // no hay ninguno). Lo comparten el token del proyecto y los de usuario.
+  async sinToken(metodo, path) {
     const t = Date.now().toString();
-    const stringToSign = ['GET', sha256(''), '', path].join('\n');
+    const stringToSign = [metodo, sha256(''), '', path].join('\n');
     const sign = this.firmar(this.clientId + t + stringToSign);
     const res = await fetch(this.baseUrl + path, {
+      method: metodo,
       headers: { client_id: this.clientId, sign, t, sign_method: 'HMAC-SHA256' },
     });
     const data = await res.json();
     if (!data.success) {
-      throw new Error(`Tuya no entregó token: ${data.msg} (código ${data.code})`);
+      throw new Error(`Tuya rechazó ${path}: ${data.msg} (código ${data.code})`);
     }
-    this.token = data.result.access_token;
-    this.tokenExpira = Date.now() + data.result.expire_time * 1000;
+    return data.result;
+  }
+
+  async obtenerToken() {
+    if (this.token && Date.now() < this.tokenExpira - 60000) return this.token;
+    const r = await this.sinToken('GET', '/v1.0/token?grant_type=1');
+    this.token = r.access_token;
+    this.tokenExpira = Date.now() + r.expire_time * 1000;
     return this.token;
+  }
+
+  // ---- OAuth 2.0: que un vecino autorice SUS dispositivos ----
+  // A diferencia del QR de la consola (que vincula la cuenta entera y hay que
+  // hacerlo estando presente), aquí el vecino entra desde la app y ELIGE qué
+  // dispositivos comparte.
+  urlAutorizacion(redirectUri, estado) {
+    const p = new URLSearchParams({ client_id: this.clientId, redirect_uri: redirectUri });
+    // `state` es el mecanismo estándar de OAuth para saber QUIÉN volvió; sin él
+    // el callback no podría atribuirle el token a nadie.
+    if (estado) p.set('state', estado);
+    return `${this.baseUrl}/v1.0/token/authorize?${p.toString()}`;
+  }
+
+  // Cambia el código que devuelve Tuya por el token de ESE usuario.
+  tokenPorCodigo(code) {
+    return this.sinToken('GET', `/v1.0/token?grant_type=2&code=${encodeURIComponent(code)}`);
+  }
+
+  renovarToken(refreshToken) {
+    return this.sinToken('GET', `/v1.0/token/${encodeURIComponent(refreshToken)}`);
   }
 
   async peticion(metodo, path, body) {
