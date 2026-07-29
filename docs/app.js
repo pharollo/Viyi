@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=281';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=282';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2382,8 +2382,10 @@ async function iniciar() {
       cacheInmuebles = inmSnap.docs
         .map((s) => ({ id: s.id, ...s.data() }))
         .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
-      renderGestion();
-      pintarConexion(conexionGuardada());
+      // Los datos de conexión vienen en los propios dispositivos, así que se
+      // recalculan al recargar en vez de quedarse con lo pintado antes.
+      cacheConexion = null;
+      renderGestion();     // pinta los puntos por su cuenta
       pintarProveedores(); // sin await: la lista no espera por Auth
     } catch (err) {
       toast('No se pudo cargar la gestión.', 'error');
@@ -2453,7 +2455,13 @@ async function iniciar() {
 
   // Pinta el punto de conexión de cada dispositivo. Si no se sabe el estado no
   // se pinta nada: mejor sin dato que un rojo mentiroso.
+  // Lo último que se pintó. Los puntos viven en el DOM y CUALQUIER repintado
+  // de la lista se los lleva (el buscador la rehace en cada tecla), así que se
+  // guarda el dato para poder recolgarlos. Mismo caso que `cacheProveedores`.
+  let cacheConexion = null;
+
   function pintarConexion(lista) {
+    if (lista) cacheConexion = lista;
     for (const d of lista || []) {
       const fila = document.querySelector(`#gestion-dispositivos li[data-disp="${d.id}"]`);
       if (!fila) continue;
@@ -2563,6 +2571,7 @@ async function iniciar() {
         items.forEach(pintarFila);
       });
     mostrarSeccion('dispositivos', ld, visiblesD.length);
+    pintarConexion(cacheConexion || conexionGuardada());
 
     const li = $('gestion-inmuebles');
     li.textContent = '';
