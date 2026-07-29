@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=282';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=283';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -67,6 +67,8 @@ async function iniciar() {
   const adminGuardarInmueble = httpsCallable(functions, 'adminGuardarInmueble');
   const adminEliminarInmueble = httpsCallable(functions, 'adminEliminarInmueble');
   const adminCrearInmuebleLote = httpsCallable(functions, 'adminCrearInmuebleLote');
+  const adminCrearVecinosLote = httpsCallable(functions, 'adminCrearVecinosLote');
+  const adminInvitarVecinos = httpsCallable(functions, 'adminInvitarVecinos');
   const adminEliminarUsuario = httpsCallable(functions, 'adminEliminarUsuario');
   const adminInspeccionarDispositivo = httpsCallable(functions, 'adminInspeccionarDispositivo');
   const adminListarAccesoriosHomebridge = httpsCallable(functions, 'adminListarAccesoriosHomebridge');
@@ -3559,6 +3561,156 @@ async function iniciar() {
     abrirEditor(esNuevo ? 'Nuevo inmueble' : `Editar: ${inm.nombre}`, filas, acciones);
   }
 
+
+  // Alta de vecinos en lote: se elige el edificio y sale una fila por cada
+  // unidad suya, con quien ya la tiene puesto y bloqueado. Las filas vacías se
+  // ignoran, así que se puede ir llenando a medida que llega la información.
+  function abrirEditorVecinosLote() {
+    const contenedores = cacheInmuebles
+      .filter((x) => cacheInmuebles.some((h) => h.padre === x.id))
+      .map((x) => [x.id, rutaInmueble(x.id)])
+      .sort((a, b) => a[1].localeCompare(b[1]));
+    if (!contenedores.length) {
+      toast('Primero crea un edificio con sus apartamentos.', 'error');
+      return;
+    }
+    const sDonde = selector(contenedores, contenedores[0][0]);
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'lote-vecinos';
+    const resumen = document.createElement('p');
+    resumen.className = 'dps-detectados';
+    let campos = [];
+
+    function pintarUnidades() {
+      cuerpo.textContent = '';
+      campos = [];
+      const unidades = cacheInmuebles
+        .filter((x) => x.padre === sDonde.value)
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true }));
+      for (const u of unidades) {
+        const fila = document.createElement('div');
+        fila.className = 'lote-fila';
+        const tit = document.createElement('span');
+        tit.className = 'lote-unidad';
+        tit.textContent = u.nombre;
+        fila.appendChild(tit);
+        // Quien ya vive ahí no se vuelve a crear: se enseña y se bloquea.
+        const ya = cacheUsuarios.find((v) => (v.inmuebles || []).some((x) => x.id === u.id));
+        if (ya) {
+          const quien = document.createElement('span');
+          quien.className = 'lote-ocupado';
+          quien.textContent = `${nombreCompleto(ya)} · ${ya.email || ''}`;
+          fila.appendChild(quien);
+        } else {
+          const iNom = entrada('', 'Nombre');
+          const iApe = entrada('', 'Apellido');
+          const iMail = entrada('', 'correo@ejemplo.com', 'email');
+          [iNom, iApe].forEach((i) => i.setAttribute('autocapitalize', 'words'));
+          iMail.setAttribute('autocapitalize', 'none');
+          iMail.setAttribute('autocomplete', 'off');
+          fila.append(iNom, iApe, iMail);
+          campos.push({ inmueble: u.id, iNom, iApe, iMail });
+          [iNom, iApe, iMail].forEach((i) => i.addEventListener('input', pintarResumen));
+        }
+        cuerpo.appendChild(fila);
+      }
+      if (!unidades.length) {
+        const vacio = document.createElement('p');
+        vacio.className = 'dps-detectados';
+        vacio.textContent = 'Ese inmueble todavía no tiene unidades.';
+        cuerpo.appendChild(vacio);
+      }
+      pintarResumen();
+    }
+
+    const llenas = () => campos
+      .map((c) => ({
+        inmueble: c.inmueble,
+        nombre: c.iNom.value.trim(),
+        apellido: c.iApe.value.trim(),
+        email: c.iMail.value.trim(),
+      }))
+      .filter((f) => f.nombre || f.email);
+
+    function pintarResumen() {
+      const n = llenas().length;
+      const malas = llenas().filter((f) => !f.nombre || !f.email.includes('@')).length;
+      resumen.classList.toggle('mensaje-error', malas > 0);
+      resumen.textContent = !n
+        ? 'Rellena las unidades que ya tengas; las vacías se ignoran.'
+        : (malas
+          ? `${malas} de ${n} sin nombre o sin correo válido.`
+          : `Se ${n === 1 ? 'creará 1 cuenta' : `crearán ${n} cuentas`}, sin clave. La invitación se manda después.`);
+    }
+
+    sDonde.addEventListener('change', pintarUnidades);
+    pintarUnidades();
+
+    const acciones = [
+      botonForm('Crear cuentas', 'btn-primario', async (ev) => {
+        const filas = llenas();
+        if (!filas.length) { toast('No hay ningún vecino que crear.', 'error'); return; }
+        if (filas.some((f) => !f.nombre || !f.email.includes('@'))) {
+          toast('Faltan nombres o hay correos sin @.', 'error');
+          return;
+        }
+        const b = ev.currentTarget;
+        b.disabled = true;
+        try {
+          const res = await adminCrearVecinosLote({ filas });
+          const d = res.data || {};
+          await cargarGestion();
+          pantallaInvitar(d);
+        } catch (err) {
+          toast(err.message || 'No se pudieron crear.', 'error');
+          b.disabled = false;
+        }
+      }),
+      botonForm('Cancelar', 'btn-secundario', cerrarEditor),
+    ];
+    abrirEditor('Vecinos en lote', [campo('Edificio', sDonde), cuerpo, resumen], acciones);
+  }
+
+  // Segundo paso, a propósito separado: primero se ven las cuentas creadas y
+  // solo entonces salen los correos. Uno mal escrito, ya enviado, no se recoge.
+  function pantallaInvitar(d) {
+    const creados = d.creados || [];
+    const asignados = d.asignados || [];
+    const fallos = d.fallos || [];
+    const filas = [];
+    const linea = (txt, clase) => {
+      const p = document.createElement('p');
+      p.className = clase || 'dps-detectados';
+      p.textContent = txt;
+      return p;
+    };
+    if (creados.length) filas.push(linea(`${creados.length} cuentas nuevas: ${creados.map((x) => x.inmueble).join(', ')}`));
+    if (asignados.length) filas.push(linea(`${asignados.length} ya tenían cuenta y se les sumó su inmueble.`));
+    for (const f of fallos) filas.push(linea(`${f.etiqueta}: ${f.motivo}`, 'dps-detectados mensaje-error'));
+    filas.push(linea(creados.length
+      ? 'Ninguno tiene clave todavía. La invitación les manda el enlace para que pongan la suya.'
+      : 'No hay cuentas nuevas a las que invitar.'));
+    const acciones = [];
+    if (creados.length) {
+      acciones.push(botonForm(`Enviar invitación a ${creados.length}`, 'btn-primario', async (ev) => {
+        const b = ev.currentTarget;
+        b.disabled = true;
+        try {
+          const res = await adminInvitarVecinos({ uids: creados.map((x) => x.uid) });
+          const r = res.data || {};
+          toast(`${r.enviados || 0} invitaciones enviadas ✓`
+            + ((r.fallos || []).length ? ` · ${r.fallos.length} fallaron` : ''), 'ok');
+          cerrarEditor();
+        } catch (err) {
+          toast(err.message || 'No se pudieron enviar.', 'error');
+          b.disabled = false;
+        }
+      }));
+    }
+    acciones.push(botonForm('Listo, sin enviar', 'btn-secundario', cerrarEditor));
+    abrirEditor('Cuentas creadas', filas, acciones);
+  }
+
   function abrirEditorUsuario(existente) {
     const esNuevo = !existente;
     const u = existente || {};
@@ -4526,6 +4678,7 @@ async function iniciar() {
 
   // Buscar vecino: filtra sin volver a leer Firestore (ya está todo en caché).
   $('buscar-gestion').addEventListener('input', renderGestion);
+  $('btn-vecinos-lote').addEventListener('click', () => abrirEditorVecinosLote());
 
   // Vincular la cuenta Tuya del propio vecino (OAuth). Se abre la página de
   // Tuya, él elige qué dispositivos comparte, y vuelve al callback del backend.

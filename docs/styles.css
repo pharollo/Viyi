@@ -3086,3 +3086,64 @@ input:checked ~ .pase-tgl::before {
   padding-left: 14px;
   border-left: 1px solid var(--sombra-oscura);
 }
+
+/* Alta de vecinos en lote: una fila por unidad. En móvil se apila (la unidad
+   arriba, los tres campos debajo) y en pantalla ancha va todo en línea. */
+.lote-vecinos {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+  max-height: 50vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.lote-fila {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--fondo);
+  box-shadow: inset 3px 3px 7px var(--sombra-oscura), inset -3px -3px 7px var(--sombra-clara);
+}
+
+.lote-unidad {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.lote-ocupado {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+/* Los inputs de la fila no son `.campo input`, así que se les da aquí el
+   mismo aspecto hundido, un punto más bajo por ir tres seguidos. */
+.lote-fila input {
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--superficie);
+  color: var(--texto);
+  font-size: 16px;
+  font-family: inherit;
+  box-shadow: inset 3px 3px 6px var(--sombra-oscura), inset -3px -3px 6px var(--sombra-clara);
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.lote-fila input:focus {
+  box-shadow: inset 3px 3px 6px var(--sombra-oscura), inset -3px -3px 6px var(--sombra-clara), 0 0 0 1.5px var(--primario);
+}
+
+@media (min-width: 620px) {
+  .lote-fila {
+    grid-template-columns: 70px 1fr 1fr 1.4fr;
+    gap: 8px;
+  }
+}

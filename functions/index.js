@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const { GoogleAuth } = require('google-auth-library');
 const { TuyaClient } = require('./tuya');
 const { HomebridgeClient } = require('./homebridge');
-const { plantillaResetClave, plantillaAccesoDado, enviar: enviarCorreo } = require('./correo');
+const { plantillaResetClave, plantillaInvitacion, plantillaAccesoDado, enviar: enviarCorreo } = require('./correo');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -1078,6 +1078,143 @@ exports.adminCrearInmuebleLote = onCall(async (request) => {
   // edificio, su alcance (administraIds) tiene que incluir lo recién creado.
   await resincronizarInmuebles();
   return { ok: true, id: raizId, total: escrituras.length, omitidos };
+});
+
+// ---- Alta de vecinos en lote ----
+// Un edificio recién montado son 20-30 vecinos, y a mano son 30 formularios.
+// Se crean SIN CLAVE a propósito: el admin no debe inventar ni conocer la
+// clave de nadie. El vecino entra con Google (Firebase enlaza por correo) o
+// pone la suya con el enlace de la invitación, que se manda APARTE.
+const MAX_VECINOS_LOTE = 200;
+
+exports.adminCrearVecinosLote = onCall(async (request) => {
+  const alcance = alcanceDe(await exigirAdmin(request));
+  const filas = Array.isArray((request.data || {}).filas) ? request.data.filas : [];
+  if (!filas.length) throw new HttpsError('invalid-argument', 'No hay vecinos que crear.');
+  if (filas.length > MAX_VECINOS_LOTE) {
+    throw new HttpsError('invalid-argument', `El máximo por lote es ${MAX_VECINOS_LOTE}.`);
+  }
+  // El inmueble de cada fila se resuelve del catálogo, no de lo que mande el
+  // navegador: así no se puede colar un inmueble inventado ni ajeno.
+  const ids = [...new Set(filas.map((f) => String((f && f.inmueble) || '')).filter(Boolean))];
+  const docs = await Promise.all(ids.map((x) => db.doc(`inmuebles/${x}`).get()));
+  const catalogo = new Map();
+  docs.forEach((d) => { if (d.exists) catalogo.set(d.id, { id: d.id, tipo: d.data().tipo, nombre: d.data().nombre }); });
+  exigirInmueblesAsignables(alcance, [...catalogo.values()]);
+
+  const creados = [];
+  const asignados = [];
+  const fallos = [];
+  for (const f of filas) {
+    const email = String((f && f.email) || '').trim().toLowerCase();
+    const nombre = String((f && f.nombre) || '').trim();
+    const inm = catalogo.get(String((f && f.inmueble) || ''));
+    const etiqueta = inm ? inm.nombre : email;
+    if (!email.includes('@') || email.length > 200) { fallos.push({ etiqueta, motivo: 'correo no válido' }); continue; }
+    if (!nombre) { fallos.push({ etiqueta, motivo: 'falta el nombre' }); continue; }
+    if (!inm) { fallos.push({ etiqueta, motivo: 'ese inmueble no existe' }); continue; }
+    try {
+      // Si ya tiene cuenta (el amigo que ya usaba ViYi) NO se falla: se le
+      // suma el inmueble. Fallar obligaría a sacarlo del lote a mano.
+      let uid = null;
+      try {
+        uid = (await admin.auth().getUserByEmail(email)).uid;
+      } catch (err) {
+        if (err.code !== 'auth/user-not-found') throw err;
+      }
+      if (uid) {
+        const ref = db.doc(`usuarios/${uid}`);
+        const prev = (await ref.get()).data() || {};
+        const lista = prev.inmuebles || [];
+        if (!lista.some((x) => x.id === inm.id)) {
+          const nuevos = [...lista, inm];
+          await ref.set({ inmuebles: nuevos, inmueblesIds: await conAncestros(nuevos.map((x) => x.id)) }, { merge: true });
+        }
+        asignados.push({ uid, email, inmueble: inm.nombre });
+        continue;
+      }
+      // Sin `password`: la cuenta nace sin clave y solo su dueño podrá ponerla.
+      const user = await admin.auth().createUser({ email, displayName: nombre });
+      await db.doc(`usuarios/${user.uid}`).set({
+        nombre: nombrePropio(nombre),
+        apellido: nombrePropio((f && f.apellido) || ''),
+        unidad: '',
+        email,
+        rol: 'vecino',
+        activo: true,
+        dispositivos: [],
+        inmuebles: [inm],
+        inmueblesIds: await conAncestros([inm.id]),
+      });
+      creados.push({ uid: user.uid, email, inmueble: inm.nombre });
+    } catch (err) {
+      console.error('Alta en lote falló para', email, err.code || err.message);
+      fallos.push({ etiqueta, motivo: err.code === 'auth/invalid-email' ? 'correo no válido' : 'no se pudo crear' });
+    }
+  }
+  return { creados, asignados, fallos };
+});
+
+// El nombre de más arriba del árbol: el conjunto o el edificio suelto. Es lo
+// que el vecino reconoce ("Residencias Bunker"), mejor que un nombre global
+// del condominio que además tendría que estar duplicado aquí y en el frontend.
+async function nombreRaiz(id) {
+  let actual = id;
+  let nombre = '';
+  for (let n = 0; n < MAX_NIVELES_INMUEBLE && actual; n++) {
+    const snap = await db.doc(`inmuebles/${actual}`).get();
+    if (!snap.exists) break;
+    nombre = snap.data().nombre || nombre;
+    actual = snap.data().padre || '';
+  }
+  return nombre;
+}
+
+// Manda la invitación para que el vecino ponga su clave. Va SEPARADO del alta
+// a propósito: un correo mal escrito, una vez enviado, no se recoge.
+exports.adminInvitarVecinos = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
+  const alcance = alcanceDe(await exigirAdmin(request));
+  const uids = [...new Set((((request.data || {}).uids) || []).filter((x) => typeof x === 'string' && x))];
+  if (!uids.length) throw new HttpsError('invalid-argument', 'No hay a quién invitar.');
+  if (uids.length > MAX_VECINOS_LOTE) {
+    throw new HttpsError('invalid-argument', `El máximo por lote es ${MAX_VECINOS_LOTE}.`);
+  }
+  let enviados = 0;
+  const fallos = [];
+  for (const uid of uids) {
+    const snap = await db.doc(`usuarios/${uid}`).get();
+    if (!snap.exists) { fallos.push({ etiqueta: uid, motivo: 'no existe' }); continue; }
+    const u = { uid, ...snap.data() };
+    if (alcance && !vecinoEnAlcance(alcance, u)) {
+      fallos.push({ etiqueta: u.email || uid, motivo: 'fuera de tu alcance' });
+      continue;
+    }
+    const email = String(u.email || '').trim().toLowerCase();
+    if (!email.includes('@')) { fallos.push({ etiqueta: uid, motivo: 'sin correo' }); continue; }
+    try {
+      let enlace = await admin.auth().generatePasswordResetLink(email, {
+        url: 'https://www.viyi.ai/',
+        handleCodeInApp: false,
+      });
+      // Mismo apaño que en el reset: la pantalla la sirve Firebase y sin
+      // lang=es sale en inglés aunque el correo vaya en español.
+      enlace = /[?&]lang=/.test(enlace)
+        ? enlace.replace(/([?&])lang=[^&]*/, '$1lang=es')
+        : `${enlace}${enlace.includes('?') ? '&' : '?'}lang=es`;
+      const suyos = u.inmuebles || [];
+      const { asunto, html, texto } = plantillaInvitacion({
+        enlace,
+        condominio: (suyos[0] && await nombreRaiz(suyos[0].id)) || 'tu condominio',
+        inmueble: suyos.map((x) => x.nombre).join(', '),
+      });
+      await enviarCorreo({ apiKey: RESEND_API_KEY.value(), para: email, asunto, html, texto });
+      enviados += 1;
+    } catch (err) {
+      console.error('Invitación falló para', email, err.code || err.message);
+      fallos.push({ etiqueta: email, motivo: 'no se pudo enviar' });
+    }
+  }
+  return { enviados, fallos };
 });
 
 // Elimina un inmueble del catálogo y lo quita de los vecinos asignados.

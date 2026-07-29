@@ -87,6 +87,37 @@ function plantillaResetClave(enlace) {
   };
 }
 
+// Invitación a un vecino que ya tiene su cuenta creada por el administrador,
+// pero todavía sin clave. No se le manda ninguna clave: se le manda el enlace
+// para que ponga la suya, que es la única forma de que nadie más la sepa.
+function plantillaInvitacion({ enlace, condominio, inmueble }) {
+  const donde = inmueble ? ` de ${inmueble}` : '';
+  return {
+    asunto: `Tu acceso a ${condominio} con ViYi`,
+    html: maqueta({
+      titulo: `Tu acceso a ${condominio}`,
+      cuerpo: `<p style="margin:0 0 14px;">Hola!</p>`
+        + `<p style="margin:0 0 14px;">La administración${donde} te creó tu acceso a `
+        + `<strong>${esc(condominio)}</strong> con ViYi: desde el teléfono abres el portón, `
+        + 'el ascensor y lo que te corresponda, sin llaves ni controles.</p>'
+        + '<p style="margin:0;">Solo falta que pongas tu clave.</p>',
+      textoBoton: 'Poner mi clave',
+      enlace,
+      cierre: '<p style="margin:0 0 22px;">Si crees que esto es un error, '
+        + 'ignora este correo y no pasa nada.</p>'
+        + '<p style="margin:0 0 10px;">Saludos,</p>'
+        + '<p style="margin:0;">Soporte ViYi</p>',
+    }),
+    texto: 'Hola!\n\n'
+      + `La administración${donde} te creó tu acceso a ${condominio} con ViYi: `
+      + 'desde el teléfono abres el portón, el ascensor y lo que te corresponda.\n\n'
+      + 'Para poner tu clave, sigue este enlace:\n\n'
+      + `${enlace}\n\n`
+      + 'Si crees que esto es un error, ignora este correo.\n\n'
+      + 'Saludos,\n\nSoporte ViYi',
+  };
+}
+
 // Aviso de que alguien te dio acceso directo, sin enlace de por medio. Existe
 // porque el enlace de WhatsApp no solo daba acceso: también avisaba. Sin este
 // correo, el invitado no se enteraría de que ya puede abrir.
@@ -134,4 +165,4 @@ async function enviar({ apiKey, para, asunto, html, texto }) {
   return resp.json().catch(() => ({}));
 }
 
-module.exports = { plantillaResetClave, plantillaAccesoDado, enviar, REMITENTE };
+module.exports = { plantillaResetClave, plantillaInvitacion, plantillaAccesoDado, enviar, REMITENTE };
