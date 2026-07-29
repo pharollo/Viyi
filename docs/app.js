@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=283';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=284';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -614,8 +614,9 @@ async function iniciar() {
       guardarCache(); // para el próximo arranque instantáneo
 
       if (usuario.rol === 'admin') {
-        cargarGestion();
-        cargarRegistros();
+        // En este orden: el registro descarta lo de los aparatos sin registro,
+        // y para saber cuáles son necesita la caché de dispositivos.
+        cargarGestion().then(cargarRegistros);
       }
     } catch (err) {
       console.error(err);
@@ -2531,7 +2532,8 @@ async function iniciar() {
       // Se marca de quién es cuando NO es del condominio: son los que pueden
       // desaparecer si el vecino desvincula su cuenta.
       const texto = `${d.nombre} · ${MODOS[d.modo] || 'pulso'}`
-        + (d.dueno ? ` · de ${nombreDueno(d.dueno)}` : '');
+        + (d.dueno ? ` · de ${nombreDueno(d.dueno)}` : '')
+        + (seRegistra(d) ? '' : ' · sin registro');
       const fila = filaGestion(texto, d.activo === false, () => abrirEditorDispositivo(d));
       fila.dataset.disp = d.id; // para colgarle después el punto de conexión
       ld.appendChild(fila);
@@ -2650,6 +2652,17 @@ async function iniciar() {
   const esResidente = (u) => (u.inmuebles || []).length > 0
     || (u.dispositivos || []).length > 0
     || u.rol === 'admin';
+
+  // Misma regla que `seRegistra()` en functions/index.js: el registro es sobre
+  // accesos, no sobre confort. Se anota lo que abre algo; los aires, dimmers y
+  // persianas no, y lo de un vecino nunca. El admin manda con `registrar`.
+  const TIPOS_DE_ACCESO = ['puerta', 'ascensor'];
+  const seRegistra = (d) => {
+    const disp = d || {};
+    if (typeof disp.registrar === 'boolean') return disp.registrar;
+    if (disp.dueno) return false;
+    return (disp.modo || 'pulso') === 'pulso' || TIPOS_DE_ACCESO.includes(disp.tipo);
+  };
 
   // Contenedor = lo que agrupa unidades. El resto (apartamento, oficina,
   // casa, quinta, local…) es una unidad donde vive o trabaja alguien.
@@ -2990,6 +3003,7 @@ async function iniciar() {
     sTipo.addEventListener('change', sincronizarModoTipo);
     const iOrden = entrada(d.orden != null ? d.orden : 10, '', 'number');
     const cActivo = interruptor('Activo', d.activo !== false);
+    const cRegistrar = interruptor('Registrar su actividad', seRegistra(d));
     // Dueño: vacío = del condominio. Si es de un vecino, él puede desvincular
     // su cuenta Tuya cuando quiera, así que el edificio no debería depender de
     // ese aparato. Hoy es informativo; no cambia quién puede usarlo.
@@ -3232,6 +3246,7 @@ async function iniciar() {
             proveedor: sProveedor.value,
             orden: Number(iOrden.value) || 99,
             activo: cActivo.c.checked,
+            registrar: cRegistrar.c.checked,
             tuyaDeviceId: iDevice.value.trim(),
             codigo: iCodigo.value.trim(),
             pulsoMs: Number(iPulso.value) || 1000,
@@ -3289,8 +3304,9 @@ async function iniciar() {
       campoBrilloMax,
       cInvertir.label,
       campoDetectar,
-      // Al final de la ficha: no es un dato del aparato sino el interruptor de
-      // si se usa o no, y ahí no parte el formulario en dos.
+      // Al final de la ficha: no son datos del aparato sino interruptores de
+      // cómo se usa, y ahí no parten el formulario en dos.
+      cRegistrar.label,
       cActivo.label,
     ], acciones);
   }
@@ -5184,10 +5200,12 @@ async function iniciar() {
       // evalúa por documento, así que tiene que venir filtrado). El dueño pide
       // todo, como siempre.
       const alc = miAlcance();
+      // Se piden más de las que se enseñan: al descartar el ruido de los
+      // aparatos sin registro, con 30 se quedaba corto.
       const resultado = alc.length
         ? await getDocs(query(collection(db, 'registros'),
-            where('inmueble', 'in', alc.slice(0, 30)), orderBy('fecha', 'desc'), limit(30)))
-        : await getDocs(query(collection(db, 'registros'), orderBy('fecha', 'desc'), limit(30)));
+            where('inmueble', 'in', alc.slice(0, 30)), orderBy('fecha', 'desc'), limit(120)))
+        : await getDocs(query(collection(db, 'registros'), orderBy('fecha', 'desc'), limit(120)));
       if (resultado.empty) {
         const item = document.createElement('li');
         item.textContent = 'Sin actividad todavía.';
@@ -5197,15 +5215,25 @@ async function iniciar() {
       // Quién fue vive en `privado/quien` y solo el dueño puede leerlo. Se
       // piden en paralelo; el admin de edificio ni lo intenta y verá la
       // actividad sin identificar a nadie, que es justo la intención.
+      // El historial de lo que hoy NO se registra tampoco se enseña: si el
+      // admin apagó el registro de un aire, no quiere ver el ruido de antes.
+      const mudos = new Set(cacheDispositivos.filter((d) => !seRegistra(d)).map((d) => d.id));
+      const docs = resultado.docs.filter((d) => !mudos.has(d.data().dispositivoId)).slice(0, 30);
+      if (!docs.length) {
+        const item = document.createElement('li');
+        item.textContent = 'Sin actividad todavía.';
+        lista.appendChild(item);
+        return;
+      }
       const quienes = new Map();
       if (!miAlcance().length) {
-        const lecturas = await Promise.all(resultado.docs.map((d) =>
+        const lecturas = await Promise.all(docs.map((d) =>
           getDoc(doc(db, 'registros', d.id, 'privado', 'quien')).catch(() => null)));
         lecturas.forEach((snap, i) => {
-          if (snap && snap.exists()) quienes.set(resultado.docs[i].id, snap.data());
+          if (snap && snap.exists()) quienes.set(docs[i].id, snap.data());
         });
       }
-      for (const registro of resultado.docs) {
+      for (const registro of docs) {
         const r = registro.data();
         // Los registros de antes de partir el documento traen el nombre dentro.
         const quien = quienes.get(registro.id) || { usuarioNombre: r.usuarioNombre, unidad: r.unidad };

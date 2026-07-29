@@ -234,6 +234,23 @@ const FIN_INDEFINIDO = admin.firestore.Timestamp.fromDate(new Date('9999-12-31T0
 // nada—, así que la única forma de que el admin de un edificio vea la actividad
 // de su torre SIN saber qué vecino fue es separar la identidad en otro
 // documento. Quién fue es dato privado de la app: solo el dueño.
+// ¿Se anota la actividad de este aparato en el registro del condominio?
+//
+// El registro es sobre ACCESOS —quién entró y por dónde—, no sobre confort.
+// Así que por omisión se anota lo que abre algo (puertas, portones,
+// ascensores: los de modo pulso) y NO los aires, dimmers ni persianas, que
+// generan mucho ruido y no dicen nada útil. Y nunca lo de un vecino: el
+// interruptor de su pared no es asunto del condominio.
+//
+// El admin decide por aparato con el campo `registrar`, que manda sobre esto.
+const TIPOS_DE_ACCESO = ['puerta', 'ascensor'];
+const seRegistra = (d) => {
+  const disp = d || {};
+  if (typeof disp.registrar === 'boolean') return disp.registrar;
+  if (disp.dueno) return false;
+  return (disp.modo || 'pulso') === 'pulso' || TIPOS_DE_ACCESO.includes(disp.tipo);
+};
+
 async function registrar({ uid, usuario, dispositivoId, dispositivoNombre, accion, exito, detalle, inmueble }) {
   // `inmueble` es lo que permite filtrar el historial por edificio. Si el
   // llamador no lo trae, se busca: un registro sin inmueble sería invisible
@@ -424,14 +441,16 @@ exports.ejecutarComando = onCall(
           await db.doc(`dispositivos/${dispositivoId}/estado/termostato`).set(estado, { merge: true }).catch(() => {});
         }
       }
-      await registrar({
-        uid,
-        usuario,
-        dispositivoId,
-        dispositivoNombre,
-        accion: accionRegistrada,
-        exito: true,
-      });
+      if (seRegistra(dispositivo)) {
+        await registrar({
+          uid,
+          usuario,
+          dispositivoId,
+          dispositivoNombre,
+          accion: accionRegistrada,
+          exito: true,
+        });
+      }
       // Contador de uso por vecino, para ordenar "más usado primero".
       await db.doc(`usuarios/${uid}`).set(
         { usos: { [dispositivoId]: admin.firestore.FieldValue.increment(1) } },
@@ -439,15 +458,18 @@ exports.ejecutarComando = onCall(
       ).catch(() => {});
       return { ok: true };
     } catch (err) {
-      await registrar({
-        uid,
-        usuario,
-        dispositivoId,
-        dispositivoNombre,
-        accion: accion || 'pulso',
-        exito: false,
-        detalle: String((err && err.message) || err),
-      });
+      // Tampoco los fallos: si su actividad es privada, lo es entera.
+      if (seRegistra(dispositivo)) {
+        await registrar({
+          uid,
+          usuario,
+          dispositivoId,
+          dispositivoNombre,
+          accion: accion || 'pulso',
+          exito: false,
+          detalle: String((err && err.message) || err),
+        });
+      }
       if (err instanceof HttpsError) throw err;
       throw new HttpsError('internal', 'El dispositivo no respondió. Intenta de nuevo.');
     }
@@ -1309,7 +1331,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const {
     id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, segundosApertura, orden, activo, inmueble,
-    dueno, cuentaTuya,
+    dueno, cuentaTuya, registrar: registrarPedido,
     proveedor, tuyaDeviceId, codigo, pulsoMs, codigoBrillo, brilloMax,
     codigoPosicion, codigoPosicionEstado, posicionInvertida,
     accesorioId, caracteristica,
@@ -1388,6 +1410,10 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     // luz o el internet (y para agrupar reportes por edificio).
     inmueble: inmuebleFinal,
     dueno: duenoFinal,
+    // Si su actividad se anota en el registro del condominio. Se guarda solo
+    // cuando el admin lo decide a mano; si no, manda el valor por omisión de
+    // `seRegistra()`: lo de un vecino es privado, lo del condominio se anota.
+    ...(typeof registrarPedido === 'boolean' ? { registrar: registrarPedido } : {}),
   }, { merge: true });
   const privado = {
     tuyaDeviceId: String(tuyaDeviceId || '').trim(),
