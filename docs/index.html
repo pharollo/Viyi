@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=280">
+  <link rel="stylesheet" href="styles.css?v=281">
 </head>
 <body>
   <header>
@@ -164,7 +164,8 @@
         </div>
       </div>
       <div id="tab-gestion" class="panel-tab oculto">
-        <div class="encabezado-admin">
+        <input type="search" id="buscar-gestion" class="buscador" placeholder="Buscar dispositivo, inmueble o vecino" aria-label="Buscar" autocomplete="off">
+        <div class="encabezado-admin" data-seccion="dispositivos">
           <h2>Dispositivos</h2>
           <button id="btn-refrescar-conexion" type="button" class="btn-secundario btn-icono" aria-label="Actualizar estado">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -172,16 +173,15 @@
           <button id="btn-nuevo-dispositivo" type="button" class="btn-secundario">+ Agregar</button>
         </div>
         <ul id="gestion-dispositivos" class="lista-gestion"></ul>
-        <div class="encabezado-admin">
+        <div class="encabezado-admin" data-seccion="inmuebles">
           <h2>Inmuebles</h2>
           <button id="btn-nuevo-inmueble" type="button" class="btn-secundario">+ Agregar</button>
         </div>
         <ul id="gestion-inmuebles" class="lista-gestion"></ul>
-        <div class="encabezado-admin">
+        <div class="encabezado-admin" data-seccion="vecinos">
           <h2>Vecinos</h2>
           <button id="btn-nuevo-usuario" type="button" class="btn-secundario">+ Agregar</button>
         </div>
-        <input type="search" id="buscar-vecino" class="buscador" placeholder="Buscar vecino" aria-label="Buscar vecino" autocomplete="off">
         <ul id="gestion-usuarios" class="lista-gestion"></ul>
         <div id="editor" class="tarjeta oculto"></div>
       </div>
@@ -306,6 +306,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=280"></script>
+  <script type="module" src="app.js?v=281"></script>
 </body>
 </html>

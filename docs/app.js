@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=280';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=281';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2429,6 +2429,7 @@ async function iniciar() {
     const li = document.createElement('li');
     li.className = 'inm-rama';
     const det = document.createElement('details');
+    det.open = Boolean(filtroGestion());
     const sum = document.createElement('summary');
     sum.innerHTML = '<svg class="pase-grupo-flecha" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>'
       + `<span>${escapar(texto)} <em>(${nodos.length})</em></span>`;
@@ -2491,6 +2492,23 @@ async function iniciar() {
     }
   }
 
+  // Lo que se está buscando, en minúsculas y sin tildes: un buscador para las
+  // tres listas en vez de uno por sección.
+  const filtroGestion = () => sinTildes(($('buscar-gestion') || {}).value || '');
+  const coincide = (...partes) => {
+    const q = filtroGestion();
+    return !q || sinTildes(partes.filter(Boolean).join(' ')).includes(q);
+  };
+
+  // Oculta la sección entera (encabezado incluido) cuando se está buscando y
+  // no queda nada: si no, quedan tres títulos sueltos sobre listas vacías.
+  function mostrarSeccion(nombre, lista, hay) {
+    const cab = document.querySelector(`.encabezado-admin[data-seccion="${nombre}"]`);
+    const vacia = Boolean(filtroGestion()) && !hay;
+    if (cab) cab.classList.toggle('oculto', vacia);
+    lista.classList.toggle('oculto', vacia);
+  }
+
   function renderGestion() {
     const ld = $('gestion-dispositivos');
     ld.textContent = '';
@@ -2523,13 +2541,16 @@ async function iniciar() {
     // Primero los que no tienen inmueble: nadie los ve, porque el vecino solo
     // alcanza lo de su inmueble, así que se quedan invisibles hasta que alguien
     // se acuerda. Aquí se delatan.
-    const sueltos = cacheDispositivos.filter((d) => !d.inmueble);
+    // Se filtra por lo que se ve en la fila y además por el inmueble donde
+    // está: buscar "Torre A" tiene que sacar sus dispositivos.
+    const visiblesD = cacheDispositivos.filter((d) => coincide(d.nombre, d.modo, rutaInmueble(d.inmueble)));
+    const sueltos = visiblesD.filter((d) => !d.inmueble);
     if (sueltos.length) {
       encabezado(`Sin inmueble (${sueltos.length})`, sueltos);
       sueltos.forEach(pintarFila);
     }
     const porInmueble = new Map();
-    for (const d of cacheDispositivos) {
+    for (const d of visiblesD) {
       if (!d.inmueble) continue;
       if (!porInmueble.has(d.inmueble)) porInmueble.set(d.inmueble, []);
       porInmueble.get(d.inmueble).push(d);
@@ -2541,6 +2562,7 @@ async function iniciar() {
         encabezado(titulo, items);
         items.forEach(pintarFila);
       });
+    mostrarSeccion('dispositivos', ld, visiblesD.length);
 
     const li = $('gestion-inmuebles');
     li.textContent = '';
@@ -2552,13 +2574,30 @@ async function iniciar() {
     }
     // En árbol: un edificio con sus 24 apartamentos en una lista plana es
     // ilegible. Cada inmueble con hijos se pliega y solo se abre si hace falta.
+    // Al buscar se conservan también los ANCESTROS de lo que coincide: si no,
+    // el "3B" que casa se quedaría sin la torre de la que cuelga y no habría
+    // dónde pintarlo.
+    let listaInm = cacheInmuebles;
+    if (filtroGestion()) {
+      const porId = new Map(cacheInmuebles.map((x) => [x.id, x]));
+      const dejar = new Set();
+      for (const inm of cacheInmuebles) {
+        if (!coincide(inm.nombre, TIPO_INMUEBLE_TXT[inm.tipo], inm.ciudad)) continue;
+        let x = inm;
+        for (let n = 0; n < 6 && x; n++) {
+          dejar.add(x.id);
+          x = porId.get(x.padre);
+        }
+      }
+      listaInm = cacheInmuebles.filter((x) => dejar.has(x.id));
+    }
     const hijosDe = new Map();
-    const conocidos = new Set(cacheInmuebles.map((x) => x.id));
+    const conocidos = new Set(listaInm.map((x) => x.id));
     const raices = [];
     // Huérfano = su padre ya no existe. Pasa si se borró el edificio sin
     // llevarse los apartamentos; sin esto no se verían en ningún lado.
     const huerfanos = [];
-    for (const inm of cacheInmuebles) {
+    for (const inm of listaInm) {
       if (!inm.padre) { raices.push(inm); continue; }
       if (!conocidos.has(inm.padre)) { huerfanos.push(inm); continue; }
       if (!hijosDe.has(inm.padre)) hijosDe.set(inm.padre, []);
@@ -2588,6 +2627,8 @@ async function iniciar() {
         },
       ));
     }
+
+    mostrarSeccion('inmuebles', li, listaInm.length);
 
     renderVecinos();
   }
@@ -2620,10 +2661,11 @@ async function iniciar() {
   function renderVecinos() {
     const lu = $('gestion-usuarios');
     lu.textContent = '';
-    const q = ($('buscar-vecino').value || '').trim().toLowerCase();
-    const coincide = (u) => !q
-      || `${nombreCompleto(u)} ${u.email || ''}`.toLowerCase().includes(q);
-    const visibles = cacheUsuarios.filter(coincide);   // ya vienen por nombre
+    const visibles = cacheUsuarios.filter((u) => coincide(
+      nombreCompleto(u),
+      u.email,
+      (u.inmuebles || []).map((x) => x.nombre).join(' '),
+    ));   // ya vienen por nombre
     const residentes = visibles.filter(esResidente);
     const grupos = [
       ['Sin apartamento', residentes.filter(sinUnidad), true],
@@ -2647,9 +2689,10 @@ async function iniciar() {
     if (!visibles.length) {
       const vacio = document.createElement('li');
       vacio.className = 'grupo-gestion';
-      vacio.textContent = q ? 'Nadie coincide con la búsqueda.' : 'Sin vecinos todavía.';
+      vacio.textContent = filtroGestion() ? 'Nadie coincide con la búsqueda.' : 'Sin vecinos todavía.';
       lu.appendChild(vacio);
     }
+    mostrarSeccion('vecinos', lu, visibles.length);
     marcarProveedores();   // repintar tras filtrar, o se perderían las marcas
   }
 
@@ -4473,7 +4516,7 @@ async function iniciar() {
   }
 
   // Buscar vecino: filtra sin volver a leer Firestore (ya está todo en caché).
-  $('buscar-vecino').addEventListener('input', renderVecinos);
+  $('buscar-gestion').addEventListener('input', renderGestion);
 
   // Vincular la cuenta Tuya del propio vecino (OAuth). Se abre la página de
   // Tuya, él elige qué dispositivos comparte, y vuelve al callback del backend.
