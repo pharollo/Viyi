@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=277';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=278';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2417,25 +2417,34 @@ async function iniciar() {
       hoja.className = 'inm-hoja';
       return hoja;
     }
+    return ramaInmuebles(texto, hijos.map((h) => nodoInmueble(h, hijosDe)), {
+      texto: 'Editar',
+      clase: 'btn-secundario',
+      alPulsar: () => abrirEditorInmueble(inm),
+    });
+  }
+
+  // Una rama plegable del listado, con su conteo y un botón en el resumen.
+  function ramaInmuebles(texto, nodos, boton) {
     const li = document.createElement('li');
     li.className = 'inm-rama';
     const det = document.createElement('details');
     const sum = document.createElement('summary');
     sum.innerHTML = '<svg class="pase-grupo-flecha" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>'
-      + `<span>${escapar(texto)} <em>(${hijos.length})</em></span>`;
+      + `<span>${escapar(texto)} <em>(${nodos.length})</em></span>`;
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'btn-secundario';
-    btn.textContent = 'Editar';
+    btn.className = boton.clase;
+    btn.textContent = boton.texto;
     btn.addEventListener('click', (ev) => {
       ev.preventDefault();   // si no, el summary se abre o se cierra a la vez
       ev.stopPropagation();
-      abrirEditorInmueble(inm);
+      boton.alPulsar(ev);
     });
     sum.appendChild(btn);
     const ul = document.createElement('ul');
     ul.className = 'lista-gestion';
-    for (const h of hijos) ul.appendChild(nodoInmueble(h, hijosDe));
+    for (const n of nodos) ul.appendChild(n);
     det.append(sum, ul);
     li.appendChild(det);
     return li;
@@ -2545,14 +2554,40 @@ async function iniciar() {
     // ilegible. Cada inmueble con hijos se pliega y solo se abre si hace falta.
     const hijosDe = new Map();
     const conocidos = new Set(cacheInmuebles.map((x) => x.id));
+    const raices = [];
+    // Huérfano = su padre ya no existe. Pasa si se borró el edificio sin
+    // llevarse los apartamentos; sin esto no se verían en ningún lado.
+    const huerfanos = [];
     for (const inm of cacheInmuebles) {
-      // Si el padre ya no está (borrado a mano), cuelga de la raíz en vez de
-      // desaparecer del listado.
-      const padre = inm.padre && conocidos.has(inm.padre) ? inm.padre : '';
-      if (!hijosDe.has(padre)) hijosDe.set(padre, []);
-      hijosDe.get(padre).push(inm);
+      if (!inm.padre) { raices.push(inm); continue; }
+      if (!conocidos.has(inm.padre)) { huerfanos.push(inm); continue; }
+      if (!hijosDe.has(inm.padre)) hijosDe.set(inm.padre, []);
+      hijosDe.get(inm.padre).push(inm);
     }
-    for (const raiz of hijosDe.get('') || []) li.appendChild(nodoInmueble(raiz, hijosDe));
+    for (const raiz of raices) li.appendChild(nodoInmueble(raiz, hijosDe));
+    if (huerfanos.length) {
+      li.appendChild(ramaInmuebles(
+        'Sin edificio · el suyo ya no existe',
+        huerfanos.map((h) => nodoInmueble(h, hijosDe)),
+        {
+          texto: 'Eliminar todos',
+          clase: 'btn-peligro',
+          alPulsar: async (ev) => {
+            if (!confirm(`¿Eliminar los ${huerfanos.length} inmuebles que quedaron sin edificio?`)) return;
+            const b = ev.currentTarget;
+            b.disabled = true;
+            try {
+              await adminEliminarInmueble({ ids: huerfanos.map((h) => h.id), conDescendientes: true });
+              toast('Inmuebles eliminados.', 'ok');
+              await trasGuardar();
+            } catch (err) {
+              toast(err.message || 'No se pudo eliminar.', 'error');
+              b.disabled = false;
+            }
+          },
+        },
+      ));
+    }
 
     renderVecinos();
   }

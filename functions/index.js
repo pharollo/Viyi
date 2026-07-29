@@ -1053,17 +1053,22 @@ exports.adminCrearInmuebleLote = onCall(async (request) => {
 // Elimina un inmueble del catálogo y lo quita de los vecinos asignados.
 exports.adminEliminarInmueble = onCall(async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
-  const { id, conDescendientes } = request.data || {};
-  if (!id || typeof id !== 'string') {
+  const { id, ids: varios, conDescendientes } = request.data || {};
+  // Uno o una lista: la lista hace falta para recoger los huérfanos que dejó
+  // un borrado antiguo, que si no habría que quitar de uno en uno.
+  const raices = Array.isArray(varios) && varios.length
+    ? varios.filter((x) => typeof x === 'string' && x)
+    : [id];
+  if (!raices.length || raices.some((x) => !x || typeof x !== 'string')) {
     throw new HttpsError('invalid-argument', 'Falta el id.');
   }
-  exigirInmueble(alcance, id, 'Ese inmueble');
+  for (const r of raices) exigirInmueble(alcance, r, 'Ese inmueble');
   // Borrar solo la torre dejaría sus apartamentos colgando de un id que ya no
   // existe: seguirían asignados a vecinos y no habría forma de llegar a ellos
   // desde el listado. O se borra el subárbol entero, o no se borra.
-  const ids = await subarbolInmuebles([id]);
-  if (ids.length > 1 && !conDescendientes) {
-    throw new HttpsError('failed-precondition', `Ese inmueble contiene ${ids.length - 1} inmuebles más.`);
+  const ids = await subarbolInmuebles(raices);
+  if (ids.length > raices.length && !conDescendientes) {
+    throw new HttpsError('failed-precondition', `Ese inmueble contiene ${ids.length - raices.length} inmuebles más.`);
   }
   for (let i = 0; i < ids.length; i += 400) {
     const batch = db.batch();
