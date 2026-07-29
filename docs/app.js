@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=279';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=280';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2599,6 +2599,24 @@ async function iniciar() {
     || (u.dispositivos || []).length > 0
     || u.rol === 'admin';
 
+  // Contenedor = lo que agrupa unidades. El resto (apartamento, oficina,
+  // casa, quinta, local…) es una unidad donde vive o trabaja alguien.
+  const CONTENEDORES = ['conjunto', 'residencias', 'edificio', 'oficinas'];
+
+  // Se le asignó el edificio antes de que existiera el directorio de
+  // apartamentos, y al generarlo nadie lo movió a su unidad. Sigue abriendo
+  // las áreas comunes, así que no da error: simplemente no alcanza lo suyo, y
+  // eso no se nota mirando. Solo cuenta si ese contenedor YA tiene unidades;
+  // antes de eso, tener el edificio es lo correcto.
+  const sinUnidad = (u) => {
+    // Un admin con el conjunto asignado lo tiene a propósito, no por olvido.
+    if (u.rol === 'admin') return false;
+    const suyos = u.inmuebles || [];
+    if (!suyos.length) return false;
+    if (suyos.some((x) => !CONTENEDORES.includes(x.tipo))) return false;
+    return suyos.some((x) => cacheInmuebles.some((i) => i.padre === x.id));
+  };
+
   function renderVecinos() {
     const lu = $('gestion-usuarios');
     lu.textContent = '';
@@ -2606,14 +2624,16 @@ async function iniciar() {
     const coincide = (u) => !q
       || `${nombreCompleto(u)} ${u.email || ''}`.toLowerCase().includes(q);
     const visibles = cacheUsuarios.filter(coincide);   // ya vienen por nombre
+    const residentes = visibles.filter(esResidente);
     const grupos = [
-      ['Residentes', visibles.filter(esResidente)],
+      ['Sin apartamento', residentes.filter(sinUnidad), true],
+      ['Residentes', residentes.filter((u) => !sinUnidad(u))],
       ['Visitantes', visibles.filter((u) => !esResidente(u))],
     ];
-    for (const [titulo, lista] of grupos) {
+    for (const [titulo, lista, alerta] of grupos) {
       if (!lista.length) continue;
       const cab = document.createElement('li');
-      cab.className = 'grupo-gestion';
+      cab.className = 'grupo-gestion' + (alerta ? ' grupo-alerta' : '');
       cab.textContent = `${titulo} (${lista.length})`;
       lu.appendChild(cab);
       for (const u of lista) {
