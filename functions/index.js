@@ -1006,8 +1006,12 @@ exports.adminCrearInmuebleLote = onCall(async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const { raiz } = request.data || {};
   if (!raiz) throw new HttpsError('invalid-argument', 'Falta el inmueble a crear.');
+  // Con `raiz.id` el edificio YA existe y solo se le cuelgan sus unidades: es
+  // el caso de dar de alta el directorio de apartamentos meses después de
+  // haber creado el edificio, que es como pasa de verdad.
+  const existente = typeof raiz.id === 'string' && raiz.id.trim() ? raiz.id.trim() : '';
   const arbol = nodoLote(raiz, 0);
-  const total = contarLote(arbol);
+  const total = contarLote(arbol) - (existente ? 1 : 0);
   if (total > MAX_LOTE) {
     throw new HttpsError('invalid-argument', `Son ${total} inmuebles y el máximo por lote es ${MAX_LOTE}.`);
   }
@@ -1020,7 +1024,28 @@ exports.adminCrearInmuebleLote = onCall(async (request) => {
       throw new HttpsError('invalid-argument', 'Ese inmueble padre no existe.');
     }
   }
-  if (alcance) exigirInmueble(alcance, padreFinal, 'Ese inmueble padre');
+  if (existente) {
+    if (!(await db.doc(`inmuebles/${existente}`).get()).exists) {
+      throw new HttpsError('invalid-argument', 'Ese inmueble ya no existe.');
+    }
+    exigirInmueble(alcance, existente, 'Ese inmueble');
+  } else if (alcance) {
+    exigirInmueble(alcance, padreFinal, 'Ese inmueble padre');
+  }
+  // Si ya tiene unidades, no se duplican: agregar el directorio dos veces
+  // dejaría dos "1A" indistinguibles, y eso no se ve hasta que se asignan.
+  let yaHay = new Set();
+  let omitidos = 0;
+  if (existente) {
+    const previos = await db.collection('inmuebles').where('padre', '==', existente).get();
+    yaHay = new Set(previos.docs.map((d) => (d.data().nombre || '').trim().toLowerCase()));
+    const antes = arbol.hijos.length;
+    arbol.hijos = arbol.hijos.filter((h) => !yaHay.has(h.nombre.toLowerCase()));
+    omitidos = antes - arbol.hijos.length;
+    if (!arbol.hijos.length) {
+      throw new HttpsError('failed-precondition', 'Todos esos ya existen en ese inmueble.');
+    }
+  }
   // La ubicación se hereda: los apartamentos de una torre están en la misma
   // ciudad que la torre, y pedirla 128 veces no tendría sentido.
   const texto = (v) => (typeof v === 'string' ? v.trim() : '').slice(0, 60);
@@ -1037,7 +1062,12 @@ exports.adminCrearInmuebleLote = onCall(async (request) => {
     for (const h of nodo.hijos) apilar(h, id);
     return id;
   };
-  const raizId = apilar(arbol, padreFinal);
+  let raizId = existente;
+  if (existente) {
+    for (const h of arbol.hijos) apilar(h, existente);
+  } else {
+    raizId = apilar(arbol, padreFinal);
+  }
   // En trozos: un batch de Firestore admite 500 escrituras.
   for (let i = 0; i < escrituras.length; i += 400) {
     const batch = db.batch();
@@ -1047,7 +1077,7 @@ exports.adminCrearInmuebleLote = onCall(async (request) => {
   // Imprescindible: si el lote cuelga de algo que administra un admin de
   // edificio, su alcance (administraIds) tiene que incluir lo recién creado.
   await resincronizarInmuebles();
-  return { ok: true, id: raizId, total };
+  return { ok: true, id: raizId, total: escrituras.length, omitidos };
 });
 
 // Elimina un inmueble del catálogo y lo quita de los vecinos asignados.

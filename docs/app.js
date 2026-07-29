@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=278';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=279';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -3385,12 +3385,12 @@ async function iniciar() {
     }
 
     function sincronizarLote() {
-      campoCompone.classList.toggle('oculto', !esNuevo || !esConjunto());
-      campoTorres.classList.toggle('oculto', !esNuevo || !conTorres());
-      campoNombres.classList.toggle('oculto', !esNuevo || !bloque() || conTorres());
-      campoPisos.classList.toggle('oculto', !esNuevo || !unidad());
-      campoPorPiso.classList.toggle('oculto', !esNuevo || !unidad());
-      campoPH.classList.toggle('oculto', !esNuevo || !unidad());
+      campoCompone.classList.toggle('oculto', !esConjunto());
+      campoTorres.classList.toggle('oculto', !conTorres());
+      campoNombres.classList.toggle('oculto', !bloque() || conTorres());
+      campoPisos.classList.toggle('oculto', !unidad());
+      campoPorPiso.classList.toggle('oculto', !unidad());
+      campoPH.classList.toggle('oculto', !unidad());
       campoNombres.querySelector('span').textContent = bloque() === 'quinta' ? 'Nombre de cada quinta' : 'Nombre de cada casa';
       campoPisos.querySelector('span').textContent = conTorres() ? 'Pisos por torre' : 'Pisos';
       campoPorPiso.querySelector('span').textContent = unidad() === 'oficina' ? 'Oficinas por piso' : 'Apartamentos por piso';
@@ -3398,7 +3398,7 @@ async function iniciar() {
       if (!hijos.length) { previa.textContent = ''; previa.classList.remove('mensaje-error'); return; }
       const aptos = bloque() ? hijos[0].hijos : hijos;
       const rango = (l) => (l.length > 1 ? `${l[0].nombre} … ${l[l.length - 1].nombre}` : l[0].nombre);
-      const total = 1 + hijos.length + hijos.reduce((t, h) => t + h.hijos.length, 0);
+      const total = (esNuevo ? 1 : 0) + hijos.length + hijos.reduce((t, h) => t + h.hijos.length, 0);
       // Se avisa aquí, no al pulsar Guardar: con 26 torres de 26 pisos salen
       // miles de inmuebles y el servidor lo rechazaría después de rellenarlo
       // todo.
@@ -3412,7 +3412,9 @@ async function iniciar() {
       if (aptos.length) {
         partes.push(`${plural(aptos.length, nombreUnidad())}${bloque() ? ' en cada una' : ''} (${rango(aptos)})`);
       }
-      previa.textContent = `Se crearán ${partes.join(' y ')}. ${total} inmuebles en total.`;
+      previa.textContent = esNuevo
+        ? `Se crearán ${partes.join(' y ')}. ${total} inmuebles en total.`
+        : `Se agregarán ${partes.join(' y ')} a ${inm.nombre || 'este inmueble'}. Los que ya existan se dejan como están.`;
     }
     [sTipo, sCompone].forEach((x) => x.addEventListener('change', sincronizarLote));
     [iTorres, iPisos, iPorPiso, iPH, tNombres].forEach((i) => i.addEventListener('input', sincronizarLote));
@@ -3430,20 +3432,28 @@ async function iniciar() {
           zona: iZona.value.trim(),
           padre: sPadre.value,
         };
-        const hijos = esNuevo ? arbolLote() : [];
-        const totalLote = 1 + hijos.length + hijos.reduce((t, h) => t + h.hijos.length, 0);
+        const hijos = arbolLote();
+        const totalLote = (esNuevo ? 1 : 0) + hijos.length + hijos.reduce((t, h) => t + h.hijos.length, 0);
         if (totalLote > MAX_LOTE) {
           toast(`Son ${totalLote} inmuebles y el máximo por lote es ${MAX_LOTE}.`, 'error');
           b.disabled = false;
           return;
         }
         try {
-          if (hijos.length) {
+          if (esNuevo && hijos.length) {
             const res = await adminCrearInmuebleLote({ raiz: { ...datos, hijos } });
             toast(`${(res.data && res.data.total) || ''} inmuebles creados ✓`, 'ok');
           } else {
             await adminGuardarInmueble({ id: esNuevo ? undefined : inm.id, ...datos });
-            toast(esNuevo ? 'Inmueble creado ✓' : 'Inmueble actualizado ✓', 'ok');
+            if (hijos.length) {
+              // Dos pasos a propósito: primero se guarda lo que se editó de la
+              // ficha y después se le cuelgan las unidades nuevas.
+              const res = await adminCrearInmuebleLote({ raiz: { ...datos, id: inm.id, hijos } });
+              const om = (res.data && res.data.omitidos) || 0;
+              toast(`${(res.data && res.data.total) || ''} agregados ✓${om ? ` · ${om} ya existían` : ''}`, 'ok');
+            } else {
+              toast(esNuevo ? 'Inmueble creado ✓' : 'Inmueble actualizado ✓', 'ok');
+            }
           }
           await trasGuardar();
         } catch (err) {
