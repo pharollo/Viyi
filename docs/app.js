@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=286';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=287';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -3047,8 +3047,18 @@ async function iniciar() {
     const cInvertir = casilla('Invertir apertura (marca si la persiana abre al revés)', tuya.posicionInvertida === true);
 
     // Proveedor: Tuya (nube) o Homebridge (API de UI-X vía túnel).
-    const sProveedor = selector([['tuya', 'Tuya'], ['homebridge', 'Homebridge']], d.proveedor || 'tuya');
+    const sProveedor = selector([['tuya', 'Tuya'], ['homebridge', 'Homebridge'], ['shelly', 'Shelly']], d.proveedor || 'tuya');
+    // Shelly por su nube: el id del aparato (Device Information en la app) y el
+    // canal de la salida, que en un Plus 1 es siempre 0.
+    const iShelly = entrada(tuya.shellyId, 'ej: b48a0a1cd978');
+    iShelly.setAttribute('autocapitalize', 'none');
+    const iShellyCanal = entrada(tuya.shellyCanal == null ? '' : tuya.shellyCanal, '0', 'number');
+    iShellyCanal.min = '0';
+    iShellyCanal.max = '7';
+    const campoShelly = campo('Device ID de Shelly', iShelly);
+    const campoShellyCanal = campo('Canal de la salida (0 en un Plus 1)', iShellyCanal);
     const campoDevice = campo('Device ID de Tuya', iDevice);
+    const campoCuenta = campo('Cuenta Tuya Origen', iCuenta);
     // Tuya: traer la lista en vez de copiar el Device ID de la consola a mano.
     // Al elegir uno se rellenan el id, el nombre y la etiqueta de cuenta.
     const estadoTuya = document.createElement('div');
@@ -3228,16 +3238,22 @@ async function iniciar() {
     campoDetectar.append(btnDetectar, iResultadoDps);
     const actualizarCampos = () => {
       const esHb = sProveedor.value === 'homebridge';
+      const esShelly = sProveedor.value === 'shelly';
+      const esTuya = !esHb && !esShelly;
       const esDimmer = sModo.value === 'dimmer';
-      campoDevice.classList.toggle('oculto', esHb);
-      campoCodigo.classList.toggle('oculto', esHb);
-      campoBrilloCodigo.classList.toggle('oculto', esHb || !esDimmer);
-      campoBrilloMax.classList.toggle('oculto', esHb || !esDimmer);
+      campoDevice.classList.toggle('oculto', !esTuya);
+      campoTuyaLista.classList.toggle('oculto', !esTuya);
+      campoCuenta.classList.toggle('oculto', !esTuya);
+      campoCodigo.classList.toggle('oculto', !esTuya);
+      campoBrilloCodigo.classList.toggle('oculto', !esTuya || !esDimmer);
+      campoBrilloMax.classList.toggle('oculto', !esTuya || !esDimmer);
       // El inspector de DPs sirve para cualquier dispositivo Tuya (no solo
       // dimmers): es la herramienta para depurar suiches, cortinas, etc.
-      campoDetectar.classList.toggle('oculto', esHb);
+      campoDetectar.classList.toggle('oculto', !esTuya);
       campoAccesorio.classList.toggle('oculto', !esHb);
       campoCaracteristica.classList.toggle('oculto', !esHb);
+      campoShelly.classList.toggle('oculto', !esShelly);
+      campoShellyCanal.classList.toggle('oculto', !esShelly);
       cInvertir.label.classList.toggle('oculto', sModo.value !== 'cortina');
     };
     sProveedor.addEventListener('change', actualizarCampos);
@@ -3274,6 +3290,8 @@ async function iniciar() {
             brilloMax: Number(iBrilloMax.value) || 1000,
             posicionInvertida: cInvertir.c.checked,
             accesorioId: sProveedor.value === 'homebridge' ? selAcc.value : '',
+            shellyId: sProveedor.value === 'shelly' ? iShelly.value.trim() : '',
+            shellyCanal: Number(iShellyCanal.value) || 0,
             caracteristica: iCaracteristica.value.trim(),
           });
           toast('Dispositivo guardado ✓', 'ok');
@@ -3314,8 +3332,10 @@ async function iniciar() {
       campo('Proveedor', sProveedor),
       campo('Orden (menor = primero)', iOrden),
       campoTuyaLista,
-      campo('Cuenta Tuya Origen', iCuenta),
+      campoCuenta,
       campoDevice,
+      campoShelly,
+      campoShellyCanal,
       campoCodigo,
       campoAccesorio,
       campoCaracteristica,

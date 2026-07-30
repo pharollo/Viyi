@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { GoogleAuth } = require('google-auth-library');
 const { TuyaClient } = require('./tuya');
 const { HomebridgeClient } = require('./homebridge');
+const { ShellyClient } = require('./shelly');
 const { plantillaResetClave, plantillaInvitacion, plantillaAccesoDado, enviar: enviarCorreo } = require('./correo');
 
 admin.initializeApp();
@@ -24,6 +25,13 @@ const HOMEBRIDGE_URL = defineSecret('HOMEBRIDGE_URL');
 const HOMEBRIDGE_USER = defineSecret('HOMEBRIDGE_USER');
 const HOMEBRIDGE_PASS = defineSecret('HOMEBRIDGE_PASS');
 const SECRETS_HB = [HOMEBRIDGE_URL, HOMEBRIDGE_USER, HOMEBRIDGE_PASS];
+// Shelly, Cloud Control API. Los dos van como SECRET aunque el servidor no lo
+// sea: el workflow de despliegue SOBREESCRIBE `functions/.env` con solo
+// TUYA_BASE_URL, así que un defineString aquí rompería el deploy en silencio.
+// Se ponen con: npx firebase-tools functions:secrets:set NOMBRE
+const SHELLY_SERVER = defineSecret('SHELLY_SERVER');
+const SHELLY_AUTH_KEY = defineSecret('SHELLY_AUTH_KEY');
+const SECRETS_SHELLY = [SHELLY_SERVER, SHELLY_AUTH_KEY];
 // Envío de los correos propios (firebase functions:secrets:set RESEND_API_KEY).
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 
@@ -76,6 +84,18 @@ function tuya() {
 }
 
 let clienteHb = null;
+let clienteShelly = null;
+
+function shelly() {
+  if (!clienteShelly) {
+    clienteShelly = new ShellyClient({
+      servidor: SHELLY_SERVER.value(),
+      authKey: SHELLY_AUTH_KEY.value(),
+    });
+  }
+  return clienteShelly;
+}
+
 function homebridge() {
   if (!clienteHb) {
     clienteHb = new HomebridgeClient({
@@ -89,6 +109,34 @@ function homebridge() {
 
 // Ejecuta un comando en un accesorio de Homebridge según el modo del dispositivo.
 // Devuelve el texto de la acción para el registro.
+// Shelly por su nube. Solo relé (pulso e interruptor): el Plus 1 no hace más,
+// y los otros modos se rechazan con un mensaje claro en vez de caer por el
+// camino de Tuya y hacer algo raro.
+async function ejecutarShelly(dispositivo, config, { accion }) {
+  const id = String(config.shellyId || '').trim();
+  if (!id) {
+    throw new HttpsError('failed-precondition', 'Falta el Device ID de Shelly.');
+  }
+  const canal = Number(config.shellyCanal) || 0;
+  const modo = dispositivo.modo || 'pulso';
+  if (modo === 'pulso') {
+    // `toggle_after` en vez de encender y apagar seguidos: el aparato se apaga
+    // solo, así que si se cae la red a mitad del pulso el relé NO se queda
+    // cerrado — y de paso respeta el límite de una petición por segundo.
+    const segundos = Math.max(1, Math.round((Number(config.pulsoMs) || 1000) / 1000));
+    await shelly().interruptor(id, canal, true, segundos);
+    return 'pulso';
+  }
+  if (modo === 'interruptor') {
+    if (accion !== 'encender' && accion !== 'apagar') {
+      throw new HttpsError('invalid-argument', "La acción debe ser 'encender' o 'apagar'.");
+    }
+    await shelly().interruptor(id, canal, accion === 'encender');
+    return accion;
+  }
+  throw new HttpsError('failed-precondition', `Shelly todavía no maneja el modo ${modo} en ViYi.`);
+}
+
 async function ejecutarHomebridge(dispositivo, config, { accion, valor, data }) {
   const id = config.accesorioId;
   if (!id) {
@@ -335,7 +383,7 @@ async function autorizar(uid, dispositivoId) {
 }
 
 exports.ejecutarComando = onCall(
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB] },
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
@@ -353,7 +401,9 @@ exports.ejecutarComando = onCall(
 
     try {
       let accionRegistrada;
-      if (proveedor === 'homebridge') {
+      if (proveedor === 'shelly') {
+        accionRegistrada = await ejecutarShelly(dispositivo, config, { accion });
+      } else if (proveedor === 'homebridge') {
         accionRegistrada = await ejecutarHomebridge(dispositivo, config, { accion, valor, data: request.data });
       } else if (dispositivo.modo === 'pulso') {
         accionRegistrada = 'pulso';
@@ -1331,7 +1381,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const {
     id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, segundosApertura, orden, activo, inmueble,
-    dueno, cuentaTuya, registrar: registrarPedido,
+    dueno, cuentaTuya, registrar: registrarPedido, shellyId, shellyCanal,
     proveedor, tuyaDeviceId, codigo, pulsoMs, codigoBrillo, brilloMax,
     codigoPosicion, codigoPosicionEstado, posicionInvertida,
     accesorioId, caracteristica,
@@ -1339,7 +1389,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
   if (!id || !/^[a-z0-9-]{2,40}$/.test(id)) {
     throw new HttpsError('invalid-argument', 'El id debe ser minúsculas, números y guiones (ej: porton-garaje).');
   }
-  const provFinal = proveedor === 'homebridge' ? 'homebridge' : 'tuya';
+  const provFinal = ['homebridge', 'shelly'].includes(proveedor) ? proveedor : 'tuya';
   if (!nombre) {
     throw new HttpsError('invalid-argument', 'Falta el nombre del dispositivo.');
   }
@@ -1379,10 +1429,15 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
       }
     }
   }
-  if (provFinal === 'homebridge' ? !accesorioId : !tuyaDeviceId) {
-    throw new HttpsError('invalid-argument', provFinal === 'homebridge'
-      ? 'Falta el accesorio de Homebridge.'
-      : 'Falta el Device ID de Tuya.');
+  // Cada proveedor tiene su identificador obligatorio: sin él el aparato queda
+  // dado de alta pero sin forma de alcanzarlo.
+  const FALTA = {
+    homebridge: [accesorioId, 'Falta el accesorio de Homebridge.'],
+    shelly: [shellyId, 'Falta el Device ID de Shelly.'],
+    tuya: [tuyaDeviceId, 'Falta el Device ID de Tuya.'],
+  };
+  if (!FALTA[provFinal][0]) {
+    throw new HttpsError('invalid-argument', FALTA[provFinal][1]);
   }
   let tipoFinal = ['puerta', 'cortina', 'ascensor', 'luz', 'termostato', 'rele', 'otro'].includes(tipo) ? tipo : 'otro';
   let subFinal = ['bunker', 'porton'].includes(subtipo) ? subtipo : '';
@@ -1423,6 +1478,9 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
     // cuenta entera". Etiqueta libre: la pone quien vincula.
     cuenta: String(cuentaTuya || '').trim().slice(0, 40),
     codigo: (codigo || 'switch_1').trim(),
+    // Shelly (Cloud Control API): el id del aparato y el canal de la salida.
+    shellyId: String(shellyId || '').trim(),
+    shellyCanal: Math.max(0, Math.min(7, Number(shellyCanal) || 0)),
     pulsoMs: Number(pulsoMs) || 1000,
     codigoBrillo: (codigoBrillo || 'bright_value_v2').trim(),
     brilloMax: Number(brilloMax) || 1000,
@@ -1848,8 +1906,9 @@ async function revisarConexion() {
       });
     }
 
-    const deTuya = disps.filter((d) => d.proveedor !== 'homebridge' && d.cfg && d.cfg.tuyaDeviceId);
+    const deTuya = disps.filter((d) => !['homebridge', 'shelly'].includes(d.proveedor) && d.cfg && d.cfg.tuyaDeviceId);
     const deHb = disps.filter((d) => d.proveedor === 'homebridge' && d.cfg && d.cfg.accesorioId);
+    const deShelly = disps.filter((d) => d.proveedor === 'shelly' && d.cfg && d.cfg.shellyId);
 
     const onlineTuya = new Map();
     if (deTuya.length) {
@@ -1871,6 +1930,18 @@ async function revisarConexion() {
       }
     }
 
+    // Shelly aparte, como los otros dos: que su nube esté caída no debe ocultar
+    // el estado de los Tuya.
+    const onlineShelly = new Map();
+    if (deShelly.length) {
+      try {
+        const info = await shelly().infoLote(deShelly.map((d) => d.cfg.shellyId));
+        for (const [id, v] of info) onlineShelly.set(id, v.online);
+      } catch (err) {
+        console.warn('Shelly no respondió al revisar conexión:', err.message);
+      }
+    }
+
     const ahora = admin.firestore.Timestamp.now();
     const lista = [];
     for (const d of disps) {
@@ -1878,6 +1949,8 @@ async function revisarConexion() {
       if (!d.cfg) online = null;
       else if (d.proveedor === 'homebridge') {
         if (onlineHb.size) online = onlineHb.has(d.cfg.accesorioId);
+      } else if (d.proveedor === 'shelly') {
+        if (onlineShelly.size) online = onlineShelly.get(d.cfg.shellyId) === true;
       } else if (onlineTuya.size) {
         online = onlineTuya.get(d.cfg.tuyaDeviceId) === true;
       }
@@ -1938,7 +2011,7 @@ exports.adminProveedores = onCall(async (request) => {
 
 // Botón "actualizar" del panel: consulta en vivo. Solo admin.
 exports.estadoDispositivos = onCall(
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB] },
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY] },
   async (request) => {
     await exigirAdmin(request);
     return revisarConexion();
@@ -1948,7 +2021,7 @@ exports.estadoDispositivos = onCall(
 // Chequeo automático cada 10 minutos, para que la caída quede registrada con su
 // hora aunque nadie esté mirando el panel.
 exports.revisarConexionProgramada = onSchedule(
-  { schedule: 'every 10 minutes', timeZone: 'America/Caracas', secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB] },
+  { schedule: 'every 10 minutes', timeZone: 'America/Caracas', secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY] },
   async () => {
     const { dispositivos } = await revisarConexion();
     const caidos = dispositivos.filter((d) => d.online === false).map((d) => d.nombre);
@@ -2303,7 +2376,7 @@ exports.consultarEstado = onCall(
   // los dispositivos no pague el arranque en frío al abrir la app (~1-2s en la
   // primera consulta tras inactividad). Reserva 1 CPU fija de la cuota, que
   // ahora cabe: con maxInstances 1 el techo bajó de 69 a 23 CPU.
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB], minInstances: 1 },
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY], minInstances: 1 },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
@@ -2317,6 +2390,12 @@ exports.consultarEstado = onCall(
     const codigo = config.codigo || 'switch_1';
 
     try {
+      if ((dispositivo.proveedor || 'tuya') === 'shelly') {
+        // Un portón de pulso no tiene estado que leer (el relé vuelve solo), y
+        // el interruptor sí, pero lee de otro sitio. Se devuelve desconocido en
+        // vez de caer por el camino de Tuya con un id que no existe allí.
+        return { estado: null };
+      }
       if ((dispositivo.proveedor || 'tuya') === 'homebridge') {
         const acc = await homebridge().accesorio(config.accesorioId);
         const vals = (acc && acc.values) || {};
