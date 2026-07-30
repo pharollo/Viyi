@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=288';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=289';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -4014,11 +4014,16 @@ async function iniciar() {
     $('seccion-clave').classList.toggle('oculto', !tieneClave);
     mostrarTab('tab-perfil');
     cerrarMenu();
-    // Inmuebles: solo lectura (los asigna el admin en Gestión). La sección solo
-    // aparece si hay al menos uno y no es invitado (a los invitados no se asigna).
-    const esInvitado = usuarioActual.invitado === true;
+    // Inmuebles: solo lectura (los asigna el admin en Gestión). Aparece si tiene
+    // alguno, y nada más.
+    //
+    // Antes exigía además que NO fuera invitado, y eso escondía la sección a
+    // quien entró por un pase y DESPUÉS se mudó al edificio: la marca
+    // `invitado` se pone al canjear y no se quita nunca, así que se quedaba sin
+    // ver su propio apartamento. Tener inmuebles ya dice lo mismo — un invitado
+    // de verdad no tiene ninguno — y se corrige solo cuando deja de serlo.
     const inmuebles = Array.isArray(usuarioActual.inmuebles) ? usuarioActual.inmuebles : [];
-    const mostrarInmuebles = !esInvitado && inmuebles.length > 0;
+    const mostrarInmuebles = inmuebles.length > 0;
     $('seccion-inmuebles').classList.toggle('oculto', !mostrarInmuebles);
     if (mostrarInmuebles) renderInmueblesPerfil(inmuebles);
     renderVestuario(); // el vestuario se arma con los dispositivos que ve hoy
