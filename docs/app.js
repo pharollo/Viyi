@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=284';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=285';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -858,6 +858,13 @@ async function iniciar() {
         );
         documentos = resultado.docs;
       }
+      // Lo de un vecino no va en los botones del admin: administrar el aparato
+      // de alguien no es tenerlo en tu tablero. Se sigue viendo y editando en
+      // Admin, y el backend le deja operarlo si hace falta.
+      documentos = documentos.filter((s) => {
+        const dueno = s.data().dueno || '';
+        return !dueno || dueno === usuario.uid;
+      });
     } else {
       const ids = new Set(usuario.dispositivos || []);
       // Dispositivos compartidos por pases vigentes (no vencidos).
@@ -2533,7 +2540,8 @@ async function iniciar() {
       // desaparecer si el vecino desvincula su cuenta.
       const texto = `${d.nombre} · ${MODOS[d.modo] || 'pulso'}`
         + (d.dueno ? ` · de ${nombreDueno(d.dueno)}` : '')
-        + (seRegistra(d) ? '' : ' · sin registro');
+        + (seRegistra(d) ? '' : ' · sin registro')
+        + (malColgado(d) ? ' · lo ve todo el edificio' : '');
       const fila = filaGestion(texto, d.activo === false, () => abrirEditorDispositivo(d));
       fila.dataset.disp = d.id; // para colgarle después el punto de conexión
       ld.appendChild(fila);
@@ -2652,6 +2660,16 @@ async function iniciar() {
   const esResidente = (u) => (u.inmuebles || []).length > 0
     || (u.dispositivos || []).length > 0
     || u.rol === 'admin';
+
+  // Un aparato de un vecino colgado de un EDIFICIO (no de su apartamento) lo
+  // heredan todos los residentes de ese edificio. Pasa cuando el apartamento
+  // todavía no existe como inmueble, y no se nota mirando: el aparato
+  // funciona, solo que lo ve quien no debe.
+  const malColgado = (d) => {
+    if (!d.dueno || !d.inmueble) return false;
+    const inm = cacheInmuebles.find((x) => x.id === d.inmueble);
+    return Boolean(inm) && CONTENEDORES.includes(inm.tipo);
+  };
 
   // Misma regla que `seRegistra()` en functions/index.js: el registro es sobre
   // accesos, no sobre confort. Se anota lo que abre algo; los aires, dimmers y
@@ -3610,24 +3628,25 @@ async function iniciar() {
         tit.className = 'lote-unidad';
         tit.textContent = u.nombre;
         fila.appendChild(tit);
-        // Quien ya vive ahí no se vuelve a crear: se enseña y se bloquea.
-        const ya = cacheUsuarios.find((v) => (v.inmuebles || []).some((x) => x.id === u.id));
-        if (ya) {
+        // Quién vive ahí ya, si hay alguien. Se enseña pero NO se bloquea: en
+        // un apartamento vive más de una persona, y todas heredan sus
+        // dispositivos, así que hay que poder sumar al resto de la casa.
+        const ya = cacheUsuarios.filter((v) => (v.inmuebles || []).some((x) => x.id === u.id));
+        if (ya.length) {
           const quien = document.createElement('span');
           quien.className = 'lote-ocupado';
-          quien.textContent = `${nombreCompleto(ya)} · ${ya.email || ''}`;
+          quien.textContent = `ya: ${ya.map(nombreCompleto).join(', ')}`;
           fila.appendChild(quien);
-        } else {
-          const iNom = entrada('', 'Nombre');
-          const iApe = entrada('', 'Apellido');
-          const iMail = entrada('', 'correo@ejemplo.com', 'email');
-          [iNom, iApe].forEach((i) => i.setAttribute('autocapitalize', 'words'));
-          iMail.setAttribute('autocapitalize', 'none');
-          iMail.setAttribute('autocomplete', 'off');
-          fila.append(iNom, iApe, iMail);
-          campos.push({ inmueble: u.id, iNom, iApe, iMail });
-          [iNom, iApe, iMail].forEach((i) => i.addEventListener('input', pintarResumen));
         }
+        const iNom = entrada('', 'Nombre');
+        const iApe = entrada('', 'Apellido');
+        const iMail = entrada('', 'correo@ejemplo.com', 'email');
+        [iNom, iApe].forEach((i) => i.setAttribute('autocapitalize', 'words'));
+        iMail.setAttribute('autocapitalize', 'none');
+        iMail.setAttribute('autocomplete', 'off');
+        fila.append(iNom, iApe, iMail);
+        campos.push({ inmueble: u.id, iNom, iApe, iMail });
+        [iNom, iApe, iMail].forEach((i) => i.addEventListener('input', pintarResumen));
         cuerpo.appendChild(fila);
       }
       if (!unidades.length) {
