@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=287';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=288';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -3745,7 +3745,13 @@ async function iniciar() {
       p.textContent = txt;
       return p;
     };
-    if (creados.length) filas.push(linea(`${creados.length} cuentas nuevas: ${creados.map((x) => x.inmueble).join(', ')}`));
+    if (creados.length) {
+      // Por unidad cuando viene del lote, por correo cuando es uno suelto.
+      const quienes = creados.map((x) => x.inmueble || x.email).join(', ');
+      filas.push(linea(creados.length === 1
+        ? `Cuenta nueva: ${quienes}`
+        : `${creados.length} cuentas nuevas: ${quienes}`));
+    }
     if (asignados.length) filas.push(linea(`${asignados.length} ya tenían cuenta y se les sumó su inmueble.`));
     for (const f of fallos) filas.push(linea(`${f.etiqueta}: ${f.motivo}`, 'dps-detectados mensaje-error'));
     filas.push(linea(creados.length
@@ -3753,7 +3759,7 @@ async function iniciar() {
       : 'No hay cuentas nuevas a las que invitar.'));
     const acciones = [];
     if (creados.length) {
-      acciones.push(botonForm(`Enviar invitación a ${creados.length}`, 'btn-primario', async (ev) => {
+      acciones.push(botonForm(creados.length === 1 ? 'Enviar invitación' : `Enviar invitación a ${creados.length}`, 'btn-primario', async (ev) => {
         const b = ev.currentTarget;
         b.disabled = true;
         try {
@@ -3783,7 +3789,7 @@ async function iniciar() {
     });
     const iEmail = entrada(u.email, 'correo@ejemplo.com', 'email');
     if (!esNuevo) iEmail.disabled = true;
-    const iPass = entrada('', esNuevo ? 'Mínimo 6 caracteres' : 'Dejar vacío para no cambiarla', 'password');
+    const iPass = entrada('', esNuevo ? 'Vacío: entra con Google o la pone él' : 'Dejar vacío para no cambiarla', 'password');
     const sRol = selector([['vecino', 'Vecino'], ['admin', 'Administrador']], u.rol || 'vecino');
     const cActivo = casilla('Cuenta activa', u.activo !== false);
     const casillas = casillasDispositivos(u.dispositivos);
@@ -3801,7 +3807,7 @@ async function iniciar() {
       campo('Nombre', iNombre),
       campo('Apellido', iApellido),
       campo('Correo electrónico', iEmail),
-      campo(esNuevo ? 'Contraseña' : 'Nueva contraseña (opcional)', iPass),
+      campo(esNuevo ? 'Contraseña (opcional)' : 'Nueva contraseña (opcional)', iPass),
       campo('Rol', sRol),
     ];
     if (!esNuevo) filas.push(cActivo.label);
@@ -3833,7 +3839,7 @@ async function iniciar() {
         b.disabled = true;
         try {
           if (esNuevo) {
-            await adminCrearUsuario({
+            const res = await adminCrearUsuario({
               nombre: iNombre.value.trim(),
               apellido: iApellido.value.trim(),
               email: iEmail.value.trim(),
@@ -3842,6 +3848,11 @@ async function iniciar() {
               dispositivos: casillas.seleccionados(),
               inmuebles: casInm.seleccionados(),
             });
+            if (res.data && res.data.sinClave) {
+              await cargarGestion();
+              pantallaInvitar({ creados: [{ uid: res.data.uid, email: iEmail.value.trim(), inmueble: '' }] });
+              return;
+            }
             toast('Vecino creado ✓ Ya puede entrar con su correo y contraseña.', 'ok');
           } else {
             await adminActualizarUsuario({
@@ -4812,9 +4823,16 @@ async function iniciar() {
   // Dispositivos propios que el usuario puede compartir (admin: todos).
   function dispositivosCompartibles() {
     if (!usuarioActual) return [];
-    return usuarioActual.rol === 'admin'
-      ? misDispositivos
-      : misDispositivos.filter((d) => (usuarioActual.dispositivos || []).includes(d.id));
+    if (usuarioActual.rol === 'admin') return misDispositivos;
+    // Lo suyo explícito MÁS lo que hereda de su inmueble. Esto último faltaba
+    // desde que el inmueble empezó a dar acceso: un vecino con su apartamento
+    // asignado y sin dispositivos sueltos se quedaba sin la pestaña de Pases
+    // entera, aunque el backend sí le dejaba compartir. Lo recibido POR un pase
+    // no se re-comparte, igual que en `puedeCompartir()` del servidor.
+    const mios = new Set(usuarioActual.dispositivos || []);
+    const heredados = usuarioActual.inmueblesIds || [];
+    return misDispositivos.filter((d) => mios.has(d.id)
+      || (d.inmueble && heredados.includes(d.inmueble)));
   }
 
   // Tarjeta "Tu acceso temporal": aparece si el usuario recibió un pase con

@@ -541,23 +541,39 @@ async function exigirAdmin(request) {
 exports.adminCrearUsuario = onCall(async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const { email, password, nombre, apellido, unidad, rol, dispositivos, inmuebles } = request.data || {};
-  if (!email || !password || !nombre) {
-    throw new HttpsError('invalid-argument', 'Faltan correo, contraseña o nombre.');
+  if (!email || !nombre) {
+    throw new HttpsError('invalid-argument', 'Faltan el correo o el nombre.');
   }
-  if (String(password).length < 6) {
+  // La clave es OPCIONAL. Sin ella la cuenta nace sin clave y su dueño entra
+  // con Google o pone la suya con el enlace de la invitación. Exigirla dejaba
+  // un callejón sin salida: para alguien que va a entrar con Google, el admin
+  // tenía que inventarle una clave que nadie iba a usar.
+  if (password && String(password).length < 6) {
     throw new HttpsError('invalid-argument', 'La contraseña debe tener al menos 6 caracteres.');
   }
   let user;
   try {
-    user = await admin.auth().createUser({ email, password, displayName: nombre });
+    user = await admin.auth().createUser(
+      password ? { email, password, displayName: nombre } : { email, displayName: nombre },
+    );
   } catch (err) {
     if (err.code === 'auth/email-already-exists') {
-      throw new HttpsError('already-exists', 'Ya existe una cuenta con ese correo.');
-    }
-    if (err.code === 'auth/invalid-email') {
+      // Ya entró por su cuenta con Google desde la portada: existe en Auth pero
+      // sin ficha, así que no salía en la lista Y tampoco se dejaba crear —
+      // callejón sin salida. Se reutiliza su cuenta y se le hace la ficha.
+      try {
+        user = await admin.auth().getUserByEmail(email);
+      } catch (err2) {
+        throw new HttpsError('already-exists', 'Ya existe una cuenta con ese correo.');
+      }
+      if ((await db.doc(`usuarios/${user.uid}`).get()).exists) {
+        throw new HttpsError('already-exists', 'Ese vecino ya está dado de alta.');
+      }
+    } else if (err.code === 'auth/invalid-email') {
       throw new HttpsError('invalid-argument', 'El correo no es válido.');
+    } else {
+      throw new HttpsError('internal', 'No se pudo crear la cuenta.');
     }
-    throw new HttpsError('internal', 'No se pudo crear la cuenta.');
   }
   const inmInicial = limpiarInmuebles(inmuebles) || [];
   exigirInmueblesAsignables(alcance, inmInicial);
@@ -577,7 +593,7 @@ exports.adminCrearUsuario = onCall(async (request) => {
     inmuebles: inmInicial,
     inmueblesIds: await conAncestros(inmInicial.map((x) => x.id)),
   });
-  return { uid: user.uid };
+  return { uid: user.uid, sinClave: !password };
 });
 
 exports.adminActualizarUsuario = onCall(async (request) => {
