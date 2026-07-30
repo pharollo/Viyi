@@ -2,7 +2,7 @@
 // Sin él se queda pegado en el caché del CDN (4 h) aunque app.js sí se renueve:
 // pasó al cambiar el authDomain a auth.viyi.ai. Súbelo junto con el de
 // index.html cada vez que cambie firebase-config.js.
-import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=285';
+import { firebaseConfig, FUNCTIONS_REGION, NOMBRE_CONDOMINIO } from './firebase-config.js?v=286';
 
 const $ = (id) => document.getElementById(id);
 const VISTAS = ['vista-cargando', 'vista-config', 'vista-email', 'vista-login', 'vista-registro', 'vista-sin-acceso', 'vista-panel'];
@@ -2721,7 +2721,9 @@ async function iniciar() {
       cab.textContent = `${titulo} (${lista.length})`;
       lu.appendChild(cab);
       for (const u of lista) {
-        const inm = (u.inmuebles || []).map((x) => x.nombre).join(', ');
+        // Con la ruta completa: "1D" suelto no dice nada, y un mismo número de
+        // apartamento se repite en cada edificio.
+        const inm = (u.inmuebles || []).map((x) => rutaInmueble(x.id) || x.nombre).join(', ');
         const partes = [nombreCompleto(u), inm, u.rol === 'admin' ? 'admin' : null].filter(Boolean);
         const fila = filaGestion(partes.join(' · '), u.activo === false, () => abrirEditorUsuario(u));
         fila.dataset.uid = u.uid; // para colgarle después cómo entra
@@ -3340,7 +3342,11 @@ async function iniciar() {
       partes.push(inm.nombre);
       actual = inm.padre || '';
     }
-    return partes.join(' · ');
+    // De arriba abajo: "Tulipanes IV · 1D". Se sube por `padre`, así que la
+    // cadena sale al revés de como se lee una ubicación. Además así los grupos
+    // de la lista se ordenan por edificio en vez de esparcirse por el nombre
+    // de la unidad.
+    return partes.reverse().join(' · ');
   }
 
   // Opciones de inmueble para un selector. `excluir` saca al propio inmueble
