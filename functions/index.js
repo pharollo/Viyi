@@ -45,6 +45,29 @@ const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 // (concurrency por defecto), de sobra para un condominio.
 setGlobalOptions({ region: 'us-central1', maxInstances: 1 });
 
+// Reparto de CPU POR FUNCIÓN. maxInstances 1 no alcanzó: la cuota cuenta el
+// techo de todas juntas y ya somos 31 funciones, o sea 31 CPU pedidos contra
+// 20. Estábamos crónicamente por encima, y como en un despliegue conviven la
+// revisión vieja y la nueva, cada push era una tirada de dados sobre cuáles se
+// actualizaban (el 5-ago-2026 fallaron 15 y luego 11, y el workflow lo tapaba).
+//
+// El criterio es quién llama a cada función y cada cuánto:
+//   · Sin marcar (1 CPU, 80 peticiones a la vez) — lo que se toca a diario o en
+//     la puerta: abrir, estado, canjear un pase, entrar, el perfil, y adminSkins
+//     (genera imágenes, hasta 120 s: serializarla bloquearía a todo el edificio).
+//   · OCASIONAL — cosas de vecino de vez en cuando: pases, vincular, recuperar
+//     clave. Si dos coinciden, el segundo espera lo que dura el primero.
+//   · RARA — panel de administración (lo usa una persona) y la programada.
+//
+// ⚠️ Con cpu < 1 Cloud Run EXIGE concurrency 1: si no, la configuración es
+// inválida y rechaza el deploy sin crear revisión. Por eso cada nivel lleva las
+// dos cosas juntas y se aplica con spread — separarlas es romperlo.
+//
+// Techo resultante: 7×1 + 6×0,5 + 18×0,25 = 14,5 CPU contra 20 de cuota, que
+// deja aire para las revisiones que conviven durante un despliegue.
+const OCASIONAL = { cpu: 0.5, concurrency: 1 };
+const RARA = { cpu: 0.25, concurrency: 1 };
+
 // Nombres y apellidos siempre en Title Case, con las partículas en minúscula
 // ("María Pérez de la Cruz"). Se normaliza AQUÍ y no en cada formulario para
 // que dé igual por dónde entró el dato: registro de invitado, Google, panel de
@@ -551,7 +574,7 @@ async function exigirSesion(request) {
   return snap.data();
 }
 
-exports.adminCrearUsuario = onCall(async (request) => {
+exports.adminCrearUsuario = onCall(RARA, async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const { email, password, nombre, apellido, unidad, rol, dispositivos, inmuebles } = request.data || {};
   if (!email || !nombre) {
@@ -609,7 +632,7 @@ exports.adminCrearUsuario = onCall(async (request) => {
   return { uid: user.uid, sinClave: !password };
 });
 
-exports.adminActualizarUsuario = onCall(async (request) => {
+exports.adminActualizarUsuario = onCall(RARA, async (request) => {
   const alcanceMio = alcanceDe(await exigirAdmin(request));
   const { uid, nombre, apellido, unidad, rol, activo, dispositivos, password, inmuebles, administra } = request.data || {};
   if (!uid || typeof uid !== 'string') {
@@ -902,7 +925,7 @@ const TUYA_REDIRECT = `https://us-central1-${process.env.GCLOUD_PROJECT || 'viyi
 // es lo que permite saber quién volvió, y va firmado para que nadie pueda
 // atribuirse la autorización de otro.
 exports.vincularTuya = onCall(
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
+  { ...OCASIONAL, secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
@@ -926,7 +949,7 @@ exports.vincularTuya = onCall(
 // guarda. El token NO se expone nunca al cliente: vive en una colección que las
 // reglas niegan a todo el mundo y solo tocan las Functions.
 exports.tuyaCallback = onRequest(
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
+  { ...RARA, secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
   async (req, res) => {
     const pagina = (titulo, detalle) => res.status(200).send(
       `<!doctype html><meta charset="utf-8">`
@@ -970,7 +993,7 @@ exports.tuyaCallback = onRequest(
 // y de qué cuenta vinculada viene cada uno (`uid`), que es lo que permite
 // rellenar solo la etiqueta de cuenta cuando haya más de una.
 exports.adminListarDispositivosTuya = onCall(
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
+  { ...RARA, secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
   async (request) => {
     await exigirAdmin(request);
     const { ruta, dispositivos } = await tuya().listarTodos();
@@ -1009,7 +1032,7 @@ exports.adminListarDispositivosTuya = onCall(
 );
 
 // Crea o actualiza un inmueble del catálogo (solo admin).
-exports.adminGuardarInmueble = onCall(async (request) => {
+exports.adminGuardarInmueble = onCall(RARA, async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const { id, tipo, nombre, ciudad, estado, zona, padre } = request.data || {};
   if (!TIPOS_INMUEBLE.includes(tipo)) {
@@ -1103,7 +1126,7 @@ function nodoLote(n, profundidad) {
 
 const contarLote = (n) => 1 + n.hijos.reduce((t, h) => t + contarLote(h), 0);
 
-exports.adminCrearInmuebleLote = onCall(async (request) => {
+exports.adminCrearInmuebleLote = onCall(RARA, async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const { raiz } = request.data || {};
   if (!raiz) throw new HttpsError('invalid-argument', 'Falta el inmueble a crear.');
@@ -1188,7 +1211,7 @@ exports.adminCrearInmuebleLote = onCall(async (request) => {
 // pone la suya con el enlace de la invitación, que se manda APARTE.
 const MAX_VECINOS_LOTE = 200;
 
-exports.adminCrearVecinosLote = onCall(async (request) => {
+exports.adminCrearVecinosLote = onCall(RARA, async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const filas = Array.isArray((request.data || {}).filas) ? request.data.filas : [];
   if (!filas.length) throw new HttpsError('invalid-argument', 'No hay vecinos que crear.');
@@ -1273,7 +1296,7 @@ async function nombreRaiz(id) {
 
 // Manda la invitación para que el vecino ponga su clave. Va SEPARADO del alta
 // a propósito: un correo mal escrito, una vez enviado, no se recoge.
-exports.adminInvitarVecinos = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
+exports.adminInvitarVecinos = onCall({ ...RARA, secrets: [RESEND_API_KEY] }, async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const uids = [...new Set((((request.data || {}).uids) || []).filter((x) => typeof x === 'string' && x))];
   if (!uids.length) throw new HttpsError('invalid-argument', 'No hay a quién invitar.');
@@ -1319,7 +1342,7 @@ exports.adminInvitarVecinos = onCall({ secrets: [RESEND_API_KEY] }, async (reque
 });
 
 // Elimina un inmueble del catálogo y lo quita de los vecinos asignados.
-exports.adminEliminarInmueble = onCall(async (request) => {
+exports.adminEliminarInmueble = onCall(RARA, async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const { id, ids: varios, conDescendientes } = request.data || {};
   // Uno o una lista: la lista hace falta para recoger los huérfanos que dejó
@@ -1368,7 +1391,7 @@ exports.adminEliminarInmueble = onCall(async (request) => {
 //    borrar a alguien no debería borrar la historia. Ya guarda el nombre
 //    copiado, así que se sigue leyendo bien sin la ficha.
 //  - El admin no puede borrarse a sí mismo, para no quedarse fuera del panel.
-exports.adminEliminarUsuario = onCall(async (request) => {
+exports.adminEliminarUsuario = onCall(RARA, async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const { uid } = request.data || {};
   if (!uid || typeof uid !== 'string') {
@@ -1406,7 +1429,7 @@ exports.adminEliminarUsuario = onCall(async (request) => {
   return { ok: true, pasesRevocados: pases.size };
 });
 
-exports.adminGuardarDispositivo = onCall(async (request) => {
+exports.adminGuardarDispositivo = onCall(RARA, async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const {
     id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, segundosApertura, orden, activo, inmueble,
@@ -1528,7 +1551,7 @@ exports.adminGuardarDispositivo = onCall(async (request) => {
 
 // Lista los accesorios de Homebridge (para elegirlos en el editor).
 exports.adminListarAccesoriosHomebridge = onCall(
-  { secrets: SECRETS_HB },
+  { ...RARA, secrets: SECRETS_HB },
   async (request) => {
     await exigirAdmin(request);
     let accesorios;
@@ -1557,7 +1580,7 @@ exports.adminListarAccesoriosHomebridge = onCall(
 // editor se queda con su campo de Device ID a mano y dar de alta un aparato
 // sigue funcionando igual que antes de que existiera esto.
 exports.adminListarDispositivosShelly = onCall(
-  { secrets: SECRETS_SHELLY },
+  { ...RARA, secrets: SECRETS_SHELLY },
   async (request) => {
     await exigirAdmin(request);
     let lista;
@@ -1582,7 +1605,7 @@ exports.adminListarDispositivosShelly = onCall(
 
 // Diagnóstico: estado crudo de un accesorio de Homebridge (tipo + características + valores).
 exports.adminAccesorioCrudo = onCall(
-  { secrets: SECRETS_HB },
+  { ...RARA, secrets: SECRETS_HB },
   async (request) => {
     await exigirAdmin(request);
     const { accesorioId } = request.data || {};
@@ -1610,7 +1633,7 @@ exports.adminAccesorioCrudo = onCall(
 );
 
 exports.adminInspeccionarDispositivo = onCall(
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
+  { ...RARA, secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
   async (request) => {
     await exigirAdmin(request);
     const { tuyaDeviceId } = request.data || {};
@@ -1638,7 +1661,7 @@ exports.adminInspeccionarDispositivo = onCall(
   }
 );
 
-exports.adminEliminarDispositivo = onCall(async (request) => {
+exports.adminEliminarDispositivo = onCall(RARA, async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const { id } = request.data || {};
   if (!id || typeof id !== 'string') {
@@ -2015,7 +2038,7 @@ exports.verificarEmail = onCall(async (request) => {
 //    que no sirva para averiguar quién tiene cuenta.
 //  - Limita a un envío por minuto por correo, para que nadie lo use para
 //    bombardear el buzón de otra persona.
-exports.enviarResetClave = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
+exports.enviarResetClave = onCall({ ...OCASIONAL, secrets: [RESEND_API_KEY] }, async (request) => {
   const email = String((request.data || {}).email || '').trim().toLowerCase();
   if (!email.includes('@') || email.length > 200) {
     throw new HttpsError('invalid-argument', 'Escribe un correo válido.');
@@ -2175,7 +2198,7 @@ async function revisarConexion() {
 //
 // Sirve para lo práctico: si un vecino dice "no puedo entrar", ver de un
 // vistazo si tiene clave o si siempre entró por Google.
-exports.adminProveedores = onCall(async (request) => {
+exports.adminProveedores = onCall(RARA, async (request) => {
   await exigirAdmin(request);
   const snap = await db.collection('usuarios').get();
   const uids = snap.docs.map((d) => ({ uid: d.id }));
@@ -2201,7 +2224,7 @@ exports.estadoDispositivos = onCall(
 // Chequeo automático cada 10 minutos, para que la caída quede registrada con su
 // hora aunque nadie esté mirando el panel.
 exports.revisarConexionProgramada = onSchedule(
-  { schedule: 'every 10 minutes', timeZone: 'America/Caracas', secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY] },
+  { ...RARA, schedule: 'every 10 minutes', timeZone: 'America/Caracas', secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY] },
   async () => {
     const { dispositivos } = await revisarConexion();
     const caidos = dispositivos.filter((d) => d.online === false).map((d) => d.nombre);
@@ -2214,7 +2237,7 @@ exports.revisarConexionProgramada = onSchedule(
 //
 // Es MI lista, no un directorio: nunca devuelve usuarios con los que no he
 // compartido antes, porque eso delataría quién está registrado en el condominio.
-exports.misInvitados = onCall(async (request) => {
+exports.misInvitados = onCall(OCASIONAL, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
   }
@@ -2257,7 +2280,7 @@ exports.misInvitados = onCall(async (request) => {
 // Da acceso directo a un invitado frecuente, sin enlace de por medio. Escribe
 // el mismo `accesos[]` que escribe el canje de un pase, y avisa por correo:
 // sin el enlace de WhatsApp nadie se enteraría de que ya puede abrir.
-exports.darAcceso = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
+exports.darAcceso = onCall({ ...OCASIONAL, secrets: [RESEND_API_KEY] }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
   }
@@ -2351,7 +2374,7 @@ exports.darAcceso = onCall({ secrets: [RESEND_API_KEY] }, async (request) => {
 });
 
 // Genera un enlace de pase con los dispositivos y la duración elegidos.
-exports.crearPase = onCall(async (request) => {
+exports.crearPase = onCall(OCASIONAL, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
   }
@@ -2515,7 +2538,7 @@ exports.canjearPase = onCall(async (request) => {
 });
 
 // Revoca un pase: invalida el enlace y quita el acceso a quienes lo canjearon.
-exports.revocarPase = onCall(async (request) => {
+exports.revocarPase = onCall(OCASIONAL, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
   }
