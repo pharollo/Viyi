@@ -4449,6 +4449,18 @@ async function iniciar() {
     if (foco) seleccionarAspecto(foco.dataset.aspecto);
   }
 
+  // "Estilo guardado" bajo el carrusel: se enseña solo cuando el servidor YA
+  // confirmó, que es lo que la línea promete. Si vuelves a elegir antes de que se
+  // desvanezca, el temporizador se reinicia en vez de encadenar avisos.
+  let vestAvisoTimer = null;
+  function avisarEstiloGuardado() {
+    const el = $('vest-guardado');
+    if (!el) return;
+    el.classList.add('visible');
+    clearTimeout(vestAvisoTimer);
+    vestAvisoTimer = setTimeout(() => el.classList.remove('visible'), 1800);
+  }
+
   async function guardarAspecto(dispId, aspectoId) {
     if (!usuarioActual) return;
     const mapa = Object.assign({}, usuarioActual.aspectos || {});
@@ -4467,7 +4479,9 @@ async function iniciar() {
       if (guardado && guardado[dispId] !== aspectoId) {
         const motivo = ((res.data.descartados || []).join(', ') || 'motivo desconocido');
         toast(`El servidor no guardó el estilo (${motivo}).`, 'error');
+        return;
       }
+      avisarEstiloGuardado();
     } catch (err) {
       toast('No se pudo guardar el estilo.', 'error');
     }

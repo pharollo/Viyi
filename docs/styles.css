@@ -1708,6 +1708,25 @@ button:disabled {
   border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
+/* "Estilo guardado": confirma que la elección quedó (se guarda sola al centrarla).
+   NO se oculta con `oculto` sino con opacidad, y la línea se reserva siempre: si
+   apareciera y desapareciera del flujo, cada elección empujaría el resto de la
+   pantalla hacia abajo y de vuelta. */
+.vest-guardado {
+  min-height: 16px;
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--primario);
+  opacity: 0;
+  transition: opacity .25s ease;
+  pointer-events: none;
+}
+
+.vest-guardado.visible {
+  opacity: 1;
+}
+
 /* Muestra de Cobre en el dimmer: ahí el control es un slider, no una perilla,
    así que la miniatura es el material y no el knob (que no aparecería). */
 .muestra-cobre {
