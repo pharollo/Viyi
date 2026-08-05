@@ -55,9 +55,22 @@ jobs:
       - name: Configurar parámetros de las functions
         run: echo "TUYA_BASE_URL=${{ vars.TUYA_BASE_URL || 'https://openapi.tuyaus.com' }}" > functions/.env
 
-      # Cloud Functions v2 a veces falla al actualizar un subconjunto de
-      # funciones por flakiness de Cloud Run. Reintentamos: las ya desplegadas
-      # se saltan y solo se reintentan las que quedaron pendientes.
+      # Cloud Functions v2 falla a veces al actualizar alguna función porque el
+      # healthcheck de Cloud Run choca con la cuota de CPU del proyecto (ver
+      # memoria: el techo es nº funciones × maxInstances × cpu).
+      #
+      # ⚠️ El reintento a secas NO servía, y peor: TAPABA el fallo. Se creía que
+      # "las ya desplegadas se saltan y solo se reintentan las pendientes", pero
+      # la CLI compara el hash del FUENTE, que ya quedó escrito aunque la
+      # actualización del servicio fallara. Resultado real (5-ago-2026):
+      #
+      #   Intento 1: Failed to update function adminSkins   ← cuota de CPU
+      #   Intento 2: adminSkins Skipped (No changes detected)
+      #              Deploy complete!                        ← verde, y rota
+      #
+      # Dos arreglos: se sella el paquete en cada intento para que el hash cambie
+      # y nada se salte, y el reintento va SOLO a lo que falló (redesplegar las
+      # 24 otra vez multiplica la contención de CPU que causó el fallo).
       #
       # --force es obligatorio aquí: consultarEstado usa minInstances: 1 (una
       # instancia siempre encendida para que no haya arranque en frío), y sin
@@ -66,14 +79,26 @@ jobs:
       # preguntar las funciones que se quiten del código.
       - name: Desplegar functions y Firestore
         run: |
+          set -o pipefail
+          salida="$(mktemp)"
+          objetivo="functions,firestore"
           for intento in 1 2 3; do
-            echo "== Intento $intento de deploy =="
-            if firebase deploy --only functions,firestore --project viyi-25a09 --non-interactive --force; then
+            echo "== Intento $intento de deploy ($objetivo) =="
+            echo "$GITHUB_RUN_ID-$intento" > functions/.deploy-stamp
+            if firebase deploy --only "$objetivo" --project viyi-25a09 --non-interactive --force 2>&1 | tee "$salida"; then
               echo "Deploy OK en el intento $intento"
               exit 0
             fi
-            echo "El intento $intento falló; reintentando en 25s…"
-            sleep 25
+            fallidas="$(grep -o 'Failed to update function [A-Za-z0-9_]*' "$salida" \
+              | awk '{print $NF}' | sort -u | sed 's/^/functions:/' | paste -sd, - || true)"
+            if [ -n "$fallidas" ]; then
+              objetivo="$fallidas"
+              echo "Quedaron pendientes: $objetivo"
+            fi
+            # 60s y no 25: si la causa es la cuota, hay que darle tiempo a Cloud
+            # Run a retirar las revisiones viejas que la están ocupando.
+            echo "El intento $intento falló; reintentando en 60s…"
+            sleep 60
           done
           echo "El deploy falló tras 3 intentos."
           exit 1
