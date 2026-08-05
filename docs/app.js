@@ -73,6 +73,7 @@ async function iniciar() {
   const adminInspeccionarDispositivo = httpsCallable(functions, 'adminInspeccionarDispositivo');
   const adminListarAccesoriosHomebridge = httpsCallable(functions, 'adminListarAccesoriosHomebridge');
   const adminListarDispositivosTuya = httpsCallable(functions, 'adminListarDispositivosTuya');
+  const adminListarDispositivosShelly = httpsCallable(functions, 'adminListarDispositivosShelly');
   const adminAccesorioCrudo = httpsCallable(functions, 'adminAccesorioCrudo');
   const crearPase = httpsCallable(functions, 'crearPase');
   const canjearPase = httpsCallable(functions, 'canjearPase');
@@ -3057,6 +3058,63 @@ async function iniciar() {
     iShellyCanal.max = '7';
     const campoShelly = campo('Device ID de Shelly', iShelly);
     const campoShellyCanal = campo('Canal de la salida (0 en un Plus 1)', iShellyCanal);
+    // Shelly: traer la lista en vez de copiar el Device ID de la app a mano.
+    // Puede venir vacía con un aviso —lo que enumera es la parte deprecada de su
+    // API—, y por eso el campo de arriba nunca se esconde: si esto falla, el
+    // alta a mano sigue siendo el camino.
+    const estadoShelly = document.createElement('div');
+    estadoShelly.className = 'dps-detectados';
+    const selShelly = document.createElement('select');
+    selShelly.classList.add('oculto');
+    selShelly.addEventListener('change', () => {
+      const op = selShelly.selectedOptions[0];
+      if (!op || !op.value) return;
+      iShelly.value = op.value;
+      if (!iNombre.value.trim()) iNombre.value = tituloCase(op.dataset.nombre || '');
+      // El canal de la primera salida: en un Plus 1 es el único que hay, y en
+      // uno de dos deja el formulario en un valor válido en vez de en blanco.
+      if (op.dataset.canal) iShellyCanal.value = op.dataset.canal;
+    });
+    const btnShelly = botonForm('Traer dispositivos de Shelly', 'btn-secundario', async (ev) => {
+      const b = ev.currentTarget;
+      b.disabled = true;
+      const orig = b.textContent;
+      b.textContent = 'Consultando…';
+      estadoShelly.textContent = '';
+      try {
+        const res = await adminListarDispositivosShelly({});
+        const lista = (res.data && res.data.dispositivos) || [];
+        selShelly.textContent = '';
+        const vacio = document.createElement('option');
+        vacio.value = '';
+        vacio.textContent = `— elige uno (${lista.length}) —`;
+        selShelly.appendChild(vacio);
+        for (const s of lista) {
+          const o = document.createElement('option');
+          o.value = s.id;
+          o.textContent = `${s.nombre}${s.modelo ? ` · ${s.modelo}` : ''}`
+            + (s.online ? '' : ' · sin conexión')
+            + ((s.canales || []).length > 1 ? ` · ${s.canales.length} salidas` : '')
+            + (s.yaEsta ? ` · ya es "${s.yaEsta}"` : '');
+          o.dataset.nombre = s.nombre;
+          o.dataset.canal = (s.canales || []).length ? String(s.canales[0]) : '';
+          selShelly.appendChild(o);
+        }
+        selShelly.classList.toggle('oculto', !lista.length);
+        // Sin mensaje cuando va bien: el número ya está en "elige uno (N)".
+        estadoShelly.textContent = (res.data && res.data.aviso)
+          || (lista.length ? '' : 'Shelly no devolvió dispositivos.');
+      } catch (err) {
+        estadoShelly.textContent = err.message || 'No se pudo consultar Shelly.';
+      } finally {
+        b.disabled = false;
+        b.textContent = orig;
+      }
+    });
+    const cajaShelly = document.createElement('div');
+    cajaShelly.className = 'tuya-lista';
+    cajaShelly.append(btnShelly, selShelly, estadoShelly);
+    const campoShellyLista = campo('', cajaShelly);
     const campoDevice = campo('Device ID de Tuya', iDevice);
     const campoCuenta = campo('Cuenta Tuya Origen', iCuenta);
     // Tuya: traer la lista en vez de copiar el Device ID de la consola a mano.
@@ -3252,6 +3310,7 @@ async function iniciar() {
       campoDetectar.classList.toggle('oculto', !esTuya);
       campoAccesorio.classList.toggle('oculto', !esHb);
       campoCaracteristica.classList.toggle('oculto', !esHb);
+      campoShellyLista.classList.toggle('oculto', !esShelly);
       campoShelly.classList.toggle('oculto', !esShelly);
       campoShellyCanal.classList.toggle('oculto', !esShelly);
       cInvertir.label.classList.toggle('oculto', sModo.value !== 'cortina');
@@ -3334,6 +3393,7 @@ async function iniciar() {
       campoTuyaLista,
       campoCuenta,
       campoDevice,
+      campoShellyLista,
       campoShelly,
       campoShellyCanal,
       campoCodigo,

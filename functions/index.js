@@ -1535,6 +1535,38 @@ exports.adminListarAccesoriosHomebridge = onCall(
   }
 );
 
+// Lista los aparatos de la cuenta de Shelly, para no copiar el Device ID a mano
+// de la app. Marca cuáles ya están dados de alta y cuántas salidas tiene cada
+// uno, que es lo que evita adivinar el canal.
+//
+// La parte que enumera se apoya en la v1, deprecada (ver `listarIds`). Por eso
+// el fallo NO se propaga como error: se devuelve la lista vacía con un aviso, el
+// editor se queda con su campo de Device ID a mano y dar de alta un aparato
+// sigue funcionando igual que antes de que existiera esto.
+exports.adminListarDispositivosShelly = onCall(
+  { secrets: SECRETS_SHELLY },
+  async (request) => {
+    await exigirAdmin(request);
+    let lista;
+    try {
+      lista = await shelly().listar();
+    } catch (err) {
+      return { dispositivos: [], aviso: `No pude traer la lista de Shelly: ${err.message}` };
+    }
+    // Los que ya están en ViYi, para no ofrecerlos como nuevos.
+    const snap = await db.collection('dispositivos').get();
+    const yaEstan = new Map();
+    for (const doc of snap.docs) {
+      const cfg = await db.doc(`dispositivos/${doc.id}/privado/tuya`).get();
+      const sid = cfg.exists ? (cfg.data().shellyId || '') : '';
+      if (sid) yaEstan.set(sid, doc.data().nombre || doc.id);
+    }
+    return {
+      dispositivos: lista.map((d) => ({ ...d, yaEsta: yaEstan.get(d.id) || '' })),
+    };
+  },
+);
+
 // Diagnóstico: estado crudo de un accesorio de Homebridge (tipo + características + valores).
 exports.adminAccesorioCrudo = onCall(
   { secrets: SECRETS_HB },
