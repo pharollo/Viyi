@@ -7,6 +7,22 @@
         { "fieldPath": "inmueble", "order": "ASCENDING" },
         { "fieldPath": "fecha", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "skins",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "publico", "order": "ASCENDING" },
+        { "fieldPath": "creado", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "skins",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "autor", "order": "ASCENDING" },
+        { "fieldPath": "creado", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

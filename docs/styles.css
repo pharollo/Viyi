@@ -2505,6 +2505,19 @@ input:checked ~ .pase-tgl::before {
   font-size: 14px;
 }
 
+/* "esperando" = hecho por un vecino y todavía no publicado en la galería. Va
+   como pastilla al final de la fila; sin el `flex: 0 0 auto` heredaría el
+   `flex: 1` del nombre y se llevaría media línea. */
+.skin-estado {
+  flex: 0 0 auto;
+  font-size: 11px;
+  letter-spacing: .04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: var(--texto-suave);
+  background: var(--superficie);
+}
+
 .btn-borrar-skin {
   background: none;
   border: none;

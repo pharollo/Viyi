@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=290">
+  <link rel="stylesheet" href="styles.css?v=291">
 </head>
 <body>
   <header>
@@ -213,7 +213,11 @@
             <h3 id="titulo-inmuebles">Inmuebles</h3>
             <ul id="lista-inmuebles" class="lista-inmuebles"></ul>
           </div>
-          <button type="submit" id="btn-guardar-perfil" class="btn-primario">Guardar</button>
+          <!-- Nace oculto: aparece solo cuando de verdad hay un dato cambiado
+               (ver revisarCambiosPerfil). Ahí abajo empieza el Locker, y un
+               "Guardar" permanente se leía como el botón de guardar el skin
+               —que se guarda solo— y la gente lo tocaba por eso. -->
+          <button type="submit" id="btn-guardar-perfil" class="btn-primario oculto">Guardar datos</button>
           <p id="perfil-msg" class="mensaje-error oculto"></p>
         </form>
         <div class="encabezado-admin">
@@ -237,7 +241,7 @@
           <button type="button" id="btn-vincular-tuya" class="btn-secundario">Vincular mi cuenta Tuya</button>
           <p id="tuya-msg" class="campo-ayuda">Para usar en ViYi los dispositivos que ya tienes en tu app Smart Life. Eliges cuáles compartes.</p>
         </div>
-        <div class="tarjeta solo-admin oculto" id="seccion-crear-skin">
+        <div class="tarjeta" id="seccion-crear-skin">
           <button type="button" id="btn-toggle-skin" class="btn-desplegar" aria-expanded="false" aria-controls="form-skin">Crear un botón</button>
           <form id="form-skin" class="form-desplegable oculto">
             <label class="campo-perfil">Descríbelo
@@ -270,7 +274,7 @@
               <div class="campo-perfil">Para
                 <div class="skin-tipos" id="skin-tipos"></div>
               </div>
-              <button type="button" id="btn-publicar-skin" class="btn-primario">Publicar en la galería</button>
+              <button type="button" id="btn-publicar-skin" class="btn-primario">Guardar mi botón</button>
             </div>
             <p id="skin-msg" class="mensaje-error oculto"></p>
             <div id="skin-lista" class="skin-lista"></div>
@@ -307,6 +311,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=290"></script>
+  <script type="module" src="app.js?v=291"></script>
 </body>
 </html>

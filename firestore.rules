@@ -119,12 +119,21 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Galería de skins: los publica el admin desde la app (vía Functions, que
-    // es donde se genera y se procesa la imagen). Cualquier autenticado los lee
-    // para poder elegir el suyo en el Locker; son datos cosméticos, sin nada
-    // sensible. La imagen viaja dentro del documento como data URI.
+    // Galería de skins: los crea cualquier vecino desde el Locker (vía
+    // Functions, que es donde se genera y se valida la imagen). La imagen viaja
+    // dentro del documento como data URI.
+    //
+    // Se lee lo PÚBLICO —lo que el admin aprobó— más lo propio, que nace privado
+    // y solo ve su autor. Ojo: esto es una regla POR DOCUMENTO, y las reglas no
+    // filtran consultas, así que la app NO puede pedir la colección entera; pide
+    // dos consultas (`publico == true` y `autor == mi uid`) y las junta. Si algún
+    // día alguien vuelve a poner un `getDocs` sin `where`, falla entero.
     match /skins/{id} {
-      allow read: if autenticado();
+      allow read: if autenticado() && (
+        resource.data.get('publico', false) == true
+        || resource.data.get('autor', '') == request.auth.uid
+        || esAdmin()
+      );
       allow write: if false;
     }
 

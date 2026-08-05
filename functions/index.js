@@ -538,6 +538,19 @@ async function exigirAdmin(request) {
   return usuario;
 }
 
+// Sesión de cualquier vecino activo (sin exigir que sea admin). Devuelve su
+// documento para que quien llama decida qué puede hacer según el rol.
+async function exigirSesion(request) {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
+  }
+  const snap = await db.doc(`usuarios/${request.auth.uid}`).get();
+  if (!snap.exists || snap.data().activo === false) {
+    throw new HttpsError('permission-denied', 'Tu cuenta no está activa.');
+  }
+  return snap.data();
+}
+
 exports.adminCrearUsuario = onCall(async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const { email, password, nombre, apellido, unidad, rol, dispositivos, inmuebles } = request.data || {};
@@ -1640,17 +1653,71 @@ exports.adminEliminarDispositivo = onCall(async (request) => {
   return { ok: true };
 });
 
-// ---- Galería de skins (fase B: los genera y cura el admin) ----
+// ---- Galería de skins (fase C: cada vecino crea el suyo) ----
 
 // Una sola función con varias acciones a propósito: cada función desplegada
 // cuenta contra la cuota de CPU de Cloud Run (ver setGlobalOptions arriba), así
-// que tres exports serían tres slots por algo que solo usa el admin.
+// que tres exports serían tres slots por algo de uso esporádico.
 const ANIMACIONES_SKIN = ['ninguna', 'girar', 'latido'];
 const TIPOS_SKIN = ['puerta', 'cortina', 'ascensor', 'luz', 'termostato', 'rele', 'otro'];
 // Un data URI de WebP de 256px ronda los 20 KB. Se topa MUY por debajo del
 // límite de 1 MB del documento para que un skin no pueda inflar la lectura de
 // la galería, que baja entera al arrancar la app.
 const MAX_IMAGEN_SKIN = 220000;
+// Generaciones con IA por vecino y por día. Cada imagen se paga, así que el tope
+// es lo que evita que un rato de juego se convierta en una factura. Al admin no
+// se le aplica: él es quien cura la galería. Subir del carrete NO cuenta —no
+// cuesta nada— y por eso quien agote el día todavía puede hacer su botón.
+const MAX_IA_DIA = 3;
+
+// El día se cuenta en hora de Venezuela (UTC-4), no en UTC: si no, el cupo se
+// reiniciaría a las 8 de la noche y "3 al día" no significaría lo que parece.
+function diaLocal() {
+  return new Date(Date.now() - 4 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+// Consume una generación del cupo del vecino, o falla si ya no le quedan. Va en
+// transacción porque el cupo es lo único que separa el juego de la factura: dos
+// toques rápidos al botón no deben colarse los dos.
+async function consumirCupoIA(uid) {
+  const ref = db.doc(`usuarios/${uid}`);
+  const hoy = diaLocal();
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const previo = (snap.exists && snap.data().iaSkins) || {};
+    const usadas = previo.dia === hoy ? Number(previo.n) || 0 : 0;
+    if (usadas >= MAX_IA_DIA) {
+      throw new HttpsError(
+        'resource-exhausted',
+        `Ya generaste ${MAX_IA_DIA} botones hoy. Mañana tienes otros ${MAX_IA_DIA}, `
+        + 'y mientras puedes subir una foto del carrete.',
+      );
+    }
+    tx.set(ref, { iaSkins: { dia: hoy, n: usadas + 1 } }, { merge: true });
+    return MAX_IA_DIA - usadas - 1;
+  });
+}
+
+// Devuelve la generación cuando el generador no entregó imagen. El cupo se cobra
+// ANTES de llamar a Vertex (si no, dos toques seguidos se cuelan los dos), y sin
+// esto un fallo nuestro le costaría un intento a quien no hizo nada mal.
+async function devolverCupoIA(uid) {
+  const ref = db.doc(`usuarios/${uid}`);
+  const hoy = diaLocal();
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const previo = (snap.exists && snap.data().iaSkins) || {};
+      if (previo.dia !== hoy) return;   // ya cambió el día: no hay nada que devolver
+      const n = Math.max(0, (Number(previo.n) || 0) - 1);
+      tx.set(ref, { iaSkins: { dia: hoy, n } }, { merge: true });
+    });
+  } catch (e) {
+    // Que falle la devolución no puede tapar el error de verdad, que es el que
+    // el vecino necesita leer.
+    console.warn('No se pudo devolver el cupo de IA:', e.message);
+  }
+}
 
 // La generación va por VERTEX AI, no por la API de estudio: así se autentica
 // con la propia cuenta de servicio de la función y NO hace falta API key ni
@@ -1696,8 +1763,14 @@ function buscarImagen(nodo, prof = 0) {
   return null;
 }
 
+// El nombre del export dice `admin` por historia (nació en la fase B, cuando
+// solo el admin creaba botones) y se conserva a propósito: renombrarlo obliga a
+// desplegar una función nueva y borrar la vieja, churn que no compra nada. Hoy
+// entra cualquier vecino activo y lo que cambia es qué puede hacer cada uno.
 exports.adminSkins = onCall({ timeoutSeconds: 120 }, async (request) => {
-  await exigirAdmin(request);
+  const yo = await exigirSesion(request);
+  const soyAdmin = yo.rol === 'admin';
+  const uid = request.auth.uid;
   const { accion } = request.data || {};
 
   if (accion === 'generar') {
@@ -1715,37 +1788,46 @@ exports.adminSkins = onCall({ timeoutSeconds: 120 }, async (request) => {
       contents: [{ role: 'user', parts: [{ text: encuadre + prompt }] }],
       generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
     });
-    const token = await tokenVertex();
-    let ultimoError = 'El generador falló.';
-    // El id del modelo de imágenes cambia de nombre entre versiones y entre la
-    // API de estudio y Vertex. Se prueban en orden y se usa el primero que
-    // exista, en vez de casarnos con uno y romper cuando Google lo renombre.
-    for (const modelo of MODELOS_IMAGEN) {
-      let r;
-      try {
-        r = await fetch(`${urlVertex(modelo)}`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: cuerpoPeticion,
-        });
-      } catch (e) {
-        throw new HttpsError('unavailable', 'No se pudo hablar con el generador de imágenes.');
+    // El cupo se cobra aquí, antes de gastar la imagen. Si el generador no
+    // entrega nada se devuelve; el admin no tiene tope porque él cura la galería.
+    const restantes = soyAdmin ? null : await consumirCupoIA(uid);
+    try {
+      const token = await tokenVertex();
+      let ultimoError = 'El generador falló.';
+      // El id del modelo de imágenes cambia de nombre entre versiones y entre la
+      // API de estudio y Vertex. Se prueban en orden y se usa el primero que
+      // exista, en vez de casarnos con uno y romper cuando Google lo renombre.
+      for (const modelo of MODELOS_IMAGEN) {
+        let r;
+        try {
+          r = await fetch(`${urlVertex(modelo)}`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: cuerpoPeticion,
+          });
+        } catch (e) {
+          throw new HttpsError('unavailable', 'No se pudo hablar con el generador de imágenes.');
+        }
+        const cuerpo = await r.json().catch(() => null);
+        if (r.ok) {
+          const img = buscarImagen(cuerpo);
+          if (img) return { ok: true, mimeType: img.mimeType, data: img.data, restantes };
+          // Sin imagen y sin error suele ser el filtro de seguridad.
+          throw new HttpsError('failed-precondition', 'No devolvió imagen. Prueba a describirlo de otra forma.');
+        }
+        const msg = (cuerpo && cuerpo.error && cuerpo.error.message) || `HTTP ${r.status}`;
+        console.error('Vertex imagen', modelo, r.status, msg);
+        ultimoError = msg;
+        // 404/400 = ese id no existe aquí: se prueba el siguiente. Cualquier otra
+        // cosa (permisos, API sin habilitar, cuota) es real y hay que contarla.
+        if (r.status !== 404 && r.status !== 400) break;
       }
-      const cuerpo = await r.json().catch(() => null);
-      if (r.ok) {
-        const img = buscarImagen(cuerpo);
-        if (img) return { ok: true, mimeType: img.mimeType, data: img.data };
-        // Sin imagen y sin error suele ser el filtro de seguridad.
-        throw new HttpsError('failed-precondition', 'No devolvió imagen. Prueba a describirlo de otra forma.');
-      }
-      const msg = (cuerpo && cuerpo.error && cuerpo.error.message) || `HTTP ${r.status}`;
-      console.error('Vertex imagen', modelo, r.status, msg);
-      ultimoError = msg;
-      // 404/400 = ese id no existe aquí: se prueba el siguiente. Cualquier otra
-      // cosa (permisos, API sin habilitar, cuota) es real y hay que contarla.
-      if (r.status !== 404 && r.status !== 400) break;
+      throw new HttpsError('internal', `El generador respondió: ${ultimoError}`);
+    } catch (err) {
+      // Sin imagen no se cobra el intento: el vecino no hizo nada mal.
+      if (!soyAdmin) await devolverCupoIA(uid);
+      throw err;
     }
-    throw new HttpsError('internal', `El generador respondió: ${ultimoError}`);
   }
 
   if (accion === 'publicar') {
@@ -1770,16 +1852,33 @@ exports.adminSkins = onCall({ timeoutSeconds: 120 }, async (request) => {
     if (imagen.length > MAX_IMAGEN_SKIN) {
       throw new HttpsError('invalid-argument', 'La imagen pesa demasiado.');
     }
-    await db.doc(`skins/${id}`).set({
+    // El id sale del nombre, así que dos vecinos pueden pedir el mismo. Antes
+    // esto era `merge` a secas y bastaba con que el admin no se repitiera; ahora
+    // publica cualquiera y sin este guardia el botón de uno PISARÍA el de otro
+    // —que además no ve, porque los privados no salen en su galería—.
+    const ref = db.doc(`skins/${id}`);
+    const previo = await ref.get();
+    // Vale también para el admin: pisar el botón de un vecino sin querer, y
+    // quedarse además como su autor, no es una potestad que haga falta. Para
+    // quitarlo tiene `eliminar`.
+    if (previo.exists && previo.data().autor !== uid) {
+      throw new HttpsError('already-exists', 'Ese nombre ya está tomado. Ponle otro.');
+    }
+    await ref.set({
       nombre, imagen, animacion, tipos,
       prompt: String(d.prompt || '').slice(0, 700),
-      autor: request.auth.uid,
-      publico: true,
-      usos: 0,
+      autor: uid,
+      // Un botón de vecino nace PRIVADO: solo lo ve él, hasta que el admin lo
+      // publique en la galería. Es lo que hace que abrir la creación no exija una
+      // cola de moderación — sin aprobar, un diseño no llega a nadie más.
+      publico: soyAdmin,
+      // El contador solo se estrena al crear: volver a publicar encima del
+      // propio botón no debe borrar cuánta gente lo usa.
+      ...(previo.exists ? {} : { usos: 0 }),
       creado: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
     skinsCache = { ids: null, hasta: 0 };   // que se pueda elegir de una vez
-    return { ok: true, id };
+    return { ok: true, id, publico: soyAdmin };
   }
 
   // Cambiar nombre, animación o a qué tipos aplica, SIN volver a generar la
@@ -1791,8 +1890,12 @@ exports.adminSkins = onCall({ timeoutSeconds: 120 }, async (request) => {
       throw new HttpsError('invalid-argument', 'Falta el id.');
     }
     const ref = db.doc(`skins/${id}`);
-    if (!(await ref.get()).exists) {
+    const doc = await ref.get();
+    if (!doc.exists) {
       throw new HttpsError('not-found', 'Ese botón ya no existe.');
+    }
+    if (!soyAdmin && doc.data().autor !== uid) {
+      throw new HttpsError('permission-denied', 'Ese botón no es tuyo.');
     }
     const cambios = {};
     if (d.nombre !== undefined) {
@@ -1818,9 +1921,38 @@ exports.adminSkins = onCall({ timeoutSeconds: 120 }, async (request) => {
     if (!/^[a-z0-9-]{2,40}$/.test(id)) {
       throw new HttpsError('invalid-argument', 'Falta el id.');
     }
-    await db.doc(`skins/${id}`).delete();
+    const ref = db.doc(`skins/${id}`);
+    const doc = await ref.get();
+    // Borrar algo que ya no está es el resultado que se pedía: no es un error.
+    if (doc.exists) {
+      if (!soyAdmin && doc.data().autor !== uid) {
+        throw new HttpsError('permission-denied', 'Ese botón no es tuyo.');
+      }
+      await ref.delete();
+    }
     skinsCache = { ids: null, hasta: 0 };
     return { ok: true };
+  }
+
+  // Curaduría: el admin decide qué botón de un vecino entra a la galería común y
+  // qué se vuelve a guardar. Ocultar no borra —el autor sigue usando el suyo—,
+  // así que retirar algo de la galería no le quita a nadie su botón.
+  if (accion === 'aprobar') {
+    if (!soyAdmin) {
+      throw new HttpsError('permission-denied', 'Solo el administrador publica en la galería.');
+    }
+    const d = request.data || {};
+    const id = String(d.id || '').trim();
+    if (!/^[a-z0-9-]{2,40}$/.test(id)) {
+      throw new HttpsError('invalid-argument', 'Falta el id.');
+    }
+    const ref = db.doc(`skins/${id}`);
+    if (!(await ref.get()).exists) {
+      throw new HttpsError('not-found', 'Ese botón ya no existe.');
+    }
+    await ref.set({ publico: d.publico !== false }, { merge: true });
+    skinsCache = { ids: null, hasta: 0 };
+    return { ok: true, id, publico: d.publico !== false };
   }
 
   throw new HttpsError('invalid-argument', 'Acción no válida.');

@@ -335,7 +335,7 @@ async function iniciar() {
     girar: { id: 'girar', nombre: 'Gira', clase: 'skin-gira' },
     latido: { id: 'latido', nombre: 'Palpita', clase: 'skin-late' },
   };
-  let skinsGaleria = [];   // [{ id, nombre, imagen, animacion, tipos }]
+  let skinsGaleria = [];   // [{ id, nombre, imagen, animacion, tipos, autor, publico }]
 
   // Mete los skins de la galería en las dos tablas que el resto del código ya
   // sabe leer, para que no haya un camino aparte para ellos.
@@ -602,11 +602,15 @@ async function iniciar() {
         mostrarVista('vista-sin-acceso');
         return;
       }
-      const usuario = perfilSnap.data();
+      // El `uid` va DENTRO del usuario (el documento no lo trae, su id es el uid):
+      // los skins propios se piden por autor, y sin esto habría que pasarlo por
+      // parámetro a media app. Mismo patrón que la lista de vecinos del admin.
+      const usuario = { uid: user.uid, ...perfilSnap.data() };
       // Los skins de galería bajan en paralelo con los dispositivos: son datos
-      // de la misma pantalla y encadenarlos sumaría otro viaje.
+      // de la misma pantalla y encadenarlos sumaría otro viaje. Se le pasa el
+      // usuario a mano porque esto corre ANTES de que `usuarioActual` exista.
       const [dispositivos, skins] = await Promise.all([
-        cargarDispositivos(usuario), cargarSkins(),
+        cargarDispositivos(usuario), cargarSkins(usuario),
       ]);
       aplicarSkinsGaleria(skins);
       // Repinta con lo fresco (idempotente); solo cambia de vista si no venía
@@ -909,13 +913,36 @@ async function iniciar() {
       .sort((a, b) => (a.orden || 99) - (b.orden || 99));
   }
 
-  // Skins publicados por el admin. Si falla la lectura no se rompe nada: la
-  // app se queda con los aspectos de código y el vecino ve su botón normal.
-  async function cargarSkins() {
+  // Los skins que este vecino puede llevar: los de la galería (aprobados por el
+  // admin) más los suyos, que nacen privados.
+  //
+  // Van DOS consultas porque la regla de Firestore es por documento y las reglas
+  // no filtran: pedir la colección entera lo rechazaría todo. El admin ve además
+  // los privados de los demás, que es lo que le permite curar.
+  //
+  // Si falla la lectura no se rompe nada: la app se queda con los aspectos de
+  // código y el vecino ve su botón normal.
+  async function cargarSkins(quien) {
+    const yo = quien || usuarioActual || {};
+    const uid = yo.uid;
+    const col = collection(db, 'skins');
+    const consultas = [query(col, where('publico', '==', true), orderBy('creado', 'desc'))];
+    if (uid) consultas.push(query(col, where('autor', '==', uid), orderBy('creado', 'desc')));
+    // El admin pide también los que están esperando su visto bueno.
+    if (yo.rol === 'admin') {
+      consultas.push(query(col, where('publico', '==', false), orderBy('creado', 'desc')));
+    }
     try {
-      const snap = await getDocs(query(collection(db, 'skins'), orderBy('creado', 'desc')));
-      return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-        .filter((s) => s.publico !== false && typeof s.imagen === 'string');
+      const snaps = await Promise.all(consultas.map((c) => getDocs(c)));
+      // Un mismo skin puede venir en dos consultas (el propio ya aprobado), así
+      // que el Map deduplica por id y conserva el orden: primero lo aprobado.
+      const porId = new Map();
+      for (const snap of snaps) {
+        for (const d of snap.docs) {
+          if (!porId.has(d.id)) porId.set(d.id, { id: d.id, ...d.data() });
+        }
+      }
+      return [...porId.values()].filter((s) => typeof s.imagen === 'string');
     } catch (e) {
       return skinsGaleria;   // se conserva lo que ya hubiera de la caché
     }
@@ -963,6 +990,9 @@ async function iniciar() {
     const esAdmin = usuario.rol === 'admin';
     $('btn-menu').classList.remove('oculto');
     document.querySelectorAll('.solo-admin').forEach((el) => el.classList.toggle('oculto', !esAdmin));
+    // Crear un botón lo hace cualquiera, pero no significa lo mismo: el del
+    // vecino nace suyo y privado; el del admin entra directo a la galería.
+    $('btn-publicar-skin').textContent = esAdmin ? 'Publicar en la galería' : 'Guardar mi botón';
     if (mostrar) {
       mostrarVista('vista-panel');
       entrarTab(tabDesdeHash()); // respeta la pestaña de la URL (refresh / enlace)
@@ -4063,6 +4093,8 @@ async function iniciar() {
     $('perfil-nombre').value = usuarioActual.nombre || '';
     $('perfil-apellido').value = usuarioActual.apellido || '';
     $('perfil-email').value = (auth.currentUser && auth.currentUser.email) || usuarioActual.email || '';
+    // Los campos vuelven a lo guardado, así que aquí no hay nada que guardar.
+    $('btn-guardar-perfil').classList.add('oculto');
     $('perfil-msg').classList.add('oculto');
     $('clave-msg').classList.add('oculto');
     $('form-clave').reset();
@@ -4104,6 +4136,19 @@ async function iniciar() {
     else form.reset();
   });
 
+  // El "Guardar datos" solo existe cuando hay un dato cambiado. Se compara con lo
+  // que está guardado en vez de encenderlo al primer tecleo: si escribes algo y lo
+  // deshaces, el botón se va, que es lo que promete. El email no cuenta (está
+  // deshabilitado) ni los inmuebles (los asigna el admin, aquí son de lectura).
+  function revisarCambiosPerfil() {
+    if (!usuarioActual) return;
+    const cambiado = $('perfil-nombre').value.trim() !== (usuarioActual.nombre || '')
+      || $('perfil-apellido').value.trim() !== (usuarioActual.apellido || '');
+    $('btn-guardar-perfil').classList.toggle('oculto', !cambiado);
+  }
+  ['perfil-nombre', 'perfil-apellido'].forEach((id) =>
+    $(id).addEventListener('input', revisarCambiosPerfil));
+
   $('form-perfil').addEventListener('submit', async (e) => {
     e.preventDefault();
     const msg = $('perfil-msg');
@@ -4123,6 +4168,7 @@ async function iniciar() {
       usuarioActual.apellido = apellido;
       $('nombre-usuario').textContent = nombreCompleto(usuarioActual);
       toast('Perfil actualizado.');
+      revisarCambiosPerfil();   // ya no hay nada que guardar: el botón se retira
     } catch (err) {
       msg.textContent = (err && err.message) || 'No se pudo guardar el perfil.';
       msg.classList.remove('oculto');
@@ -4679,6 +4725,14 @@ async function iniciar() {
       const d = r.data || {};
       await usarImagen(`data:${d.mimeType};base64,${d.data}`,
         prompt.split(/[\s,.]+/).slice(0, 2).join(' '));
+      // Cada imagen se paga, así que el cupo del día se dice DESPUÉS de gastarlo,
+      // cuando la cifra ya es real. `restantes` viene null para el admin, que no
+      // tiene tope.
+      if (typeof d.restantes === 'number') {
+        msgSkin(d.restantes > 0
+          ? `Te quedan ${d.restantes} generaciones hoy.`
+          : 'Era tu última generación de hoy. Mañana tienes más, y subir una foto no gasta cupo.');
+      }
     } catch (err) {
       msgSkin((err && err.message) || 'No se pudo generar.', true);
     } finally {
@@ -4714,7 +4768,9 @@ async function iniciar() {
       $('skin-prompt').value = '';
       $('skin-nombre').value = '';
       pintarChipsTipos($('skin-tipos'), null);
-      msgSkin('Publicado. Ya se puede elegir en el Locker.');
+      msgSkin(usuarioActual && usuarioActual.rol === 'admin'
+        ? 'Publicado. Ya se puede elegir en el Locker.'
+        : 'Listo, ya puedes elegirlo aquí abajo. Es tuyo: nadie más lo ve hasta que el administrador lo publique en la galería.');
       // Repintar va en su PROPIO try: en este punto ya está guardado, y si
       // fallara el repintado decir "no se pudo publicar" sería mentira y te
       // haría gastar otra generación repitiéndolo.
@@ -4741,14 +4797,24 @@ async function iniciar() {
   function pintarListaSkins() {
     const cont = $('skin-lista');
     cont.textContent = '';
-    if (!skinsGaleria.length) return;
-    for (const s of skinsGaleria) {
+    const soyAdmin = usuarioActual && usuarioActual.rol === 'admin';
+    const uid = (usuarioActual && usuarioActual.uid) || '';
+    // Un vecino solo administra LO SUYO: en la lista no tiene nada que hacer con
+    // el botón de otro, y ofrecérselo para que el backend se lo niegue sería
+    // enseñar una puerta cerrada. El admin ve todo, que es como cura la galería.
+    const mios = soyAdmin ? skinsGaleria : skinsGaleria.filter((s) => s.autor === uid);
+    if (!mios.length) return;
+    for (const s of mios) {
       const caja = document.createElement('div');
       caja.className = 'skin-item';
 
       const fila = document.createElement('div');
       fila.className = 'skin-fila';
-      fila.innerHTML = `<img src="${s.imagen}" alt=""><span>${escapar(s.nombre)}</span>`;
+      // "Esperando" es el estado normal de un botón recién hecho por un vecino:
+      // ya lo puede usar, lo que falta es que el admin lo abra a los demás.
+      const pendiente = s.publico === false;
+      fila.innerHTML = `<img src="${s.imagen}" alt=""><span>${escapar(s.nombre)}</span>`
+        + (pendiente ? '<span class="skin-estado">esperando</span>' : '');
 
       const editor = document.createElement('div');
       editor.className = 'skin-editor oculto';
@@ -4805,6 +4871,26 @@ async function iniciar() {
         }
       });
       acciones.append(guardar, borrar);
+      // Curaduría, solo para el admin: abrir el botón de un vecino a la galería o
+      // retirarlo. Retirar NO borra: su autor lo sigue usando.
+      if (soyAdmin) {
+        const publicar = document.createElement('button');
+        publicar.type = 'button';
+        publicar.className = 'btn-secundario';
+        publicar.textContent = pendiente ? 'Publicar en la galería' : 'Quitar de la galería';
+        publicar.addEventListener('click', async () => {
+          publicar.disabled = true;
+          try {
+            await adminSkins({ accion: 'aprobar', id: s.id, publico: pendiente });
+            await refrescarSkins();
+            msgSkin(pendiente ? 'Publicado en la galería.' : 'Retirado de la galería.');
+          } catch (err) {
+            msgSkin((err && err.message) || 'No se pudo cambiar.', true);
+            publicar.disabled = false;
+          }
+        });
+        acciones.appendChild(publicar);
+      }
       editor.appendChild(acciones);
 
       fila.addEventListener('click', () => editor.classList.toggle('oculto'));
