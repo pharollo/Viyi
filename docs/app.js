@@ -431,6 +431,49 @@ async function iniciar() {
     return aspectosDe(d).some((a) => a.id === elegido) ? elegido : 'normal';
   }
 
+  // El título del evento de un pase, si este dispositivo le llegó al invitado
+  // por uno. Es la identidad que le puso quien invitó, y viste el botón mientras
+  // el pase viva; al vencer, el dispositivo ya desaparece solo del panel
+  // (renderDispositivos filtra por vigencia), y con él su vestido.
+  //
+  // No para lo propio: un dispositivo que es tuyo de forma permanente no es "de
+  // un evento" aunque además tengas un pase suyo.
+  function eventoDe(d) {
+    if (!usuarioActual || !usuarioActual.accesos) return '';
+    if ((usuarioActual.dispositivos || []).includes(d.id)) return '';
+    const acc = usuarioActual.accesos[d.id];
+    return acc && typeof acc.evento === 'string' ? acc.evento.trim() : '';
+  }
+
+  // Un color estable a partir del título: el mismo evento cae siempre en el
+  // mismo color, y dos eventos distintos casi nunca coinciden. Sin imagen y sin
+  // costo — el título ya trae su identidad. 68/62 lee bien sobre la superficie
+  // oscura sin gritar.
+  function colorDeEvento(titulo) {
+    let h = 0;
+    for (let i = 0; i < titulo.length; i++) h = (h * 31 + titulo.charCodeAt(i)) >>> 0;
+    return `hsl(${h % 360} 68% 62%)`;
+  }
+
+  // Le pone al control el vestido del evento: la clase, su color y el título
+  // DEBAJO del botón. Envuelve el nodo ya armado, sea el botón normal o un
+  // control propio (Jet, Mando…), así que vale para todos por igual.
+  //
+  // Debajo y no encima a propósito: la fila alinea por arriba (align-items:
+  // flex-start), así que una cinta encima bajaría el botón y lo dejaría
+  // desalineado con los que no tienen evento. Debajo, todos los botones quedan a
+  // la misma altura y el título crece hacia abajo sin mover a nadie.
+  function vestirDeEvento(control, evento) {
+    if (!evento || !control) return control;
+    control.classList.add('evento');
+    control.style.setProperty('--evento', colorDeEvento(evento));
+    const cinta = document.createElement('span');
+    cinta.className = 'evento-titulo';
+    cinta.textContent = evento;
+    control.appendChild(cinta);
+    return control;
+  }
+
   // Compat: dispositivos viejos guardados con tipo 'bunker' se tratan como
   // puerta + subtipo bunker.
   const normalizar = (d) => (d.tipo === 'bunker' ? { ...d, tipo: 'puerta', subtipo: 'bunker' } : d);
@@ -1817,21 +1860,26 @@ async function iniciar() {
   function tarjetaDispositivo(dispositivo, demo, aspectoForzado) {
     // El aspecto sale del vestuario del vecino (o del que puso el admin).
     const aspecto = aspectoForzado || aspectoDe(dispositivo);
+    // Si le llegó por un pase con título, el botón se viste de ese evento. Se
+    // resuelve una vez y se aplica a cualquier forma de control que se devuelva.
+    // `aspectoForzado` es el Locker (previsualización del vestuario): ahí no va
+    // el vestido de evento, que es cosa del panel real.
+    const evento = aspectoForzado ? '' : eventoDe(dispositivo);
     // Puerta de pulso con aspecto Jet: interruptor con tapa de seguridad.
     if (dispositivo.modo === 'pulso' && aspecto === 'jet') {
-      return controlJet(dispositivo, demo);
+      return vestirDeEvento(controlJet(dispositivo, demo), evento);
     }
     // Aspecto Mando: el control remoto del portón (control propio, no botón).
     if (dispositivo.modo === 'pulso' && aspecto === 'mando') {
-      return controlMando(dispositivo, demo);
+      return vestirDeEvento(controlMando(dispositivo, demo), evento);
     }
     // Aspecto Sabiem: placa de llamada de ascensor (control propio, no botón).
     if (dispositivo.modo === 'pulso' && aspecto === 'sabiem') {
-      return controlSabiem(dispositivo, demo);
+      return vestirDeEvento(controlSabiem(dispositivo, demo), evento);
     }
     // Aspecto Rueda: reemplaza la perilla/slider por el rodillo.
     if (aspecto === 'rueda' && MODOS_RUEDA.includes(dispositivo.modo)) {
-      return controlRueda(dispositivo, demo);
+      return vestirDeEvento(controlRueda(dispositivo, demo), evento);
     }
     const control = document.createElement('div');
     control.className = 'control';
@@ -1918,7 +1966,7 @@ async function iniciar() {
     // Las pieles (Neón, Acero, Cristal, Pop) solo reestilizan: la clase va en la
     // pieza —no en el body— para que cada dispositivo pueda llevar la suya.
     aplicarPiel(control, aspecto);
-    return control;
+    return vestirDeEvento(control, evento);
   }
 
   // Refleja el estado on/off en el botón y en su etiqueta de texto.
