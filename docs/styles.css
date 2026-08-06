@@ -1060,7 +1060,10 @@ button:disabled {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.control.evento .boton-circular { color: var(--evento); }
+/* El icono NO se tiñe: se queda con su gris. Teñirlo sería inconsistente
+   —los iconos con color propio (portón, ascensor) no obedecen y el candado sí—
+   y además chocaría con el verde que toma el icono al abrirse. El color del
+   evento lo cargan el aro y el título, que basta y sobra. */
 /* Aro del color del evento, pegado al borde interior del anillo. */
 .control.evento .anillo::after {
   content: '';
