@@ -2225,17 +2225,25 @@ async function iniciar() {
     // El suelo sigue siendo el viaje de ida y vuelta: no se puede apagar antes
     // de saber si la puerta abrió.
     const desdeElToque = Date.now();
+    // `alCerrar` avisa cuando el control VUELVE A REPOSO, salga bien o mal. Sale
+    // del mismo reloj que lo apaga: quien quiera acompañar el cierre (el clic de
+    // la palanca del Pilder) no puede llevar su propio temporizador, o se
+    // separan en cuanto la red tarde.
+    let yaCerro = false;
+    const cerrar = () => { if (yaCerro) return; yaCerro = true; if (alCerrar) alCerrar(); };
     boton.classList.add('enviando');
     try {
       await ejecutarComando({ dispositivoId: dispositivo.id });
       boton.classList.add('exito');
       const queda = Math.max(0, duracionAbierto(dispositivo) - (Date.now() - desdeElToque));
-      // El aviso sale del MISMO reloj que apaga el control: quien quiera
-      // acompañar el cierre (el clic de la palanca del Pilder) no puede llevar
-      // su propio temporizador, o se separan en cuanto la red tarde.
-      setTimeout(() => { boton.classList.remove('exito'); if (alCerrar) alCerrar(); }, queda);
+      setTimeout(() => { boton.classList.remove('exito'); cerrar(); }, queda);
     } catch (err) {
       toast(err.message || 'No se pudo enviar el comando.', 'error');
+      // También aquí: el aparato no contestó, así que la palanca cae de golpe
+      // sin haber abierto nada — y esa caída hace su clic igual. Sin esto, un
+      // dispositivo desconectado subía la palanca, la bajaba en seco y en
+      // silencio, que se lee como que la app se tragó el gesto.
+      cerrar();
     } finally {
       boton.classList.remove('enviando');
     }
