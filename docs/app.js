@@ -4545,7 +4545,26 @@ async function iniciar() {
     if (!vestDisp || !asp || asp === vestAspecto) return;
     vestAspecto = asp;
     pintarDemoVestuario();
+    enseñarLaAnimacion();
     refrescarBotonEstilo();
+  }
+
+  // Al elegir un skin que se mueve, la muestra lo hace SOLA una vez.
+  //
+  // La animación solo se veía tocando el botón de muestra, y nada decía que se
+  // pudiera tocar: elegías "Gira", veías una imagen quieta, y la opción parecía
+  // no hacer nada. No estaba rota — el resultado estaba detrás de un gesto que
+  // nadie te contó. Así "Gira" deja de ser una promesa y es una demostración.
+  //
+  // Se reusa el pulso de mentira del demo, que hace la misma coreografía que un
+  // pulso de verdad sin mandarle nada a ningún dispositivo. Y no se encadena: si
+  // pasas rápido por varias opciones, `pulsarDemo` se salta las que llegan
+  // mientras una está corriendo.
+  function enseñarLaAnimacion() {
+    const conFoto = ASPECTOS_IMAGEN[vestAspecto];
+    if (!conFoto || !conFoto.clase) return;   // ese skin no se mueve
+    const boton = $('vest-demo').querySelector('.boton-circular');
+    if (boton) pulsarDemo(boton, vestDisp);
   }
 
   // El aspecto que el servidor tiene guardado para este dispositivo — no lo que
