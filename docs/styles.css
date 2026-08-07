@@ -978,8 +978,8 @@ button:disabled {
      Quedan 70ms para que el salto no sea un corte seco. */
   transition: opacity 0.07s linear;
 }
-.pilder-off { background-image: url('pilder-off.webp?v=1'); }
-.pilder-on  { background-image: url('pilder-on.webp?v=1'); opacity: 0; }
+.pilder-off { background-image: url('pilder-off.webp?v=2'); }
+.pilder-on  { background-image: url('pilder-on.webp?v=2'); opacity: 0; }
 
 /* Encendido = la palanca arriba, pero por motivos distintos según el control.
    En un INTERRUPTOR manda solo `activo`: es el estado del aparato.
@@ -1002,7 +1002,7 @@ button:disabled {
 /* La muestra del Locker: el panel entero no cabe en un círculo de 58px, así
    que se encuadra en la palanca, que es lo que lo identifica. */
 .skin-muestra.muestra-pilder {
-  background-image: url('pilder-on.webp?v=1');
+  background-image: url('pilder-on.webp?v=2');
   background-size: 190%;
   background-position: 50% 46%;
 }
