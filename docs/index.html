@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=297">
+  <link rel="stylesheet" href="styles.css?v=298">
 </head>
 <body>
   <header>
@@ -215,34 +215,16 @@
         </div>
         <ul id="lista-registros"></ul>
       </div>
-      <div id="tab-perfil" class="panel-tab oculto">
-        <div class="encabezado-admin">
-          <h2>Mi perfil</h2>
-        </div>
-        <form id="form-perfil" class="tarjeta">
-          <label class="campo-perfil">Nombre
-            <input type="text" id="perfil-nombre" autocomplete="given-name" placeholder="Nombre">
-          </label>
-          <label class="campo-perfil">Apellido
-            <input type="text" id="perfil-apellido" autocomplete="family-name" placeholder="Apellido">
-          </label>
-          <label class="campo-perfil">Email
-            <input type="email" id="perfil-email" autocomplete="email" disabled>
-          </label>
-          <div class="perfil-seccion" id="seccion-inmuebles">
-            <h3 id="titulo-inmuebles">Inmuebles</h3>
-            <ul id="lista-inmuebles" class="lista-inmuebles"></ul>
-          </div>
-          <!-- Nace oculto: aparece solo cuando de verdad hay un dato cambiado
-               (ver revisarCambiosPerfil). Ahí abajo empieza el Locker, y un
-               "Guardar" permanente se leía como el botón de guardar el skin
-               —que se guarda solo— y la gente lo tocaba por eso. -->
-          <button type="submit" id="btn-guardar-perfil" class="btn-primario oculto">Guardar datos</button>
-          <p id="perfil-msg" class="mensaje-error oculto"></p>
-        </form>
+      <div id="tab-locker" class="panel-tab oculto">
         <div class="encabezado-admin">
           <h2>Locker</h2>
         </div>
+        <!-- La única línea de texto de toda la pantalla, y está aquí porque su
+             trabajo no es explicar el Locker —eso lo hace verlo— sino contar el
+             gesto, que es invisible por definición. Es el mismo apaño que el
+             deslizador de zoom del recorte: el control que se ve enseña el que
+             no se ve. -->
+        <p class="vest-ayuda vest-gesto">Mantén pulsado un botón en Controles para vestirlo ahí mismo.</p>
         <div class="tarjeta" id="seccion-skin">
           <div id="vestuario">
             <select id="vest-disp" class="vest-select" aria-label="Dispositivo"></select>
@@ -265,10 +247,6 @@
              aquí, basta quitar `oculto`. Mientras tanto, un vecino se vincula
              con el QR de la consola (Devices -> Link App Account -> Add App
              Account). -->
-        <div class="tarjeta oculto" id="seccion-tuya">
-          <button type="button" id="btn-vincular-tuya" class="btn-secundario">Vincular mi cuenta Tuya</button>
-          <p id="tuya-msg" class="campo-ayuda">Para usar en ViYi los dispositivos que ya tienes en tu app Smart Life. Eliges cuáles compartes.</p>
-        </div>
         <div class="tarjeta" id="seccion-crear-skin">
           <button type="button" id="btn-toggle-skin" class="btn-desplegar" aria-expanded="false" aria-controls="form-skin">Crear un botón</button>
           <form id="form-skin" class="form-desplegable oculto">
@@ -313,6 +291,38 @@
             <div id="skin-lista" class="skin-lista"></div>
           </form>
         </div>
+      </div>
+      <div id="tab-perfil" class="panel-tab oculto">
+        <div class="encabezado-admin">
+          <h2>Mi perfil</h2>
+        </div>
+        <form id="form-perfil" class="tarjeta">
+          <label class="campo-perfil">Nombre
+            <input type="text" id="perfil-nombre" autocomplete="given-name" placeholder="Nombre">
+          </label>
+          <label class="campo-perfil">Apellido
+            <input type="text" id="perfil-apellido" autocomplete="family-name" placeholder="Apellido">
+          </label>
+          <label class="campo-perfil">Email
+            <input type="email" id="perfil-email" autocomplete="email" disabled>
+          </label>
+          <div class="perfil-seccion" id="seccion-inmuebles">
+            <h3 id="titulo-inmuebles">Inmuebles</h3>
+            <ul id="lista-inmuebles" class="lista-inmuebles"></ul>
+          </div>
+          <!-- Nace oculto: aparece solo cuando de verdad hay un dato cambiado
+               (ver revisarCambiosPerfil). Nació así porque debajo empezaba el
+               Locker y un "Guardar" permanente se leía como el de guardar el
+               skin. El Locker ya se mudó a su propia pestaña, pero la regla se
+               queda: un Guardar encendido sobre un formulario sin cambios
+               promete trabajo que no hay. -->
+          <button type="submit" id="btn-guardar-perfil" class="btn-primario oculto">Guardar datos</button>
+          <p id="perfil-msg" class="mensaje-error oculto"></p>
+        </form>
+        <div class="tarjeta oculto" id="seccion-tuya">
+          <button type="button" id="btn-vincular-tuya" class="btn-secundario">Vincular mi cuenta Tuya</button>
+          <p id="tuya-msg" class="campo-ayuda">Para usar en ViYi los dispositivos que ya tienes en tu app Smart Life. Eliges cuáles compartes.</p>
+        </div>
         <div class="tarjeta" id="seccion-clave">
           <button type="button" id="btn-toggle-clave" class="btn-desplegar" aria-expanded="false" aria-controls="form-clave">Cambiar clave</button>
           <form id="form-clave" class="form-desplegable oculto">
@@ -337,6 +347,7 @@
   <nav id="menu-lateral" class="menu-lateral" aria-label="Secciones">
     <button type="button" class="item-menu activa" data-tab="tab-controles">Controles</button>
     <button type="button" class="item-menu" data-tab="tab-pases">Pases</button>
+    <button type="button" class="item-menu" data-tab="tab-locker">Locker</button>
     <button type="button" class="item-menu solo-admin" data-tab="tab-gestion">Admin</button>
     <button type="button" class="item-menu solo-admin" data-tab="tab-registro">Actividad</button>
     <button id="btn-salir" type="button" class="item-menu item-salir">Salir</button>
@@ -344,6 +355,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=299"></script>
+  <script type="module" src="app.js?v=300"></script>
 </body>
 </html>

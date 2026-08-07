@@ -1862,6 +1862,65 @@ async function iniciar() {
     return control;
   }
 
+
+  // --- Mantener pulsado un botón lo viste ---------------------------------
+  //
+  // La puerta al Locker que está DONDE ESTÁ EL OBJETO. La otra —la pestaña— es
+  // la visible, y es la que cuenta que este gesto existe; sola, una pulsación
+  // larga que nadie anuncia no existe para nadie, que es la lección que este
+  // mismo feature ya nos dio dos veces.
+  //
+  // De paso enseña el alcance sin una línea de texto: vistes ESE botón, porque
+  // es el que tenías debajo del dedo.
+  const PULSACION_LARGA = 500;
+  const ARRASTRE_MAXIMO = 10;   // px; más que esto es un scroll, no una pulsación
+
+  function vestirAlMantenerPulsado(control, boton, dispositivo) {
+    // Sin aspectos que elegir no hay nada que vestir, y un gesto que abre una
+    // pantalla vacía es peor que no tenerlo.
+    if (aspectosDe(dispositivo).length < 2) return;
+
+    let reloj = null;
+    let desde = null;
+    let seVistio = false;
+
+    const soltar = () => { clearTimeout(reloj); reloj = null; desde = null; };
+
+    boton.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      // Se limpia AQUÍ y no solo al tragarse el clic: al abrir el Locker la
+      // pestaña se esconde y puede que ese clic no llegue nunca. Sin esto la
+      // bandera se quedaría armada y se comería el siguiente toque de verdad
+      // —o sea, la puerta no abriría— la próxima vez que volvieras.
+      seVistio = false;
+      desde = { x: e.clientX, y: e.clientY };
+      reloj = setTimeout(() => {
+        reloj = null;
+        seVistio = true;
+        navigator.vibrate?.(12);   // donde exista; en iOS no, y ahí lo dice la pantalla
+        abrirLocker(dispositivo);
+      }, PULSACION_LARGA);
+    });
+
+    boton.addEventListener('pointermove', (e) => {
+      if (!desde) return;
+      if (Math.hypot(e.clientX - desde.x, e.clientY - desde.y) > ARRASTRE_MAXIMO) soltar();
+    }, { passive: true });
+
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => boton.addEventListener(ev, soltar));
+
+    // El toque que viene después de la pulsación larga NO puede abrir la puerta.
+    // Va en el ANCESTRO y en captura a propósito: en el propio botón los
+    // listeners corren en orden de registro aunque uno sea de captura, así que
+    // no habría manera de garantizar llegar antes que el que abre el portón.
+    control.addEventListener('click', (e) => {
+      if (!seVistio) return;
+      seVistio = false;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }, true);
+  }
+
   function tarjetaDispositivo(dispositivo, demo, aspectoForzado) {
     // El aspecto sale del vestuario del vecino (o del que puso el admin).
     const aspecto = aspectoForzado || aspectoDe(dispositivo);
@@ -1919,6 +1978,9 @@ async function iniciar() {
       }
       boton.setAttribute('aria-label', `${dispositivo.etiquetaBoton || 'Abrir'} ${dispositivo.nombre}`);
       boton.addEventListener('click', () => (demo ? pulsarDemo(boton, dispositivo) : pulsar(boton, dispositivo)));
+      // En el demo no: ahí el botón es una muestra DENTRO del Locker, y volver
+      // a abrir el Locker desde el Locker no lleva a ningún sitio.
+      if (!demo) vestirAlMantenerPulsado(control, boton, dispositivo);
       anillo.appendChild(boton);
       control.appendChild(anillo);
     } else if (dispositivo.modo === 'cortina') {
@@ -1944,6 +2006,7 @@ async function iniciar() {
           : (ICONOS[dispositivo.tipo] || ICONOS.otro);
       }
       boton.setAttribute('aria-label', `Encender o apagar ${dispositivo.nombre}`);
+      if (!demo) vestirAlMantenerPulsado(control, boton, dispositivo);
       boton.addEventListener('click', () => {
         // En el demo solo se ve el on/off; no se enciende nada de verdad.
         if (demo) { pintarEstado(boton, !boton.classList.contains('activo')); return; }
@@ -4114,7 +4177,7 @@ async function iniciar() {
   $('btn-nuevo-inmueble').addEventListener('click', () => abrirEditorInmueble(null));
   $('btn-nuevo-usuario').addEventListener('click', () => abrirEditorUsuario(null));
 
-  const PANELES_TAB = ['tab-controles', 'tab-pases', 'tab-gestion', 'tab-registro', 'tab-perfil'];
+  const PANELES_TAB = ['tab-controles', 'tab-pases', 'tab-locker', 'tab-gestion', 'tab-registro', 'tab-perfil'];
   const TABS_ADMIN = ['tab-gestion', 'tab-registro'];
   // La pestaña activa se refleja en la URL (#pases, #perfil…) para que el
   // refresh la mantenga y el botón "atrás" del navegador funcione. Controles =
@@ -4144,6 +4207,7 @@ async function iniciar() {
   function entrarTab(id) {
     id = tabValida(id);
     if (id === 'tab-perfil') { abrirPerfil(); return; }
+    if (id === 'tab-locker') { abrirLocker(); return; }
     mostrarTab(id);
     if (id === 'tab-pases') prepararGeneradorPases();
   }
@@ -4240,7 +4304,20 @@ async function iniciar() {
     const mostrarInmuebles = inmuebles.length > 0;
     $('seccion-inmuebles').classList.toggle('oculto', !mostrarInmuebles);
     if (mostrarInmuebles) renderInmueblesPerfil(inmuebles);
-    renderVestuario(); // el vestuario se arma con los dispositivos que ve hoy
+  }
+
+  // El Locker vivía dentro de "Mi perfil", y a Perfil solo se llegaba tocando
+  // tu propio nombre en la cabecera —un control sin nada que dijera que lo era—.
+  // O sea que la única puerta al Locker era invisible: no es que no se entendiera
+  // la función, es que casi nadie llegaba a verla. Ahora es una pestaña del menú.
+  //
+  // `dispositivo` opcional: al entrar desde una pulsación larga se abre ya
+  // vistiendo ESE botón, que además es lo que enseña el alcance sin decirlo.
+  function abrirLocker(dispositivo) {
+    if (dispositivo) vestDisp = dispositivo;
+    mostrarTab('tab-locker');
+    cerrarMenu();
+    renderVestuario();   // se arma con los dispositivos que ve hoy
   }
   $('info-usuario').addEventListener('click', abrirPerfil);
   $('info-usuario').addEventListener('keydown', (e) => {
@@ -4486,6 +4563,21 @@ async function iniciar() {
         + `<span class="skin-nom">${escapar(a.nombre)}</span>`;
       cont.appendChild(op);
     }
+    // Y al final, la ficha de fabricar.
+    //
+    // Antes esto era una sección plegada DEBAJO del carrusel ("Crear un botón"),
+    // o sea una decisión aparte que había que tomar antes de saber que existía.
+    // Aquí se topa uno con ella eligiendo, que es justo el ánimo de mirar
+    // opciones: si ninguna te gusta, la siguiente ficha es hacerte una.
+    const hacer = document.createElement('button');
+    hacer.type = 'button';
+    hacer.className = 'skin-op skin-op-crear';
+    // Sin `dataset.aspecto` A PROPÓSITO: no es un aspecto y no debe poder
+    // elegirse ni centrarse como tal.
+    hacer.innerHTML = '<span class="skin-muestra skin-muestra-crear">+</span>'
+      + '<span class="skin-nom">Hacer uno</span>';
+    cont.appendChild(hacer);
+
     activarCarrusel(cont); // coverflow + marca la centrada con .enfoque
     // Este scroll es NUESTRO, no del dedo: que no se tome por una elección.
     // Y se cancela cualquier decisión a medio cocer del carrusel anterior.
@@ -4517,35 +4609,54 @@ async function iniciar() {
     const lista = dispConAspectos();
     const sel = $('vest-disp');
     const nota = $('vest-nota');
-    const sinAspectos = (misDispositivos || []).length - lista.length;
-    // Nota de los que no tienen estilos todavía (perillas y sliders).
-    nota.classList.toggle('oculto', !sinAspectos);
-    if (sinAspectos) {
-      nota.textContent = sinAspectos === 1
-        ? 'Tu otro dispositivo (perilla o slider) todavía no tiene estilos.'
-        : `Tus otros ${sinAspectos} dispositivos (perillas y sliders) todavía no tienen estilos.`;
-    }
-    sel.classList.toggle('oculto', lista.length < 2); // con uno solo, no hay qué elegir
+    // Los que no se pueden vestir SALEN, apagados, en vez de desaparecer.
+    //
+    // Antes se filtraban y en su lugar iba una nota contándolos ("tus otros 2
+    // dispositivos…"). Quien solo tiene cortinas abría el Locker, veía una
+    // pantalla casi vacía y una frase, y no tenía forma de relacionarla con
+    // nada. Verlos ahí en gris dice qué abarca esto y dónde termina sin
+    // explicarlo: reconoces tu cortina y ves que a esa no se le puede.
+    const sinEstilos = (misDispositivos || []).filter((d) => !lista.some((x) => x.id === d.id));
+    nota.classList.add('oculto');
+
+    // El desplegable se esconde solo si NO HAY NADA que mirar. Con uno vestible
+    // y otros apagados sí vale la pena: es donde se ve el alcance.
+    const hayQueElegir = lista.length + sinEstilos.length > 1;
+    sel.classList.toggle('oculto', !hayQueElegir);
     if (!lista.length) {
-      sel.classList.add('oculto');
       $('vest-demo').textContent = '';
       $('vest-opciones').textContent = '';
       vestDisp = null;
       nota.classList.remove('oculto');
-      nota.textContent = 'Tus dispositivos todavía no tienen estilos para elegir.';
-      return;
+      nota.textContent = sinEstilos.length
+        ? 'Las perillas y los sliders todavía no se pueden vestir.'
+        : 'Todavía no tienes dispositivos.';
+      refrescarBotonEstilo();
+      if (!hayQueElegir) return;
     }
     // Mantener el dispositivo elegido si sigue existiendo; si no, el primero.
-    if (!vestDisp || !lista.some((d) => d.id === vestDisp.id)) vestDisp = lista[0];
-    else vestDisp = lista.find((d) => d.id === vestDisp.id);
+    if (lista.length) {
+      if (!vestDisp || !lista.some((d) => d.id === vestDisp.id)) vestDisp = lista[0];
+      else vestDisp = lista.find((d) => d.id === vestDisp.id);
+    }
     sel.textContent = '';
     for (const d of lista) {
       const o = document.createElement('option');
       o.value = d.id;
       o.textContent = d.nombre;
-      o.selected = d.id === vestDisp.id;
+      o.selected = vestDisp && d.id === vestDisp.id;
       sel.appendChild(o);
     }
+    // Los apagados van al final y no se pueden elegir. `disabled` ya los pinta
+    // en gris en los cinco navegadores, sin CSS nuestro.
+    for (const d of sinEstilos) {
+      const o = document.createElement('option');
+      o.value = d.id;
+      o.textContent = d.nombre;
+      o.disabled = true;
+      sel.appendChild(o);
+    }
+    if (!lista.length) return;
     vestAspecto = aspectoDe(vestDisp);
     pintarDemoVestuario();
     pintarOpcionesVestuario();
@@ -4601,6 +4712,9 @@ async function iniciar() {
   function refrescarBotonEstilo() {
     const b = $('btn-guardar-estilo');
     if (!b) return;
+    // Sin nada que vestir el botón se va entero: un "Guardado" apagado debajo
+    // de un hueco dice que se guardó algo, y no hay nada.
+    b.classList.toggle('oculto', !vestDisp);
     const hayCambio = Boolean(vestDisp) && vestAspecto !== aspectoGuardado();
     b.disabled = !hayCambio;
     if (!b.dataset.ocupado) b.textContent = hayCambio ? 'Guardar' : 'Guardado';
@@ -4614,7 +4728,9 @@ async function iniciar() {
   function alCentrarOpcion(paraId) {
     if (!vestDisp || (paraId && vestDisp.id !== paraId)) return;
     const foco = $('vest-opciones').querySelector('.skin-op.enfoque');
-    if (foco) seleccionarAspecto(foco.dataset.aspecto);
+    // La ficha de "Hacer uno" puede quedar centrada al deslizar, y no es un
+    // aspecto: sin esto `seleccionarAspecto(undefined)` se comería la elección.
+    if (foco && foco.dataset.aspecto) seleccionarAspecto(foco.dataset.aspecto);
   }
 
   // "Estilo guardado" bajo el carrusel: se enseña solo cuando el servidor YA
@@ -4703,8 +4819,18 @@ async function iniciar() {
     const b = e.target.closest('.skin-op');
     if (!b) return;
     b.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    if (!b.dataset.aspecto) { abrirCreador(); return; }   // la ficha de fabricar
     seleccionarAspecto(b.dataset.aspecto);
   });
+
+  // Abre el formulario de fabricar y baja hasta él. Lo llaman la ficha del
+  // carrusel y el propio encabezado plegable, que se queda por si alguien
+  // vuelve a buscarlo donde estaba.
+  function abrirCreador() {
+    const form = $('form-skin');
+    if (form.classList.contains('oculto')) $('btn-toggle-skin').click();
+    $('seccion-crear-skin').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
 
   // ---- Crear un skin con IA (solo admin) ----
   // La imagen la procesa el NAVEGADOR, no la función: recortar y comprimir en

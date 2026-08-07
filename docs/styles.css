@@ -996,7 +996,16 @@ button:disabled {
   box-shadow: 9px 9px 18px var(--sombra-oscura), -9px -9px 18px var(--sombra-clara);
   transition: color 0.25s, box-shadow 0.15s;
   -webkit-tap-highlight-color: transparent;
+  /* Mantener pulsado un botón lo viste, y sin esto ese gesto no existe en el
+     iPhone: el botón lleva un <img> dentro, así que iOS responde a la pulsación
+     larga con su propio menú ("Guardar imagen", "Copiar") y se lleva el gesto.
+     `user-select` va aparte porque en los botones sin foto lo que sale es la
+     lupa de seleccionar texto. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
+.boton-circular img { -webkit-touch-callout: none; pointer-events: none; }
 
 .boton-circular:not(:disabled):active {
   box-shadow: inset 7px 7px 14px var(--sombra-oscura), inset -7px -7px 14px var(--sombra-clara);
@@ -1491,6 +1500,20 @@ button:disabled {
   display: block;
 }
 
+/* "Hacer uno", la última ficha del carrusel.
+   Va HUNDIDA mientras las demás van en relieve, y esa es toda la explicación
+   que necesita: en este lenguaje el relieve es una cosa que puedes ponerte y el
+   hueco es que ahí falta algo. Un aspecto más, con su foto y su nombre, se
+   leería como un skin llamado "Hacer uno". */
+.skin-muestra-crear {
+  font-size: 30px;
+  font-weight: 300;
+  line-height: 1;
+  color: var(--texto-suave);
+  box-shadow: inset 4px 4px 9px var(--sombra-oscura),
+              inset -4px -4px 9px var(--sombra-clara);
+}
+
 /* Neón */
 .boton-circular.piel-neon,
 .skin-muestra.piel-neon {
@@ -1765,6 +1788,10 @@ button:disabled {
   color: var(--texto-suave);
   margin: -6px 0 16px;
 }
+/* La del gesto va justo debajo del encabezado, no pegada a un control, así que
+   el margen negativo de arriba —pensado para colgar de un campo— aquí la mete
+   dentro del título. */
+.vest-gesto { margin: 0 0 14px; }
 
 /* Dropdown del dispositivo que se está vistiendo. */
 .vest-select {
