@@ -8,7 +8,7 @@ const { GoogleAuth } = require('google-auth-library');
 const { TuyaClient, esServicioVencido } = require('./tuya');
 const { HomebridgeClient } = require('./homebridge');
 const { ShellyClient } = require('./shelly');
-const { plantillaResetClave, plantillaInvitacion, plantillaAccesoDado, maqueta: maquetaCorreo, enviar: enviarCorreo } = require('./correo');
+const { plantillaResetClave, plantillaInvitacion, plantillaAccesoDado, maqueta: maquetaCorreo, enviar: enviarCorreo, esc: escaparHtml } = require('./correo');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -1722,6 +1722,64 @@ async function consumirCupoIA(uid) {
   });
 }
 
+// Avisa a los admin de que hay botones de vecinos esperando aprobación.
+//
+// UNA VEZ AL DÍA como mucho, aunque se publiquen diez. Un correo por botón
+// convierte una tarde creativa en diez correos, y a partir del tercero se dejan
+// de leer — que es exactamente el problema que esto viene a resolver. El correo
+// dice CUÁNTOS esperan, así que uno solo cuenta la historia completa.
+//
+// La marca del día vive en `ajustes/skins.avisado` y se cuenta en hora de
+// Venezuela, igual que el cupo de IA.
+const AJUSTES_SKINS = 'ajustes/skins';
+
+async function avisarDeSkinsEsperando({ apiKey, nombre, autor }) {
+  const ref = db.doc(AJUSTES_SKINS);
+  const hoy = diaLocal();
+
+  // La marca se pone en transacción y ANTES de mandar nada: dos vecinos
+  // publicando a la vez leerían los dos "hoy no se ha avisado" y saldrían dos
+  // correos. Quien gane la transacción es el que avisa.
+  const meToca = await db.runTransaction(async (tx) => {
+    const previo = (await tx.get(ref)).data() || {};
+    if (previo.avisado === hoy) return false;
+    tx.set(ref, { avisado: hoy }, { merge: true });
+    return true;
+  });
+  if (!meToca) return;
+
+  // Si algo falla a partir de aquí hay que DEVOLVER la marca. Si no, el día
+  // queda quemado por un correo que nunca salió y el aviso no llega hasta
+  // mañana — justo el silencio que esto viene a romper.
+  try {
+    // Se cuentan después de guardar el que acaba de entrar, así que este ya está
+    // incluido. `count()` no baja los documentos: las imágenes van dentro y
+    // traerlas para contarlas sería descargar la galería entera.
+    const { count } = (await db.collection('skins').where('publico', '==', false).count().get()).data();
+    // El nombre lo escribió un vecino y `maqueta` interpola el cuerpo tal cual:
+    // sin escapar, cualquiera podría meter HTML en un correo que lee el admin.
+    const comoSeLlama = escaparHtml(nombre);
+    const quien = autor.nombre ? ` de ${escaparHtml(autor.nombre)}` : '';
+    const cuantos = count === 1
+      ? `Hay un botón esperando tu aprobación: "${comoSeLlama}"${quien}.`
+      : `Hay ${count} botones esperando tu aprobación. El último es "${comoSeLlama}"${quien}.`;
+
+    const enviados = await avisarAlDueno({
+      apiKey,
+      asunto: count === 1 ? 'ViYi · un botón espera tu aprobación' : `ViYi · ${count} botones esperan tu aprobación`,
+      titulo: 'Botones esperando',
+      cuerpo: `${cuantos} Mientras no lo apruebes solo lo ve quien lo hizo, así que nadie más puede ponérselo. `
+        + 'Los tienes en Perfil → Locker → Crear un botón, marcados como "esperando".',
+      textoBoton: 'Abrir ViYi',
+      enlace: 'https://www.viyi.ai/',
+    });
+    if (!enviados) throw new Error('el correo no llegó a ningún administrador');
+  } catch (err) {
+    await ref.set({ avisado: '' }, { merge: true }).catch(() => {});
+    throw err;
+  }
+}
+
 // Devuelve la generación cuando el generador no entregó imagen. El cupo se cobra
 // ANTES de llamar a Vertex (si no, dos toques seguidos se cuelan los dos), y sin
 // esto un fallo nuestro le costaría un intento a quien no hizo nada mal.
@@ -1791,7 +1849,7 @@ function buscarImagen(nodo, prof = 0) {
 // solo el admin creaba botones) y se conserva a propósito: renombrarlo obliga a
 // desplegar una función nueva y borrar la vieja, churn que no compra nada. Hoy
 // entra cualquier vecino activo y lo que cambia es qué puede hacer cada uno.
-exports.adminSkins = onCall({ timeoutSeconds: 120 }, async (request) => {
+exports.adminSkins = onCall({ timeoutSeconds: 120, secrets: [RESEND_API_KEY] }, async (request) => {
   const yo = await exigirSesion(request);
   const soyAdmin = yo.rol === 'admin';
   const uid = request.auth.uid;
@@ -1902,6 +1960,20 @@ exports.adminSkins = onCall({ timeoutSeconds: 120 }, async (request) => {
       creado: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
     skinsCache = { ids: null, hasta: 0 };   // que se pueda elegir de una vez
+
+    // El botón de un vecino nace privado esperando aprobación, y hasta ahora el
+    // admin solo se enteraba si abría el Locker por su cuenta: en la práctica la
+    // curaduría podía no pasar nunca y el vecino se quedaba esperando sin saber
+    // a qué. El aviso va DESPUÉS de guardar y en su propio try: en este punto el
+    // botón ya está publicado, y fallar aquí no puede deshacer eso ni contarle
+    // al vecino que su botón no se guardó.
+    if (!soyAdmin) {
+      try {
+        await avisarDeSkinsEsperando({ apiKey: RESEND_API_KEY.value(), nombre, autor: yo });
+      } catch (e) {
+        console.error('No pude avisar de los botones esperando:', e.message);
+      }
+    }
     return { ok: true, id, publico: soyAdmin };
   }
 
@@ -2291,25 +2363,26 @@ const AJUSTES_TUYA = 'ajustes/tuya';
 
 const enDias = (ms) => Math.ceil(ms / 86400000);
 
-async function avisarAlDueno({ asunto, titulo, cuerpo, apiKey }) {
-  // A los administradores globales: son los que pueden renovar.
+async function avisarAlDueno({ asunto, titulo, cuerpo, textoBoton, enlace, apiKey }) {
+  // A los administradores globales: son los que pueden hacer algo al respecto.
   const snap = await db.collection('usuarios').where('rol', '==', 'admin').get();
   const correos = snap.docs.map((d) => d.data().email).filter(Boolean);
   if (!correos.length) {
     console.error('Nadie a quien avisar:', asunto);
-    return;
+    return 0;
   }
-  const html = maquetaCorreo({
-    titulo,
-    cuerpo,
-    textoBoton: 'Renovar en Tuya',
-    enlace: 'https://www.tuya.com/vas/user/service',
-    cierre: 'ViYi',
-  });
+  const html = maquetaCorreo({ titulo, cuerpo, textoBoton, enlace, cierre: 'ViYi' });
+  // Un fallo con un admin no debe dejar sin aviso a los demás, así que se sigue
+  // con la lista. Pero se devuelve cuántos SALIERON de verdad: quien avise una
+  // sola vez (los botones esperando) necesita saber si el aviso llegó a alguien
+  // o si el correo se perdió y hay que reintentar.
+  let enviados = 0;
   for (const para of correos) {
     await enviarCorreo({ apiKey, para, asunto, html, texto: `${titulo}\n\n${cuerpo}` })
+      .then(() => { enviados += 1; })
       .catch((e) => console.error('No pude avisar a', para, e.message));
   }
+  return enviados;
 }
 
 exports.vigilarServicioTuya = onSchedule(
@@ -2361,6 +2434,8 @@ exports.vigilarServicioTuya = onSchedule(
           titulo: `Quedan ${faltan} día${faltan === 1 ? '' : 's'}`,
           cuerpo: `El IoT Core de Tuya vence el ${guardado.vence}. Sin él, los dispositivos Tuya dejan de abrir. `
             + 'La extensión gratuita tarda uno o dos días hábiles en aprobarse, así que conviene pedirla ya.',
+          textoBoton: 'Renovar en Tuya',
+          enlace: 'https://www.tuya.com/vas/user/service',
         });
       } else if (faltan <= 0 && vivo) {
         // La fecha pasó y Tuya sigue contestando: se renovó y nadie actualizó la
@@ -2385,6 +2460,8 @@ exports.vigilarServicioTuya = onSchedule(
         cuerpo: `Tuya está rechazando las llamadas por falta de servicio: ${motivo}. `
           + 'Hasta que se renueve, los botones de dispositivos Tuya no van a abrir. '
           + 'Los de Homebridge y Shelly siguen funcionando.',
+        textoBoton: 'Renovar en Tuya',
+        enlace: 'https://www.tuya.com/vas/user/service',
       });
     }
     if (vivo !== !guardado.caido) {

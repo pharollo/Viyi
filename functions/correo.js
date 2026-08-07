@@ -16,7 +16,9 @@ const SUAVE = '#8d9297';
 const PRIMARIO = '#a5ff2e';
 const SOBRE_PRIMARIO = '#16210a';
 
-// Escapa el texto que se interpola en el HTML.
+// Escapa el texto que se interpola en el HTML. `maqueta` NO escapa `cuerpo`
+// —los llamantes le meten HTML a propósito—, así que quien arme un cuerpo con
+// texto de un usuario tiene que escaparlo él: de ahí que se exporte.
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -168,4 +170,4 @@ async function enviar({ apiKey, para, asunto, html, texto }) {
 // `maqueta` se exporta para los avisos que no tienen plantilla propia — el del
 // servicio de Tuya a punto de vencer, por ejemplo. Una plantilla entera para un
 // correo de dos frases sería repetir la maqueta por tercera vez.
-module.exports = { plantillaResetClave, plantillaInvitacion, plantillaAccesoDado, maqueta, enviar, REMITENTE };
+module.exports = { plantillaResetClave, plantillaInvitacion, plantillaAccesoDado, maqueta, enviar, esc, REMITENTE };
