@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=294">
+  <link rel="stylesheet" href="styles.css?v=295">
 </head>
 <body>
   <header>
@@ -184,6 +184,26 @@
           <button id="btn-nuevo-usuario" type="button" class="btn-secundario">+ Agregar</button>
         </div>
         <ul id="gestion-usuarios" class="lista-gestion"></ul>
+
+        <!-- El servicio de Tuya vence con fecha, y sin él ningún dispositivo
+             Tuya abre. La fecha se apunta aquí para que ViYi avise tres semanas
+             antes; antes había que editarla en la consola de Firebase, que es
+             un paseo que nadie recuerda seis meses después.
+             Solo para el administrador general: es quien puede renovar. -->
+        <div id="seccion-tuya" class="encabezado-admin oculto">
+          <h2>Servicio de Tuya</h2>
+        </div>
+        <div id="caja-tuya" class="tarjeta oculto">
+          <p id="estado-tuya" class="campo-ayuda"></p>
+          <label class="campo" for="tuya-vence">
+            <span>Vence el</span>
+            <input type="date" id="tuya-vence">
+          </label>
+          <p class="campo-ayuda">ViYi avisa por correo desde 21 días antes. La extensión gratuita de Tuya tarda uno o dos días hábiles en aprobarse.</p>
+          <button type="button" id="btn-guardar-tuya" class="btn-primario">Guardar</button>
+          <p id="error-tuya" class="mensaje-error oculto"></p>
+        </div>
+
         <div id="editor" class="tarjeta oculto"></div>
       </div>
       <div id="tab-registro" class="panel-tab oculto">
@@ -315,6 +335,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=294"></script>
+  <script type="module" src="app.js?v=295"></script>
 </body>
 </html>

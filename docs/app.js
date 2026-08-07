@@ -2476,6 +2476,9 @@ async function iniciar() {
       cacheConexion = null;
       renderGestion();     // pinta los puntos por su cuenta
       pintarProveedores(); // sin await: la lista no espera por Auth
+      // Sin await tampoco: la fecha de Tuya no debe retrasar la lista, y si
+      // falla su consulta lo demás sigue en pie.
+      cargarTuya().catch((e) => console.warn('Tuya', e));
     } catch (err) {
       toast('No se pudo cargar la gestión.', 'error');
     }
@@ -2605,6 +2608,56 @@ async function iniciar() {
     if (cab) cab.classList.toggle('oculto', vacia);
     lista.classList.toggle('oculto', vacia);
   }
+
+  // El servicio de Tuya y cuándo vence.
+  //
+  // Solo para el administrador GENERAL —el que puede renovar en Tuya—, no para
+  // los admins de un edificio: no es su trámite y solo sería ruido.
+  //
+  // Se pinta el estado que dejó la última revisión además de la fecha: saber
+  // "vence el 7 de febrero" no dice si HOY está respondiendo, y esas son dos
+  // preguntas distintas.
+  async function cargarTuya() {
+    const soyElGeneral = usuarioActual && usuarioActual.rol === 'admin' && !miAlcance().length;
+    $('seccion-tuya').classList.toggle('oculto', !soyElGeneral);
+    $('caja-tuya').classList.toggle('oculto', !soyElGeneral);
+    if (!soyElGeneral) return;
+
+    const r = await ajusteTuya({}).catch(() => null);
+    if (!r) return;
+    const { vence, caido, revisado } = r.data;
+
+    $('tuya-vence').value = vence || '';
+    const cuando = revisado ? new Date(revisado).toLocaleDateString('es-VE') : null;
+    $('estado-tuya').textContent = caido
+      ? 'Tuya no está respondiendo: los dispositivos Tuya no abren hasta renovar.'
+      : cuando
+        ? `Respondiendo bien. Última revisión: ${cuando}.`
+        : 'Sin revisar todavía.';
+  }
+
+  $('btn-guardar-tuya').addEventListener('click', async () => {
+    const boton = $('btn-guardar-tuya');
+    const error = $('error-tuya');
+    error.classList.add('oculto');
+    boton.disabled = true;
+    const antes = boton.textContent;
+    boton.textContent = 'Guardando…';
+    try {
+      await ajusteTuya({ vence: $('tuya-vence').value });
+      // Se dice que quedó guardado, no solo se calla: sin confirmación nadie
+      // sabe si el cambio se grabó.
+      boton.textContent = 'Guardado';
+      await cargarTuya();
+      setTimeout(() => { boton.textContent = antes; }, 2000);
+    } catch (e) {
+      error.textContent = e.message || 'No pude guardarlo.';
+      error.classList.remove('oculto');
+      boton.textContent = antes;
+    } finally {
+      boton.disabled = false;
+    }
+  });
 
   function renderGestion() {
     const ld = $('gestion-dispositivos');
@@ -4573,6 +4626,7 @@ async function iniciar() {
   // función arrastre ese arranque en frío por algo que se usa muy de vez en
   // cuando. Aquí es un canvas y ya.
   const adminSkins = httpsCallable(functions, 'adminSkins');
+  const ajusteTuya = httpsCallable(functions, 'ajusteTuya');
   // La imagen sin publicar vive en `recImg` + el estado del recorte; el WebP se
   // genera al publicar, para no rehacerlo en cada frame del gesto.
 

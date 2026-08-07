@@ -2223,6 +2223,47 @@ exports.estadoDispositivos = onCall(
 
 // Chequeo automático cada 10 minutos, para que la caída quede registrada con su
 // hora aunque nadie esté mirando el panel.
+// La fecha en que vence el servicio de Tuya, desde la propia app.
+//
+// Vivía solo en Firestore y para cambiarla había que entrar a la consola de
+// Firebase, buscar la colección y editar el campo a mano. Es un dato que se
+// renueva cada pocos meses, así que ese paseo se repetiría para siempre — y
+// olvidarlo significa quedarse sin aviso anticipado justo la vez que importa.
+//
+// Solo el admin GLOBAL: es el que puede renovar en Tuya. Un admin de un
+// edificio no tiene nada que hacer aquí.
+exports.ajusteTuya = onCall(OCASIONAL, async (request) => {
+  const usuario = await exigirAdmin(request);
+  if ((usuario.administraIds || []).length) {
+    throw new HttpsError('permission-denied', 'Esto lo lleva el administrador general.');
+  }
+
+  const ref = db.doc(AJUSTES_TUYA);
+  const vence = request.data && request.data.vence;
+
+  // Sin `vence` es una consulta; con él, se guarda.
+  if (vence !== undefined) {
+    const limpio = String(vence || '').trim();
+    // Vacío borra la fecha — es la forma de decir "no la sé todavía".
+    if (limpio && !/^\d{4}-\d{2}-\d{2}$/.test(limpio)) {
+      throw new HttpsError('invalid-argument', 'La fecha va como 2027-02-07.');
+    }
+    if (limpio && Number.isNaN(new Date(limpio).getTime())) {
+      throw new HttpsError('invalid-argument', 'Esa fecha no existe.');
+    }
+    await ref.set({ vence: limpio || null }, { merge: true });
+  }
+
+  const guardado = (await ref.get()).data() || {};
+  return {
+    vence: guardado.vence || '',
+    // Lo que vio la última revisión: sirve para que la pantalla pueda decir si
+    // Tuya está respondiendo, no solo cuándo vence.
+    caido: guardado.caido === true,
+    revisado: guardado.revisado || null,
+  };
+});
+
 // --- Que el servicio de Tuya no se venza sin avisar ------------------------
 //
 // El IoT Core de Tuya es lo que deja abrirle a alguien: sin él, todos los
