@@ -1361,7 +1361,10 @@ async function iniciar() {
   let jetDesbloqueado = false;
   const jetDesbloquear = () => {
     if (jetDesbloqueado) return; jetDesbloqueado = true;
-    [jetTapa, jetToggle].forEach((a) => {
+    // El del Pilder entra en el MISMO desbloqueo: iOS lo concede por gesto del
+    // usuario, no por audio, y montar un segundo mecanismo significaría que el
+    // primer toque de una palanca fuera mudo según por dónde hubieras entrado.
+    [jetTapa, jetToggle, pilderAudio].forEach((a) => {
       try {
         a.muted = true; const p = a.play();
         if (p && p.then) p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
@@ -1369,6 +1372,31 @@ async function iniciar() {
       } catch (e) { /* ignore */ }
     });
   };
+
+  // El sonido del Pilder: los DOS clics viven en un solo archivo, así que se
+  // reproduce por tramos. Un `<audio>` por sonido sería más simple, pero el
+  // archivo llegó así y partirlo a mano es una pieza más que mantener.
+  //
+  // Dónde corta: medido sobre la envolvente del wav, no a ojo. Subir ocupa
+  // 0.15-0.30s (es un racimo: una palanca de verdad hace varios chasquidos) y
+  // bajar 0.40-0.50s.
+  const pilderAudio = new Audio('toggle_pilder.wav?v=1'); pilderAudio.preload = 'auto';
+  const PILDER_TRAMOS = { subir: [0.15, 0.30], bajar: [0.40, 0.50] };
+  let pilderCorte = null;
+  function pilderSonar(cual) {
+    const [desde, hasta] = PILDER_TRAMOS[cual] || PILDER_TRAMOS.subir;
+    try {
+      clearTimeout(pilderCorte);
+      pilderAudio.muted = false;
+      pilderAudio.currentTime = desde;
+      const p = pilderAudio.play();
+      if (p && p.catch) p.catch(() => {});
+      // Se para solo al acabar SU tramo; si no, seguiría hasta el final del
+      // archivo y sonarían los dos clics de un tirón.
+      pilderCorte = setTimeout(() => { try { pilderAudio.pause(); } catch (e) { /* ignore */ } },
+        (hasta - desde) * 1000);
+    } catch (e) { /* ignore */ }
+  }
 
   // Control tipo "Jet Switch": tapa de seguridad roja + palanca. Se desliza la
   // tapa hacia arriba (armar) y luego la palanca (abrir). Es MOMENTARY como un
@@ -1974,13 +2002,29 @@ async function iniciar() {
       ? `Encender o apagar ${dispositivo.nombre}`
       : `${dispositivo.etiquetaBoton || 'Abrir'} ${dispositivo.nombre}`);
 
+    // El sonido va con la PALANCA, no con el toque: suena cuando la palanca se
+    // mueve de verdad. En un interruptor eso es al saberse el nuevo estado; en
+    // una puerta, al subir (al tocar) y al bajar (cuando se cierra).
+    boton.addEventListener('pointerdown', jetDesbloquear, { passive: true });
     boton.addEventListener('click', () => {
       if (dispositivo.modo === 'interruptor') {
-        if (demo) { pintarEstado(boton, !boton.classList.contains('activo')); return; }
-        alternar(boton, dispositivo);
+        // Aquí NO se adivina: la palanca baja o sube según lo que diga el
+        // aparato, así que el sonido espera al cambio de estado real.
+        const antes = boton.classList.contains('activo');
+        if (demo) { pintarEstado(boton, !antes); pilderSonar(antes ? 'bajar' : 'subir'); return; }
+        alternar(boton, dispositivo).then(() => {
+          if (boton.classList.contains('activo') !== antes) {
+            pilderSonar(antes ? 'bajar' : 'subir');
+          }
+        });
         return;
       }
-      if (demo) pulsarDemo(boton, dispositivo); else pulsar(boton, dispositivo);
+      // Puerta: sube ya —el chasquido es la respuesta al toque— y el de bajar
+      // se programa para cuando la palanca vuelve, que es al cerrarse.
+      if (boton.classList.contains('enviando') || boton.classList.contains('exito')) return;
+      pilderSonar('subir');
+      const alBajar = () => pilderSonar('bajar');
+      if (demo) pulsarDemo(boton, dispositivo, alBajar); else pulsar(boton, dispositivo, alBajar);
     });
     if (!demo) vestirAlMantenerPulsado(control, boton, dispositivo);
 
@@ -2125,7 +2169,7 @@ async function iniciar() {
   // Es una muestra, no una puerta: el segundo toque la para. Con animaciones de
   // portón (que duran lo que dure la apertura real) esperar de brazos cruzados
   // a que termine para probar la siguiente es una espera tonta.
-  function pulsarDemo(boton, dispositivo) {
+  function pulsarDemo(boton, dispositivo, alCerrar) {
     if (boton.classList.contains('enviando') || boton.classList.contains('exito')) {
       pararDemo(boton);
       return;
@@ -2140,7 +2184,7 @@ async function iniciar() {
       // Menos la espera fingida, por lo mismo que en `pulsar`: la muestra tiene
       // que durar lo que dura de verdad, no eso más el viaje.
       const queda = Math.max(0, duracionAbierto(dispositivo) - ESPERA_FINGIDA);
-      relojes.push(setTimeout(() => boton.classList.remove('exito'), queda));
+      relojes.push(setTimeout(() => { boton.classList.remove('exito'); if (alCerrar) alCerrar(); }, queda));
     }, ESPERA_FINGIDA));
   }
 
@@ -2161,7 +2205,7 @@ async function iniciar() {
     return seg > 0 ? seg * 1000 : (dispositivo.subtipo === 'porton' ? 5000 : 1500);
   }
 
-  async function pulsar(boton, dispositivo) {
+  async function pulsar(boton, dispositivo, alCerrar) {
     if (boton.classList.contains('enviando')) return;
     // El reloj arranca en el TOQUE, no cuando contesta el servidor.
     //
@@ -2180,7 +2224,10 @@ async function iniciar() {
       await ejecutarComando({ dispositivoId: dispositivo.id });
       boton.classList.add('exito');
       const queda = Math.max(0, duracionAbierto(dispositivo) - (Date.now() - desdeElToque));
-      setTimeout(() => boton.classList.remove('exito'), queda);
+      // El aviso sale del MISMO reloj que apaga el control: quien quiera
+      // acompañar el cierre (el clic de la palanca del Pilder) no puede llevar
+      // su propio temporizador, o se separan en cuanto la red tarde.
+      setTimeout(() => { boton.classList.remove('exito'); if (alCerrar) alCerrar(); }, queda);
     } catch (err) {
       toast(err.message || 'No se pudo enviar el comando.', 'error');
     } finally {
