@@ -4756,21 +4756,12 @@ async function iniciar() {
       .sort((a, b) => b.creado - a.creado);
     const resto = ops.filter((a) => !nuevos.includes(a));
 
-    // Sin novedades no se escriben encabezados: un solo grupo titulado "Los
-    // demás" es una etiqueta que no separa nada de nada.
-    if (nuevos.length) {
-      cont.appendChild(titulo('Nuevos'));
-      for (const a of nuevos) cont.appendChild(marca(a));
-      cont.appendChild(titulo('Los demás'));
-    }
-    for (const a of resto) cont.appendChild(marca(a));
-
-    // Y al final, la ficha de fabricar.
+    // La ficha de fabricar.
     //
     // Antes esto era una sección plegada DEBAJO ("Crear un botón"), o sea una
     // decisión aparte que había que tomar antes de saber que existía. Aquí se
     // topa uno con ella eligiendo, que es justo el ánimo de mirar opciones: si
-    // ninguna te gusta, la última ficha es hacerte una.
+    // ninguna te gusta, la siguiente ficha es hacerte una.
     const hacer = document.createElement('button');
     hacer.type = 'button';
     hacer.className = 'skin-op skin-op-crear';
@@ -4778,7 +4769,22 @@ async function iniciar() {
     // elegirse como tal.
     hacer.innerHTML = '<span class="skin-muestra skin-muestra-crear">+</span>'
       + '<span class="skin-nom">Diseña Uno</span>';
-    cont.appendChild(hacer);
+
+    // Sin novedades no se escriben encabezados: un solo grupo titulado "Los
+    // demás" es una etiqueta que no separa nada de nada.
+    if (nuevos.length) {
+      cont.appendChild(titulo('Nuevos'));
+      for (const a of nuevos) cont.appendChild(marca(a));
+      // Cierra los NUEVOS, no el final de la lista: hacerte uno es traer otra
+      // novedad, y ahí se ve. Al final de todo quedaba debajo de veinte fichas
+      // de fábrica, que es donde no mira nadie.
+      cont.appendChild(hacer);
+      cont.appendChild(titulo('Los demás'));
+    }
+    for (const a of resto) cont.appendChild(marca(a));
+    // Sin grupo de novedades no hay dónde cerrar, así que va al final —que es
+    // también el final de la única lista que hay.
+    if (!nuevos.length) cont.appendChild(hacer);
 
     // Con muchas opciones la puesta puede quedar fuera de la vista. `nearest`
     // no mueve nada si ya se ve, así que no da un salto al abrir.
