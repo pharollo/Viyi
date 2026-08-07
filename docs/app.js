@@ -392,6 +392,11 @@ async function iniciar() {
     { id: 'bordado', nombre: 'Bordado', modos: ['pulso'], soloPuerta: true },
     { id: 'argentina', nombre: 'Argentina', modos: ['pulso'], soloPuerta: true },
     { id: 'jet', nombre: 'Jet Switch', modos: ['pulso'], soloPuerta: true },
+    // Pilder: la palanca sirve donde hay un estado que enseñar, así que va en
+    // interruptores (se queda arriba mientras está encendido) y en puertas
+    // (sube al abrir y baja al cerrarse). Es el primer control propio que
+    // tienen los interruptores: hasta ahora eran todos el botón redondo.
+    { id: 'pilder', nombre: 'Pilder', modos: MODOS_SKIN },
   ];
   const PIELES = CATALOGO_ASPECTOS.filter((a) => a.piel).map((a) => a.id);
 
@@ -1208,7 +1213,7 @@ async function iniciar() {
   // Ancho real de cada control según su aspecto. Estaba en 220 para todo, y el
   // Mando mide 170, el Jet 157 y el Sabiem 150: con anchos tan distintos las
   // decisiones de maquetado salían mal (se veían tres y un pedazo de otro).
-  const ANCHOS_ASPECTO = { rueda: 150, jet: 157, sabiem: 150, mando: 170 };
+  const ANCHOS_ASPECTO = { rueda: 150, jet: 157, sabiem: 150, mando: 170, pilder: 158 };
   const ANCHO_CONTROL = (d) => ANCHOS_ASPECTO[aspectoDe(d)] || 220;
   // En compacto solo se achica el botón circular (168+26+26 -> 122+17+17); los
   // controles propios (rueda, jet, sabiem, mando) no cambian de tamaño.
@@ -1936,6 +1941,53 @@ async function iniciar() {
     }, true);
   }
 
+
+  // --- Pilder: tablero industrial con palanca -------------------------------
+  //
+  // Dos fotos de un mismo panel: palanca abajo con el piloto y la barra
+  // apagados, y palanca arriba con todo encendido. Se cruzan por opacidad.
+  //
+  // No lleva lógica propia a propósito: por dentro es un `<button>` que pasa por
+  // `pulsar` o `alternar` como cualquier otro control, así que hereda gratis el
+  // estado inicial, la duración de apertura de esa puerta y el modo demo. Lo
+  // único suyo es qué se ve en cada clase.
+  //
+  // Sirve en los dos modos porque una palanca significa lo mismo en ambos: en
+  // un interruptor se queda arriba mientras está encendido, y en una puerta sube
+  // al abrir y baja sola cuando pasan los segundos de apertura — o sea que dice
+  // "está abierta AHORA", que es justo lo que el botón redondo no sabe decir.
+  function controlPilder(dispositivo, demo) {
+    const control = document.createElement('div');
+    control.className = 'control control-pilder';
+
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.className = 'pilder';
+    boton.innerHTML = '<span class="pilder-capa pilder-off"></span>'
+      + '<span class="pilder-capa pilder-on"></span>';
+    boton.setAttribute('aria-label', dispositivo.modo === 'interruptor'
+      ? `Encender o apagar ${dispositivo.nombre}`
+      : `${dispositivo.etiquetaBoton || 'Abrir'} ${dispositivo.nombre}`);
+
+    boton.addEventListener('click', () => {
+      if (dispositivo.modo === 'interruptor') {
+        if (demo) { pintarEstado(boton, !boton.classList.contains('activo')); return; }
+        alternar(boton, dispositivo);
+        return;
+      }
+      if (demo) pulsarDemo(boton, dispositivo); else pulsar(boton, dispositivo);
+    });
+    if (!demo) vestirAlMantenerPulsado(control, boton, dispositivo);
+
+    const titulo = document.createElement('span');
+    titulo.className = 'etiqueta-control';
+    titulo.textContent = dispositivo.nombre;
+    control.append(boton, titulo);
+
+    if (dispositivo.modo === 'interruptor' && !demo) estadoInicial(boton, dispositivo);
+    return control;
+  }
+
   function tarjetaDispositivo(dispositivo, demo, aspectoForzado) {
     // El aspecto sale del vestuario del vecino (o del que puso el admin).
     const aspecto = aspectoForzado || aspectoDe(dispositivo);
@@ -1947,6 +1999,10 @@ async function iniciar() {
     // Puerta de pulso con aspecto Jet: interruptor con tapa de seguridad.
     if (dispositivo.modo === 'pulso' && aspecto === 'jet') {
       return vestirDeEvento(controlJet(dispositivo, demo), evento);
+    }
+    // Aspecto Pilder: tablero con palanca. Vale en pulso y en interruptor.
+    if (aspecto === 'pilder' && MODOS_SKIN.includes(dispositivo.modo)) {
+      return vestirDeEvento(controlPilder(dispositivo, demo), evento);
     }
     // Aspecto Mando: el control remoto del portón (control propio, no botón).
     if (dispositivo.modo === 'pulso' && aspecto === 'mando') {
@@ -4533,6 +4589,7 @@ async function iniciar() {
       return { clase: ASPECTOS_IMAGEN[a.id].clase || '', html: `<img src="${ASPECTOS_IMAGEN[a.id].img}" alt="">` };
     }
     if (a.id === 'jet') return { clase: 'muestra-jet', html: '' };
+    if (a.id === 'pilder') return { clase: 'muestra-pilder', html: '' };
     if (a.id === 'sabiem') return { clase: 'muestra-sabiem', html: '' };
     if (a.id === 'mando') return { clase: 'muestra-mando', html: '' };
     // Normal y las pieles: el icono del propio dispositivo, con la piel puesta.

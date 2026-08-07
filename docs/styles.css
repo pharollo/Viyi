@@ -945,6 +945,57 @@ button:disabled {
 /* --jet-s = factor de escala del switch. Los recortes de imagen están
    calculados para 210px de ancho; con calc() todo escala junto, así basta
    cambiar este número para agrandarlo o achicarlo. */
+/* --- Pilder: tablero industrial con palanca -------------------------------
+   Dos fotos del mismo panel cruzándose por opacidad: apagado (palanca abajo,
+   piloto y barra oscuros) y encendido (palanca arriba, todo prendido).
+   El fondo negro del render está transparentado, así que el panel se apoya en
+   el fondo de la app en vez de traer su propio recuadro negro. */
+.pilder {
+  --pilder-s: 0.564;
+  position: relative;
+  width: calc(280px * var(--pilder-s));
+  height: calc(442px * var(--pilder-s));
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.pilder-capa {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  /* Un pelo más lento que el Jet: aquí lo que cambia es una palanca y un
+     piloto, y a 0.13s el encendido se lee como un parpadeo. */
+  transition: opacity 0.18s ease;
+}
+.pilder-off { background-image: url('pilder-off.webp?v=1'); }
+.pilder-on  { background-image: url('pilder-on.webp?v=1'); opacity: 0; }
+
+/* Encendido = la palanca arriba. En un interruptor mientras esté encendido
+   (`activo`); en una puerta, mientras se abre y el rato que se queda abierta
+   (`enviando` y `exito`, que dura los segundos de apertura de ESA puerta). */
+.pilder.activo .pilder-on,
+.pilder.enviando .pilder-on,
+.pilder.exito .pilder-on { opacity: 1; }
+
+/* Al pulsar se hunde un poco, como el resto de controles. Sin sombra propia:
+   el panel ya trae la suya en la foto. */
+.pilder:active { transform: scale(0.985); }
+
+/* La muestra del Locker: el panel entero no cabe en un círculo de 58px, así
+   que se encuadra en la palanca, que es lo que lo identifica. */
+.skin-muestra.muestra-pilder {
+  background-image: url('pilder-on.webp?v=1');
+  background-size: 190%;
+  background-position: 50% 46%;
+}
+
 .jet-switch {
   --jet-s: 0.75;
   position: relative;
