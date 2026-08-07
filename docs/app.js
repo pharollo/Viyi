@@ -4706,9 +4706,29 @@ async function iniciar() {
   function seleccionarAspecto(asp) {
     if (!vestDisp || !asp || asp === vestAspecto) return;
     vestAspecto = asp;
+    marcarElegida();
     pintarDemoVestuario();
     enseñarLaAnimacion();
     refrescarBotonEstilo();
+  }
+
+  // El anillo verde sigue a lo que tienes elegido, no a lo guardado.
+  //
+  // Se pintaba una sola vez, al armar la rejilla, y no se movía nunca: elegías
+  // otro diseño, la muestra cambiaba, y el anillo seguía marcando el anterior.
+  // Con veinte fichas eso es no saber en cuál estás.
+  //
+  // Quién marca qué: el ANILLO dice cuál te estás probando, y el botón de abajo
+  // dice si eso está guardado ("Guardar" encendido = te falta grabarlo,
+  // "Guardado" apagado = ya está). Dos preguntas distintas, dos señales.
+  function marcarElegida() {
+    $('vest-opciones').querySelectorAll('.skin-op').forEach((op) => {
+      // `Boolean(vestAspecto)` no sobra: la ficha de "Diseña Uno" no tiene
+      // `dataset.aspecto`, así que sin esto un `vestAspecto` vacío casa con
+      // ella (undefined === undefined) y el anillo verde se le va a la ficha
+      // de fabricar, que no es un diseño que puedas llevar puesto.
+      op.classList.toggle('activa', Boolean(vestAspecto) && op.dataset.aspecto === vestAspecto);
+    });
   }
 
   // Al elegir un skin que se mueve, la muestra lo hace SOLA una vez.
