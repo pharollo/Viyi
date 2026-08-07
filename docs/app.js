@@ -5024,7 +5024,11 @@ async function iniciar() {
   }
 
   // El cuadrado de la imagen que está visible ahora mismo, a 256px.
-  function recorteWebp(lado = 256) {
+  // El tope del servidor (`MAX_IMAGEN_SKIN`), con un margen: se comprueba aquí
+  // para no gastar un viaje en algo que va a rebotar.
+  const TOPE_IMAGEN = 210000;
+
+  function lienzoDelRecorte(lado) {
     const t = recBase * recEsc;                       // imagen -> pantalla
     const medio = (CAJA_PREVIA / 2) / t;              // medio lado, en px de imagen
     const cx = recImg.naturalWidth / 2 - recDx / t;
@@ -5032,7 +5036,39 @@ async function iniciar() {
     const c = document.createElement('canvas');
     c.width = lado; c.height = lado;
     c.getContext('2d').drawImage(recImg, cx - medio, cy - medio, medio * 2, medio * 2, 0, 0, lado, lado);
-    return c.toDataURL('image/webp', 0.86);
+    return c;
+  }
+
+  // ⚠️ `toDataURL` con un formato que el navegador no sabe escribir NO falla:
+  // devuelve un PNG en silencio y se traga la calidad. Safari solo encodea WebP
+  // desde la 16.4, así que en un iPhone de antes esto salía en PNG — y un PNG
+  // de 256px de un dibujo con mucho detalle pesa diez veces más que su WebP y
+  // se pasaba del tope del servidor. El vecino solo veía "La imagen pesa
+  // demasiado" al guardar, sin nada que pudiera hacer al respecto.
+  //
+  // Así que no se confía en lo que se pidió: se mira lo que VOLVIÓ. Y si aun
+  // así no cabe, se baja la calidad y por último el tamaño, en vez de mandarlo
+  // y que reboten.
+  function recorteImagen(lado = 256) {
+    const c = lienzoDelRecorte(lado);
+    let d = c.toDataURL('image/webp', 0.86);
+    // JPEG y no PNG: es el que sabe TODO navegador y, en fotos y dibujos, el
+    // que se acerca al WebP. Caer al PNG es justo lo que rompía esto.
+    if (!d.startsWith('data:image/webp')) d = c.toDataURL('image/jpeg', 0.86);
+    if (d.length <= TOPE_IMAGEN) return d;
+
+    const tipo = d.slice(11, d.indexOf(';'));
+    for (const q of [0.7, 0.55, 0.4]) {
+      d = c.toDataURL(`image/${tipo}`, q);
+      if (d.length <= TOPE_IMAGEN) return d;
+    }
+    // Último recurso: menos píxeles. 192 sigue viéndose bien en un botón de
+    // 168px, que es lo más grande que se pinta.
+    for (const menor of [224, 192]) {
+      d = lienzoDelRecorte(menor).toDataURL(`image/${tipo}`, 0.7);
+      if (d.length <= TOPE_IMAGEN) return d;
+    }
+    return d;   // que lo rechace el servidor; aquí ya no hay más que apretar
   }
 
   // Gestos sobre el círculo: un dedo arrastra, dos hacen pinza. En escritorio,
@@ -5188,7 +5224,7 @@ async function iniciar() {
         accion: 'publicar',
         id,
         nombre,
-        imagen: recorteWebp(),
+        imagen: recorteImagen(),
         animacion: $('skin-animacion').value,
         tipos: tiposElegidos($('skin-tipos')),
         prompt: $('skin-prompt').value.trim(),
