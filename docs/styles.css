@@ -1911,34 +1911,11 @@ button:disabled {
   margin-top: 8px;
 }
 #vest-editor { margin-top: 12px; }
-/* Qué estás editando, dentro del propio editor. Se queda pegada arriba porque
-   el formulario es más alto que la pantalla de un teléfono: sin esto, en cuanto
-   bajas a la animación ya no ves de qué botón hablas. */
-.ed-cabecera {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-  padding: 8px 0;
-  background: var(--superficie);
-}
-.ed-cabecera img {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex: 0 0 auto;
-}
-.ed-cabecera span {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-#vest-editor-msg { margin: 8px 0 0; font-size: 13px; text-align: center; }
+/* Editando: fuera la galería y el Guardar del aspecto. Lo que queda es la
+   muestra —el botón de verdad, a tamaño real— y el formulario justo debajo, que
+   es lo único que hace falta para ver lo que estás cambiando. */
+#vestuario.editando #vest-opciones,
+#vestuario.editando .vest-guardar { display: none; }
 
 /* El Guardar del Locker. Apagado dice "esto ya es lo tuyo"; encendido, que hay
    algo probándose sin grabar. */

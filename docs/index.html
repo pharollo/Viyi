@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=303">
+  <link rel="stylesheet" href="styles.css?v=304">
 </head>
 <body>
   <header>
@@ -229,6 +229,13 @@
           <div id="vestuario">
             <select id="vest-disp" class="vest-select" aria-label="Dispositivo"></select>
             <div id="vest-demo" class="vest-demo"></div>
+            <!-- Editar va PEGADO a la muestra, y al abrirlo la galería y el
+                 Guardar se apartan (`#vestuario.editando`). Cambiar el nombre o
+                 la animación con el botón grande fuera de la pantalla era
+                 editar a ciegas: lo que se toca aquí se ve ahí arriba. -->
+            <button type="button" id="btn-editar-skin" class="btn-secundario vest-editar oculto">Editar diseño</button>
+            <div id="vest-editor" class="oculto"></div>
+            <p id="vest-editor-msg" class="oculto"></p>
             <div id="vest-opciones" class="vest-opciones"></div>
             <!-- Elegir es PROBARSE; guardar es el acto.
                  Antes se guardaba solo al centrar la opción, y aunque salía un
@@ -243,9 +250,7 @@
                  puesto. Y su mensaje va aquí y no en `#skin-msg`, que vive
                  dentro del taller: con el taller recogido, un fallo se
                  escribiría donde nadie lo ve. -->
-            <button type="button" id="btn-editar-skin" class="btn-secundario vest-editar oculto">Editar diseño</button>
-            <div id="vest-editor" class="oculto"></div>
-            <p id="vest-editor-msg" class="oculto"></p>
+
             <p id="vest-guardado" class="vest-guardado">Estilo guardado</p>
             <p id="vest-nota" class="vest-ayuda vest-nota oculto"></p>
           </div>
@@ -364,6 +369,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=305"></script>
+  <script type="module" src="app.js?v=306"></script>
 </body>
 </html>

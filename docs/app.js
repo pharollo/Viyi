@@ -4723,12 +4723,29 @@ async function iniciar() {
   // que editaras el que ya no estás mirando.
   function refrescarEditorSkin() {
     const s = skinElegido();
-    const puedo = puedoEditarSkin(s);
-    $('btn-editar-skin').classList.toggle('oculto', !puedo);
+    $('btn-editar-skin').classList.toggle('oculto', !puedoEditarSkin(s));
+    cerrarEditorSkin();
+  }
+
+  // Sale del modo edición y deja la pantalla como estaba.
+  function cerrarEditorSkin() {
+    $('vestuario').classList.remove('editando');
+    $('btn-editar-skin').textContent = 'Editar diseño';
     $('vest-editor').classList.add('oculto');
     $('vest-editor').textContent = '';
     msgEditorSkin('');
+    // Deshace la animación que se estaba probando. Se prueba tocando el mapa
+    // que usa el pintado, así que si no se repone, una animación elegida y NO
+    // guardada se quedaría puesta hasta recargar — y parecería guardada.
+    if (animacionOriginal) {
+      const { id, clase } = animacionOriginal;
+      if (ASPECTOS_IMAGEN[id]) ASPECTOS_IMAGEN[id].clase = clase;
+      animacionOriginal = null;
+      pintarDemoVestuario();
+    }
   }
+
+  let animacionOriginal = null;
 
   function msgEditorSkin(texto, error) {
     const el = $('vest-editor-msg');
@@ -4857,12 +4874,26 @@ async function iniciar() {
 
   $('btn-editar-skin').addEventListener('click', () => {
     const caja = $('vest-editor');
-    if (!caja.classList.contains('oculto')) { caja.classList.add('oculto'); return; }
+    if (!caja.classList.contains('oculto')) { cerrarEditorSkin(); return; }
     const s = skinElegido();
     if (!puedoEditarSkin(s)) return;
+
+    animacionOriginal = { id: s.id, clase: (ASPECTOS_IMAGEN[s.id] || {}).clase };
     caja.textContent = '';
-    caja.appendChild(editorDeSkin(s, msgEditorSkin, true));
+    caja.appendChild(editorDeSkin(s, msgEditorSkin, (valor) => {
+      // Se prueba en la muestra de verdad, que está justo encima: el mismo
+      // botón, del tamaño real, moviéndose como se movería al abrir la puerta.
+      const anim = ANIMACIONES_SKIN[valor] || ANIMACIONES_SKIN.ninguna;
+      if (ASPECTOS_IMAGEN[s.id]) ASPECTOS_IMAGEN[s.id].clase = anim.clase;
+      pintarDemoVestuario();
+      enseñarLaAnimacion();
+    }));
     caja.classList.remove('oculto');
+    // La galería y el Guardar se apartan: editando, lo único que importa es la
+    // muestra de arriba y el formulario.
+    $('vestuario').classList.add('editando');
+    $('btn-editar-skin').textContent = 'Listo';
+    $('vest-demo').scrollIntoView({ block: 'start', behavior: 'smooth' });
   });
 
   $('vest-disp').addEventListener('change', (e) => {
@@ -5204,18 +5235,10 @@ async function iniciar() {
   // `avisar` lo pone quien lo usa, y no es un detalle: los mensajes de la lista
   // van a `#skin-msg`, que vive DENTRO del taller. Desde la galería, con el
   // taller recogido, un "no se pudo guardar" se escribiría donde nadie lo ve.
-  function editorDeSkin(s, avisar, conCabecera) {
+  function editorDeSkin(s, avisar, alCambiarAnimacion) {
     const editor = document.createElement('div');
     editor.className = 'skin-editor';
-    // Cabecera con la foto y el nombre: qué estás editando.
-    //
-    // En la lista del taller sobra —la fila que abres está justo encima y ya lo
-    // dice—, pero en la galería el editor sale abajo del todo y el diseño queda
-    // arriba, fuera de la pantalla del teléfono. Editabas a ciegas.
-    editor.innerHTML = (conCabecera
-      ? `<div class="ed-cabecera"><img src="${s.imagen}" alt=""><span>${escapar(s.nombre)}</span></div>`
-      : '')
-      + '<label class="campo-perfil">Nombre'
+    editor.innerHTML = '<label class="campo-perfil">Nombre'
       + `<input type="text" class="ed-nombre" maxlength="24" value="${escapar(s.nombre)}"></label>`
       + '<label class="campo-perfil">Al activarse<select class="ed-animacion">'
       + Object.values(ANIMACIONES_SKIN).map((a) =>
@@ -5223,6 +5246,12 @@ async function iniciar() {
       + '</select></label>'
       + '<div class="campo-perfil">Para<div class="skin-tipos ed-tipos"></div></div>';
     pintarChipsTipos(editor.querySelector('.ed-tipos'), s.tipos);
+    // "Al activarse" nombra un movimiento, y un nombre no es el movimiento.
+    // Quien lo use puede enseñarlo en la muestra en cuanto se elija.
+    if (alCambiarAnimacion) {
+      editor.querySelector('.ed-animacion')
+        .addEventListener('change', (e) => alCambiarAnimacion(e.target.value));
+    }
 
     const soyAdmin = usuarioActual && usuarioActual.rol === 'admin';
     const pendiente = s.publico === false;
