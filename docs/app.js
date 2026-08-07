@@ -1995,7 +1995,9 @@ async function iniciar() {
 
     const boton = document.createElement('button');
     boton.type = 'button';
-    boton.className = 'pilder';
+    // El modo va en la clase: una palanca de interruptor y una de puerta se
+    // encienden por motivos distintos, y el CSS tiene que poder distinguirlas.
+    boton.className = 'pilder ' + (dispositivo.modo === 'interruptor' ? 'pilder-llave' : 'pilder-pulso');
     boton.innerHTML = '<span class="pilder-capa pilder-off"></span>'
       + '<span class="pilder-capa pilder-on"></span>';
     boton.setAttribute('aria-label', dispositivo.modo === 'interruptor'
@@ -2254,10 +2256,18 @@ async function iniciar() {
     const encendido = boton.classList.contains('activo');
     const accion = encendido ? 'apagar' : 'encender';
     boton.classList.add('enviando');
+    // El control cambia YA y se deshace si el aparato no obedece.
+    //
+    // Antes esperaba la confirmación, y con la palanca del Pilder eso se veía:
+    // el chasquido sonaba y la palanca bajaba un segundo después. Un
+    // interruptor de verdad se mueve bajo el dedo; que la luz apague es otra
+    // cosa. Si falla, vuelve a donde estaba y sale el aviso, así que no se
+    // queda enseñando un estado que no es.
+    pintarEstado(boton, !encendido);
     try {
       await ejecutarComando({ dispositivoId: dispositivo.id, accion });
-      pintarEstado(boton, !encendido);
     } catch (err) {
+      pintarEstado(boton, encendido);
       toast(err.message || 'No se pudo enviar el comando.', 'error');
     } finally {
       boton.classList.remove('enviando');

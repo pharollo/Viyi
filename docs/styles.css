@@ -981,12 +981,18 @@ button:disabled {
 .pilder-off { background-image: url('pilder-off.webp?v=1'); }
 .pilder-on  { background-image: url('pilder-on.webp?v=1'); opacity: 0; }
 
-/* Encendido = la palanca arriba. En un interruptor mientras esté encendido
-   (`activo`); en una puerta, mientras se abre y el rato que se queda abierta
-   (`enviando` y `exito`, que dura los segundos de apertura de ESA puerta). */
+/* Encendido = la palanca arriba, pero por motivos distintos según el control.
+   En un INTERRUPTOR manda solo `activo`: es el estado del aparato.
+   En una PUERTA mandan `enviando` y `exito` — sube al tocar y baja cuando pasan
+   los segundos de apertura.
+   ⚠️ `enviando` iba antes en la regla común y valía para los dos, y eso rompía
+   el apagado de un interruptor: al tocar se quitaba `activo` pero `enviando`
+   mantenía la palanca arriba hasta que el aparato contestaba, así que el
+   chasquido sonaba y la palanca bajaba un segundo después. Solo se notaba al
+   bajar, porque al subir las dos clases dicen lo mismo. */
 .pilder.activo .pilder-on,
-.pilder.enviando .pilder-on,
-.pilder.exito .pilder-on { opacity: 1; }
+.pilder-pulso.enviando .pilder-on,
+.pilder-pulso.exito .pilder-on { opacity: 1; }
 
 /* Sin encoger al pulsar. Lo tenía y era el otro candidato a "vibra": un
    `transform` sin transición que iOS enciende y apaga con los micromovimientos
