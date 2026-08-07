@@ -1175,8 +1175,13 @@ button:disabled {
 .skin-gira.exito .boton-logo {
   animation: girar-bordado 2.5s linear infinite;
 }
-.skin-late.enviando,
-.skin-late.exito {
+/* Estas van con `.boton-circular` delante a propósito. `.boton-circular.enviando`
+   (el pulso genérico) pesa lo mismo que `.skin-X.enviando` y está más abajo en
+   el archivo, así que ganaba por orden y la animación del skin no salía nunca.
+   Le pasaba a Palpita desde que se creó: el halo no se veía, solo el brillo de
+   la imagen. Con la clase de más ganan estas, vivan donde vivan. */
+.boton-circular.skin-late.enviando,
+.boton-circular.skin-late.exito {
   animation: latir-skin 1.5s ease-in-out infinite;
 }
 .skin-late.enviando .boton-logo,
@@ -1192,6 +1197,87 @@ button:disabled {
     box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara),
                 0 0 32px 8px rgba(165, 255, 46, 0.85);
   }
+}
+
+/* Animaciones nuevas del catálogo (7 ago 2026).
+   Todas corren durante `enviando` y `exito` —el rato en que la puerta se está
+   abriendo—, así que ninguna es decoración: son la señal de que algo está
+   pasando al otro lado. Por eso van contenidas: nada que se salga del botón ni
+   que dure tanto como para leerse como un fallo.
+
+   ⚠️ El botón recorta la imagen en círculo (`overflow: hidden`). Mover la
+   imagen dentro DESTAPA el borde: asoma una medialuna del relieve por detrás y
+   parece que la foto se despegó. Girar sobre el centro es la única transformada
+   que no destapa nada (la distancia del centro a cada lado no cambia); todo lo
+   que sea desplazar mueve el BOTÓN entero, que no tiene nada que lo recorte. */
+
+/* Se balancea: mece la imagen sobre su centro. */
+@keyframes balancear-skin {
+  0%, 100% { transform: rotate(-10deg); }
+  50%      { transform: rotate(10deg); }
+}
+.skin-balancea.enviando .boton-logo,
+.skin-balancea.exito .boton-logo {
+  animation: balancear-skin 1.6s ease-in-out infinite;
+}
+
+/* Rebota: pega un brinco y cae con un rebotico. Salta el botón entero —con su
+   sombra— porque un salto que deja la sombra quieta no se lee como salto. */
+@keyframes rebotar-skin {
+  0%, 100% { transform: translateY(0); }
+  30%      { transform: translateY(-9%); }
+  50%      { transform: translateY(0); }
+  68%      { transform: translateY(-3%); }
+  84%      { transform: translateY(0); }
+}
+.boton-circular.skin-rebota.enviando,
+.boton-circular.skin-rebota.exito {
+  animation: rebotar-skin 1.2s ease-out infinite;
+}
+
+/* Vibra: el zumbido de un portero. Corto, nervioso y chiquito — con más
+   amplitud marea, y con menos no se nota. */
+@keyframes vibrar-skin {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-2%); }
+  75%      { transform: translateX(2%); }
+}
+.boton-circular.skin-vibra.enviando,
+.boton-circular.skin-vibra.exito {
+  animation: vibrar-skin 0.12s linear infinite;
+}
+
+/* Destella: la luz que va y viene. Nada de opacidad —bajarla deja ver el fondo
+   oscuro del botón y en vez de destellar, se apaga— y nada de bajar el brillo
+   por debajo de 1: el verde se vuelve oliva y la imagen se ve sucia, no
+   apagada. Sube y vuelve, con un resplandor que acompaña. */
+@keyframes destellar-skin {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.7) drop-shadow(0 0 10px rgba(165, 255, 46, 0.7)); }
+}
+.skin-destella.enviando .boton-logo,
+.skin-destella.exito .boton-logo {
+  animation: destellar-skin 0.9s ease-in-out infinite;
+}
+/* Y el botón se calla. `pulso-envio` baja la opacidad a 0.45 con el MISMO ciclo
+   de 0.9s y arranca en el mismo instante, así que el botón se apagaba justo
+   cuando la imagen destellaba y no se veía casi nada. Aquí el destello es la
+   señal; no hacen falta dos. */
+.boton-circular.skin-destella.enviando,
+.boton-circular.skin-destella.exito {
+  animation: none;
+}
+
+/* Late fuerte: el latido de siempre pero con cuerpo, creciendo además de
+   brillar. Va en el botón y no en la imagen, porque el aro es parte del latido. */
+@keyframes latir-fuerte-skin {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.05); }
+}
+.boton-circular.skin-late-fuerte.enviando,
+.boton-circular.skin-late-fuerte.exito {
+  animation: latir-fuerte-skin 0.9s ease-in-out infinite,
+             latir-skin 0.9s ease-in-out infinite;
 }
 
 /* Nombre abajo DENTRO del anillo (sobre la franja oscura, no sobre la foto)

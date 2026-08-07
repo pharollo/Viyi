@@ -334,6 +334,11 @@ async function iniciar() {
     ninguna: { id: 'ninguna', nombre: 'Quieto', clase: '' },
     girar: { id: 'girar', nombre: 'Gira', clase: 'skin-gira' },
     latido: { id: 'latido', nombre: 'Palpita', clase: 'skin-late' },
+    balanceo: { id: 'balanceo', nombre: 'Se balancea', clase: 'skin-balancea' },
+    rebote: { id: 'rebote', nombre: 'Rebota', clase: 'skin-rebota' },
+    vibracion: { id: 'vibracion', nombre: 'Vibra', clase: 'skin-vibra' },
+    destello: { id: 'destello', nombre: 'Destella', clase: 'skin-destella' },
+    latidoFuerte: { id: 'latidoFuerte', nombre: 'Late fuerte', clase: 'skin-late-fuerte' },
   };
   let skinsGaleria = [];   // [{ id, nombre, imagen, animacion, tipos, autor, publico }]
 
@@ -1978,16 +1983,32 @@ async function iniciar() {
   // Pulso de mentira, para el vestuario: hace exactamente la misma coreografía
   // de clases que `pulsar` (enviando → éxito, con la duración de esa puerta)
   // para que el vecino sienta el botón, pero no le manda nada al dispositivo.
+  // Es una muestra, no una puerta: el segundo toque la para. Con animaciones de
+  // portón (que duran lo que dure la apertura real) esperar de brazos cruzados
+  // a que termine para probar la siguiente es una espera tonta.
   function pulsarDemo(boton, dispositivo) {
-    if (boton.classList.contains('enviando') || boton.classList.contains('exito')) return;
+    if (boton.classList.contains('enviando') || boton.classList.contains('exito')) {
+      pararDemo(boton);
+      return;
+    }
+    const relojes = [];
+    boton._relojesDemo = relojes;
     boton.classList.add('enviando');
-    setTimeout(() => {
+    relojes.push(setTimeout(() => {
       boton.classList.remove('enviando');
       boton.classList.add('exito');
       const seg = Number(dispositivo.segundosApertura);
       const dur = seg > 0 ? seg * 1000 : (dispositivo.subtipo === 'porton' ? 5000 : 1500);
-      setTimeout(() => boton.classList.remove('exito'), dur);
-    }, 350); // simula lo que tarda el comando en salir
+      relojes.push(setTimeout(() => boton.classList.remove('exito'), dur));
+    }, 350)); // simula lo que tarda el comando en salir
+  }
+
+  // Corta la coreografía a media música. Hay que matar los relojes además de
+  // quitar las clases: si no, el que quedaba vivo vuelve a encender el botón.
+  function pararDemo(boton) {
+    (boton._relojesDemo || []).forEach(clearTimeout);
+    boton._relojesDemo = null;
+    boton.classList.remove('enviando', 'exito');
   }
 
   async function pulsar(boton, dispositivo) {
@@ -4557,9 +4578,9 @@ async function iniciar() {
   // nadie te contó. Así "Gira" deja de ser una promesa y es una demostración.
   //
   // Se reusa el pulso de mentira del demo, que hace la misma coreografía que un
-  // pulso de verdad sin mandarle nada a ningún dispositivo. Y no se encadena: si
-  // pasas rápido por varias opciones, `pulsarDemo` se salta las que llegan
-  // mientras una está corriendo.
+  // pulso de verdad sin mandarle nada a ningún dispositivo. Cambiar de opción
+  // repinta la muestra antes de esto, así que cada elección arranca en limpio
+  // aunque pases rápido por varias.
   function enseñarLaAnimacion() {
     const conFoto = ASPECTOS_IMAGEN[vestAspecto];
     if (!conFoto || !conFoto.clase) return;   // ese skin no se mueve
