@@ -366,6 +366,12 @@ async function iniciar() {
   // (cortina y termostato) y slider (dimmer). Cada uno tiene su CSS.
   const MODOS_PIEL = ['pulso', 'interruptor', 'cortina', 'dimmer', 'termostato'];
   const MODOS_RUEDA = ['cortina', 'termostato', 'dimmer'];   // el rodillo reemplaza el control
+  // Donde el control ES un botón redondo: pulso (puertas, ascensores) e
+  // interruptor (luces, relés). Va AQUÍ, con las otras y antes del catálogo:
+  // `const` no se iza, así que usarla desde `CATALOGO_ASPECTOS` estando
+  // declarada más abajo revienta la app entera al arrancar — y `node --check`
+  // no lo ve, porque de sintaxis está bien.
+  const MODOS_SKIN = ['pulso', 'interruptor'];
   const CATALOGO_ASPECTOS = [
     { id: 'normal', nombre: 'Normal', modos: MODOS_PIEL },
     { id: 'neon', nombre: 'Neón', modos: MODOS_PIEL, piel: true },
@@ -404,7 +410,6 @@ async function iniciar() {
   // es un botón redondo con foto, así que sirve donde el control ES un botón:
   // pulso (puertas, ascensores) e interruptor (luces, relés). `tipos` vacío =
   // sirve para cualquier tipo de dispositivo.
-  const MODOS_SKIN = ['pulso', 'interruptor'];
   // `creado` viaja de tres maneras: Timestamp de Firestore recién traído, el
   // {seconds, nanoseconds} en que se convierte al pasar por localStorage, o
   // nada (los aspectos de fábrica). Sin aplanarlo, comparar fechas ordena por
