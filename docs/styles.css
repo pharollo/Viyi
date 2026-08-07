@@ -987,6 +987,11 @@ button:disabled {
 }
 
 .boton-circular {
+  /* Por lo mismo de `.skin-muestra`: este botón hospeda absolutos (la foto, el
+     aro de Hal, el nombre en el anillo). Hoy funcionan porque van siempre con
+     `.boton-imagen`, que sí se posiciona — o sea, por acompañamiento. Aquí se
+     asegura solo. */
+  position: relative;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1480,6 +1485,17 @@ button:disabled {
 
 /* Muestra (swatch) del selector de skin: mini botón circular. */
 .skin-muestra {
+  /* ⚠️ Esto NO es decoración: sin `position` los adornos de los aspectos se
+     escapan. Las miniaturas llevan la clase del aspecto (`boton-hal`,
+     `boton-bordado`…) y varias de esas clases traen un `::before` absoluto con
+     `inset: 0` — un aro fino. Un absoluto busca el primer ancestro posicionado,
+     y si no hay ninguno se ancla a la PANTALLA: el aro de Hal salía como un
+     óvalo de 2000×1100 cruzando toda la app.
+     Estaba tapado por casualidad: el carrusel le ponía `transform: scale(1)` a
+     cada ficha, y un `transform` también crea contexto para los absolutos. Al
+     cambiar a rejilla se fue el transform y el aro se soltó. Regla: la caja que
+     hospeda adornos absolutos se posiciona ella, no se confía en el vecino. */
+  position: relative;
   width: 58px;
   height: 58px;
   border-radius: 50%;
