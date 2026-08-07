@@ -165,4 +165,7 @@ async function enviar({ apiKey, para, asunto, html, texto }) {
   return resp.json().catch(() => ({}));
 }
 
-module.exports = { plantillaResetClave, plantillaInvitacion, plantillaAccesoDado, enviar, REMITENTE };
+// `maqueta` se exporta para los avisos que no tienen plantilla propia — el del
+// servicio de Tuya a punto de vencer, por ejemplo. Una plantilla entera para un
+// correo de dos frases sería repetir la maqueta por tercera vez.
+module.exports = { plantillaResetClave, plantillaInvitacion, plantillaAccesoDado, maqueta, enviar, REMITENTE };

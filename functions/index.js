@@ -5,10 +5,10 @@ const { defineSecret, defineString } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
 const { GoogleAuth } = require('google-auth-library');
-const { TuyaClient } = require('./tuya');
+const { TuyaClient, esServicioVencido } = require('./tuya');
 const { HomebridgeClient } = require('./homebridge');
 const { ShellyClient } = require('./shelly');
-const { plantillaResetClave, plantillaInvitacion, plantillaAccesoDado, enviar: enviarCorreo } = require('./correo');
+const { plantillaResetClave, plantillaInvitacion, plantillaAccesoDado, maqueta: maquetaCorreo, enviar: enviarCorreo } = require('./correo');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -2223,6 +2223,134 @@ exports.estadoDispositivos = onCall(
 
 // Chequeo automático cada 10 minutos, para que la caída quede registrada con su
 // hora aunque nadie esté mirando el panel.
+// --- Que el servicio de Tuya no se venza sin avisar ------------------------
+//
+// El IoT Core de Tuya es lo que deja abrirle a alguien: sin él, todos los
+// dispositivos Tuya dejan de responder a la vez. Y se contrata por tiempo.
+//
+// El 6 de agosto de 2026 llegó el aviso de vencimiento por correo **el día
+// antes**, y solo porque el dueño abrió ese correo. Sin eso, la primera señal
+// habría sido un vecino parado frente a una puerta que no abre. Eso no puede
+// depender de que alguien lea un correo a tiempo.
+//
+// Dos capas, porque fallan por motivos distintos:
+//
+//   1. **La fecha.** Se guarda cuándo vence y se avisa desde tres semanas
+//      antes, todos los días. Es lo único que da aviso ANTICIPADO — cuando el
+//      servicio ya falló, avisar llega tarde.
+//   2. **El canario.** Una llamada de verdad a Tuya, por si la fecha guardada
+//      quedó vieja o Tuya corta antes de lo dicho. Detecta el corte el mismo
+//      día, aunque nadie haya actualizado nada.
+//
+// La fecha vive en Firestore (`ajustes/tuya.vence`) y no en el código: se
+// renueva cada pocos meses, y un dato que cambia no se despliega.
+const DIAS_DE_AVISO = 21;
+const AJUSTES_TUYA = 'ajustes/tuya';
+
+const enDias = (ms) => Math.ceil(ms / 86400000);
+
+async function avisarAlDueno({ asunto, titulo, cuerpo, apiKey }) {
+  // A los administradores globales: son los que pueden renovar.
+  const snap = await db.collection('usuarios').where('rol', '==', 'admin').get();
+  const correos = snap.docs.map((d) => d.data().email).filter(Boolean);
+  if (!correos.length) {
+    console.error('Nadie a quien avisar:', asunto);
+    return;
+  }
+  const html = maquetaCorreo({
+    titulo,
+    cuerpo,
+    textoBoton: 'Renovar en Tuya',
+    enlace: 'https://www.tuya.com/vas/user/service',
+    cierre: 'ViYi',
+  });
+  for (const para of correos) {
+    await enviarCorreo({ apiKey, para, asunto, html, texto: `${titulo}\n\n${cuerpo}` })
+      .catch((e) => console.error('No pude avisar a', para, e.message));
+  }
+}
+
+exports.vigilarServicioTuya = onSchedule(
+  {
+    ...RARA,
+    // Una vez al día basta: lo que se vigila cambia en semanas, no en minutos.
+    schedule: 'every day 09:00',
+    timeZone: 'America/Caracas',
+    secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, RESEND_API_KEY],
+  },
+  async () => {
+    const ref = db.doc(AJUSTES_TUYA);
+    const guardado = (await ref.get()).data() || {};
+    const apiKey = RESEND_API_KEY.value();
+
+    // --- 1. El canario ---
+    // Una llamada barata y real. Si Tuya contesta, el servicio está vivo. Va
+    // PRIMERO porque es la única fuente de verdad: la fecha guardada es una
+    // nota nuestra y puede estar vieja; esto es el banco contestando.
+    let vivo = true;
+    let motivo = '';
+    try {
+      const tuya = new TuyaClient({
+        baseUrl: TUYA_BASE_URL.value(),
+        clientId: TUYA_CLIENT_ID.value(),
+        clientSecret: TUYA_CLIENT_SECRET.value(),
+      });
+      await tuya.obtenerToken();
+    } catch (err) {
+      // Solo el servicio vencido cuenta como caída. Un fallo de red o un
+      // tropiezo de Tuya no es lo mismo, y avisar por eso sería el cuento del
+      // lobo: a la tercera nadie lee el correo.
+      if (esServicioVencido(err)) { vivo = false; motivo = err.message; }
+      else console.warn('El canario de Tuya no pudo comprobar (no es vencimiento):', err.message);
+    }
+
+    // --- 2. La fecha, para avisar ANTES ---
+    if (!guardado.vence) {
+      // Sin fecha guardada no hay aviso anticipado posible, y eso hay que
+      // decirlo en vez de dar por hecho que todo está bien.
+      console.warn(`Sin fecha de vencimiento en ${AJUSTES_TUYA}: no puedo avisar con antelación.`);
+    } else {
+      const faltan = enDias(new Date(guardado.vence).getTime() - Date.now());
+
+      if (faltan > 0 && faltan <= DIAS_DE_AVISO) {
+        await avisarAlDueno({
+          apiKey,
+          asunto: `ViYi · el servicio de Tuya vence en ${faltan} día${faltan === 1 ? '' : 's'}`,
+          titulo: `Quedan ${faltan} día${faltan === 1 ? '' : 's'}`,
+          cuerpo: `El IoT Core de Tuya vence el ${guardado.vence}. Sin él, los dispositivos Tuya dejan de abrir. `
+            + 'La extensión gratuita tarda uno o dos días hábiles en aprobarse, así que conviene pedirla ya.',
+        });
+      } else if (faltan <= 0 && vivo) {
+        // La fecha pasó y Tuya sigue contestando: se renovó y nadie actualizó la
+        // nota. NO se avisa de un vencimiento que no ocurrió —eso es la falsa
+        // alarma que hace que se dejen de leer los avisos— pero sí queda dicho
+        // que la fecha está vieja, porque mientras lo esté no hay aviso
+        // anticipado la próxima vez.
+        console.warn(
+          `La fecha de Tuya (${guardado.vence}) ya pasó y el servicio responde: se renovó. `
+          + `Actualiza \`vence\` en ${AJUSTES_TUYA} o el próximo vencimiento llegará sin aviso.`
+        );
+      }
+    }
+
+    // Se avisa UNA vez por caída, no todos los días: un correo diario sobre algo
+    // que ya sabes se vuelve ruido y se deja de leer.
+    if (!vivo && !guardado.caido) {
+      await avisarAlDueno({
+        apiKey,
+        asunto: 'ViYi · Tuya dejó de responder — servicio vencido',
+        titulo: 'Los dispositivos Tuya no responden',
+        cuerpo: `Tuya está rechazando las llamadas por falta de servicio: ${motivo}. `
+          + 'Hasta que se renueve, los botones de dispositivos Tuya no van a abrir. '
+          + 'Los de Homebridge y Shelly siguen funcionando.',
+      });
+    }
+    if (vivo !== !guardado.caido) {
+      await ref.set({ caido: !vivo, revisado: new Date().toISOString() }, { merge: true });
+    }
+  },
+);
+
 exports.revisarConexionProgramada = onSchedule(
   { ...RARA, schedule: 'every 10 minutes', timeZone: 'America/Caracas', secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY] },
   async () => {

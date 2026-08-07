@@ -4,6 +4,36 @@ function sha256(texto) {
   return crypto.createHash('sha256').update(texto, 'utf8').digest('hex');
 }
 
+// "El servicio se venció" no es un fallo más.
+//
+// El IoT Core de Tuya —lo que deja mandarle comandos a un dispositivo— se
+// contrata por tiempo y caduca con fecha. Cuando caduca, TODAS las llamadas
+// empiezan a fallar a la vez, y el mensaje del banco de errores genérico
+// ("Tuya rechazó /v1.0/…") manda a buscar el problema al sitio equivocado: se
+// revisa el dispositivo, el wifi, la cuenta… cuando lo que hay que hacer es
+// renovar en el panel de Tuya.
+//
+// Se reconoce por el código y por el texto, no solo por uno: Tuya devuelve
+// 1106 y 28841105 para permisos y suscripción, y los mensajes hablan de "not
+// subscribed" o "permission". Con puertas de por medio, es mejor pasarse de
+// listo aquí que dejar el diagnóstico al azar.
+const CODIGOS_SIN_SERVICIO = new Set([1106, 28841002, 28841105]);
+
+function esServicioVencido(err) {
+  if (!err) return false;
+  if (err.codigoTuya && CODIGOS_SIN_SERVICIO.has(Number(err.codigoTuya))) return true;
+  return /not\s*subscrib|no\s*permission|permission\s*deny|expired?\b/i.test(err.message || '');
+}
+
+// El error lleva pegado el código de Tuya, para no tener que sacarlo del texto
+// más adelante.
+function errorDeTuya(path, data) {
+  return Object.assign(
+    new Error(`Tuya rechazó ${path}: ${data.msg} (código ${data.code})`),
+    { codigoTuya: data.code }
+  );
+}
+
 class TuyaClient {
   constructor({ baseUrl, clientId, clientSecret }) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
@@ -33,7 +63,7 @@ class TuyaClient {
     });
     const data = await res.json();
     if (!data.success) {
-      throw new Error(`Tuya rechazó ${path}: ${data.msg} (código ${data.code})`);
+      throw errorDeTuya(path, data);
     }
     return data.result;
   }
@@ -87,7 +117,7 @@ class TuyaClient {
     });
     const data = await res.json();
     if (!data.success) {
-      throw new Error(`Tuya rechazó ${path}: ${data.msg} (código ${data.code})`);
+      throw errorDeTuya(path, data);
     }
     return data.result;
   }
@@ -173,4 +203,4 @@ class TuyaClient {
   }
 }
 
-module.exports = { TuyaClient };
+module.exports = { TuyaClient, esServicioVencido };
