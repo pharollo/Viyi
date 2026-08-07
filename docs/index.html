@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=300">
+  <link rel="stylesheet" href="styles.css?v=302">
 </head>
 <body>
   <header>
@@ -237,6 +237,15 @@
                  están en el botón. Un botón que hay que tocar deja claro qué se
                  grabó y cuándo. -->
             <button type="button" id="btn-guardar-estilo" class="btn-primario vest-guardar" disabled>Guardar</button>
+            <!-- Solo aparece con un diseño TUYO elegido. Cambiarle el nombre o
+                 la animación obligaba a abrir el taller de fabricar y buscarlo
+                 en una lista: abrir "haz uno nuevo" para editar el que llevas
+                 puesto. Y su mensaje va aquí y no en `#skin-msg`, que vive
+                 dentro del taller: con el taller recogido, un fallo se
+                 escribiría donde nadie lo ve. -->
+            <button type="button" id="btn-editar-skin" class="btn-secundario vest-editar oculto">Editar diseño</button>
+            <div id="vest-editor" class="oculto"></div>
+            <p id="vest-editor-msg" class="oculto"></p>
             <p id="vest-guardado" class="vest-guardado">Estilo guardado</p>
             <p id="vest-nota" class="vest-ayuda vest-nota oculto"></p>
           </div>
@@ -355,6 +364,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=303"></script>
+  <script type="module" src="app.js?v=304"></script>
 </body>
 </html>

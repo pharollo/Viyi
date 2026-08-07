@@ -4693,6 +4693,7 @@ async function iniciar() {
     // Al abrir el Locker, lo puesto ya está guardado: el botón nace apagado
     // diciendo "Guardado", que es la señal de que no hay nada pendiente.
     refrescarBotonEstilo();
+    refrescarEditorSkin();
   }
 
   // Aplica la opción elegida: repinta el demo y la guarda. Lo llaman tanto el
@@ -4707,9 +4708,34 @@ async function iniciar() {
     if (!vestDisp || !asp || asp === vestAspecto) return;
     vestAspecto = asp;
     marcarElegida();
+    refrescarEditorSkin();
     pintarDemoVestuario();
     enseñarLaAnimacion();
     refrescarBotonEstilo();
+  }
+
+  // El diseño elegido, si es de la galería (los de fábrica no se editan: son
+  // parte de la app, no de nadie).
+  const skinElegido = () => skinsGaleria.find((s) => s.id === vestAspecto) || null;
+
+  // Enseña "Editar diseño" solo cuando hay algo tuyo elegido, y recoge el
+  // editor al cambiar de diseño: dejarlo abierto con OTRO skin delante haría
+  // que editaras el que ya no estás mirando.
+  function refrescarEditorSkin() {
+    const s = skinElegido();
+    const puedo = puedoEditarSkin(s);
+    $('btn-editar-skin').classList.toggle('oculto', !puedo);
+    $('vest-editor').classList.add('oculto');
+    $('vest-editor').textContent = '';
+    msgEditorSkin('');
+  }
+
+  function msgEditorSkin(texto, error) {
+    const el = $('vest-editor-msg');
+    el.textContent = texto || '';
+    el.classList.toggle('oculto', !texto);
+    el.classList.toggle('mensaje-error', !!error);
+    el.classList.toggle('mensaje-ok', !error && !!texto);
   }
 
   // El anillo verde sigue a lo que tienes elegido, no a lo guardado.
@@ -4829,6 +4855,16 @@ async function iniciar() {
     }
   });
 
+  $('btn-editar-skin').addEventListener('click', () => {
+    const caja = $('vest-editor');
+    if (!caja.classList.contains('oculto')) { caja.classList.add('oculto'); return; }
+    const s = skinElegido();
+    if (!puedoEditarSkin(s)) return;
+    caja.textContent = '';
+    caja.appendChild(editorDeSkin(s, msgEditorSkin));
+    caja.classList.remove('oculto');
+  });
+
   $('vest-disp').addEventListener('change', (e) => {
     const d = dispConAspectos().find((x) => x.id === e.target.value);
     if (!d) return;
@@ -4839,6 +4875,7 @@ async function iniciar() {
     // Cada dispositivo tiene su propio estilo guardado: al cambiar de uno a
     // otro el botón vuelve a decir la verdad de ESTE.
     refrescarBotonEstilo();
+    refrescarEditorSkin();
   });
   // Tocar una opción la elige. Punto. Antes esto convivía con elegir-por-scroll
   // —el carrusel decidía al asentarse— y de esa convivencia salieron tres bugs:
@@ -5156,15 +5193,118 @@ async function iniciar() {
   // Cada skin de la lista se puede editar: cambiar el nombre, la animación o a
   // qué tipos aplica SIN volver a generar la imagen (equivocarse de nombre no
   // debe costar otra generación).
+  // El editor de un diseño: nombre, animación, para qué sirve, y sus acciones.
+  //
+  // Vive aparte porque lo usan DOS sitios: la lista del taller y la propia
+  // galería, al tener elegido un diseño tuyo. Antes solo existía en la lista, o
+  // sea que para cambiarle el nombre a un botón había que abrir el taller de
+  // fabricar y buscarlo ahí abajo — abrir "haz uno nuevo" para editar el que ya
+  // tienes puesto.
+  //
+  // `avisar` lo pone quien lo usa, y no es un detalle: los mensajes de la lista
+  // van a `#skin-msg`, que vive DENTRO del taller. Desde la galería, con el
+  // taller recogido, un "no se pudo guardar" se escribiría donde nadie lo ve.
+  function editorDeSkin(s, avisar) {
+    const editor = document.createElement('div');
+    editor.className = 'skin-editor';
+    editor.innerHTML = '<label class="campo-perfil">Nombre'
+      + `<input type="text" class="ed-nombre" maxlength="24" value="${escapar(s.nombre)}"></label>`
+      + '<label class="campo-perfil">Al activarse<select class="ed-animacion">'
+      + Object.values(ANIMACIONES_SKIN).map((a) =>
+        `<option value="${a.id}"${a.id === (s.animacion || 'ninguna') ? ' selected' : ''}>${a.nombre}</option>`).join('')
+      + '</select></label>'
+      + '<div class="campo-perfil">Para<div class="skin-tipos ed-tipos"></div></div>';
+    pintarChipsTipos(editor.querySelector('.ed-tipos'), s.tipos);
+
+    const soyAdmin = usuarioActual && usuarioActual.rol === 'admin';
+    const pendiente = s.publico === false;
+
+    const acciones = document.createElement('div');
+    acciones.className = 'skin-acciones';
+
+    const guardar = document.createElement('button');
+    guardar.type = 'button';
+    guardar.className = 'btn-secundario';
+    // "Guardar cambios" y no "Guardar": en la galería este botón convive con el
+    // Guardar del aspecto (el que te lo pone), y dos "Guardar" a la vista
+    // obligan a adivinar cuál hace qué.
+    guardar.textContent = 'Guardar cambios';
+    guardar.addEventListener('click', async () => {
+      const nombre = editor.querySelector('.ed-nombre').value.trim();
+      if (!nombre) { avisar('Ponle un nombre.', true); return; }
+      guardar.disabled = true;
+      try {
+        await adminSkins({
+          accion: 'editar',
+          id: s.id,
+          nombre,
+          animacion: editor.querySelector('.ed-animacion').value,
+          tipos: tiposElegidos(editor.querySelector('.ed-tipos')),
+        });
+        await refrescarSkins();
+        avisar('Guardado.');
+      } catch (err) {
+        avisar((err && err.message) || 'No se pudo guardar.', true);
+        guardar.disabled = false;
+      }
+    });
+
+    const borrar = document.createElement('button');
+    borrar.type = 'button';
+    borrar.className = 'btn-borrar-skin';
+    borrar.textContent = 'Borrar';
+    borrar.addEventListener('click', async () => {
+      // Los vecinos que lo tuvieran puesto vuelven solos a su botón normal:
+      // aspectoDe() valida contra el catálogo y descarta lo que ya no existe.
+      if (!confirm(`¿Borrar "${s.nombre}" de la galería?`)) return;
+      borrar.disabled = true;
+      try {
+        await adminSkins({ accion: 'eliminar', id: s.id });
+        await refrescarSkins();
+      } catch (err) {
+        avisar((err && err.message) || 'No se pudo borrar.', true);
+        borrar.disabled = false;
+      }
+    });
+    acciones.append(guardar, borrar);
+
+    // Curaduría, solo para el admin: abrir el botón de un vecino a la galería o
+    // retirarlo. Retirar NO borra: su autor lo sigue usando.
+    if (soyAdmin) {
+      const publicar = document.createElement('button');
+      publicar.type = 'button';
+      publicar.className = 'btn-secundario';
+      publicar.textContent = pendiente ? 'Publicar en la galería' : 'Quitar de la galería';
+      publicar.addEventListener('click', async () => {
+        publicar.disabled = true;
+        try {
+          await adminSkins({ accion: 'aprobar', id: s.id, publico: pendiente });
+          await refrescarSkins();
+          avisar(pendiente ? 'Publicado en la galería.' : 'Retirado de la galería.');
+        } catch (err) {
+          avisar((err && err.message) || 'No se pudo cambiar.', true);
+          publicar.disabled = false;
+        }
+      });
+      acciones.appendChild(publicar);
+    }
+    editor.appendChild(acciones);
+    return editor;
+  }
+
+  // Un vecino solo administra LO SUYO: ofrecerle el botón de otro para que el
+  // backend se lo niegue sería enseñar una puerta cerrada. El admin lo ve todo,
+  // que es como cura la galería.
+  function puedoEditarSkin(s) {
+    if (!s) return false;
+    if (usuarioActual && usuarioActual.rol === 'admin') return true;
+    return Boolean(usuarioActual && s.autor === usuarioActual.uid);
+  }
+
   function pintarListaSkins() {
     const cont = $('skin-lista');
     cont.textContent = '';
-    const soyAdmin = usuarioActual && usuarioActual.rol === 'admin';
-    const uid = (usuarioActual && usuarioActual.uid) || '';
-    // Un vecino solo administra LO SUYO: en la lista no tiene nada que hacer con
-    // el botón de otro, y ofrecérselo para que el backend se lo niegue sería
-    // enseñar una puerta cerrada. El admin ve todo, que es como cura la galería.
-    const mios = soyAdmin ? skinsGaleria : skinsGaleria.filter((s) => s.autor === uid);
+    const mios = skinsGaleria.filter(puedoEditarSkin);
     if (!mios.length) return;
     for (const s of mios) {
       const caja = document.createElement('div');
@@ -5174,87 +5314,11 @@ async function iniciar() {
       fila.className = 'skin-fila';
       // "Esperando" es el estado normal de un botón recién hecho por un vecino:
       // ya lo puede usar, lo que falta es que el admin lo abra a los demás.
-      const pendiente = s.publico === false;
       fila.innerHTML = `<img src="${s.imagen}" alt=""><span>${escapar(s.nombre)}</span>`
-        + (pendiente ? '<span class="skin-estado">esperando</span>' : '');
+        + (s.publico === false ? '<span class="skin-estado">esperando</span>' : '');
 
-      const editor = document.createElement('div');
-      editor.className = 'skin-editor oculto';
-      editor.innerHTML = '<label class="campo-perfil">Nombre'
-        + `<input type="text" class="ed-nombre" maxlength="24" value="${escapar(s.nombre)}"></label>`
-        + '<label class="campo-perfil">Al activarse<select class="ed-animacion">'
-        + Object.values(ANIMACIONES_SKIN).map((a) =>
-          `<option value="${a.id}"${a.id === (s.animacion || 'ninguna') ? ' selected' : ''}>${a.nombre}</option>`).join('')
-        + '</select></label>'
-        + '<div class="campo-perfil">Para<div class="skin-tipos ed-tipos"></div></div>';
-      pintarChipsTipos(editor.querySelector('.ed-tipos'), s.tipos);
-
-      const acciones = document.createElement('div');
-      acciones.className = 'skin-acciones';
-      const guardar = document.createElement('button');
-      guardar.type = 'button';
-      guardar.className = 'btn-secundario';
-      guardar.textContent = 'Guardar';
-      guardar.addEventListener('click', async () => {
-        const nombre = editor.querySelector('.ed-nombre').value.trim();
-        if (!nombre) { msgSkin('Ponle un nombre.', true); return; }
-        guardar.disabled = true;
-        try {
-          await adminSkins({
-            accion: 'editar',
-            id: s.id,
-            nombre,
-            animacion: editor.querySelector('.ed-animacion').value,
-            tipos: tiposElegidos(editor.querySelector('.ed-tipos')),
-          });
-          await refrescarSkins();
-          msgSkin('Guardado.');
-        } catch (err) {
-          msgSkin((err && err.message) || 'No se pudo guardar.', true);
-          guardar.disabled = false;
-        }
-      });
-
-      const borrar = document.createElement('button');
-      borrar.type = 'button';
-      borrar.className = 'btn-borrar-skin';
-      borrar.textContent = 'Borrar';
-      borrar.addEventListener('click', async () => {
-        // Los vecinos que lo tuvieran puesto vuelven solos a su botón normal:
-        // aspectoDe() valida contra el catálogo y descarta lo que ya no existe.
-        if (!confirm(`¿Borrar "${s.nombre}" de la galería?`)) return;
-        borrar.disabled = true;
-        try {
-          await adminSkins({ accion: 'eliminar', id: s.id });
-          await refrescarSkins();
-        } catch (err) {
-          msgSkin((err && err.message) || 'No se pudo borrar.', true);
-          borrar.disabled = false;
-        }
-      });
-      acciones.append(guardar, borrar);
-      // Curaduría, solo para el admin: abrir el botón de un vecino a la galería o
-      // retirarlo. Retirar NO borra: su autor lo sigue usando.
-      if (soyAdmin) {
-        const publicar = document.createElement('button');
-        publicar.type = 'button';
-        publicar.className = 'btn-secundario';
-        publicar.textContent = pendiente ? 'Publicar en la galería' : 'Quitar de la galería';
-        publicar.addEventListener('click', async () => {
-          publicar.disabled = true;
-          try {
-            await adminSkins({ accion: 'aprobar', id: s.id, publico: pendiente });
-            await refrescarSkins();
-            msgSkin(pendiente ? 'Publicado en la galería.' : 'Retirado de la galería.');
-          } catch (err) {
-            msgSkin((err && err.message) || 'No se pudo cambiar.', true);
-            publicar.disabled = false;
-          }
-        });
-        acciones.appendChild(publicar);
-      }
-      editor.appendChild(acciones);
-
+      const editor = editorDeSkin(s, msgSkin);
+      editor.classList.add('oculto');
       fila.addEventListener('click', () => editor.classList.toggle('oculto'));
       caja.append(fila, editor);
       cont.appendChild(caja);
