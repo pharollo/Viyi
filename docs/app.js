@@ -334,11 +334,11 @@ async function iniciar() {
     ninguna: { id: 'ninguna', nombre: 'Quieto', clase: '' },
     girar: { id: 'girar', nombre: 'Gira', clase: 'skin-gira' },
     latido: { id: 'latido', nombre: 'Palpita', clase: 'skin-late' },
+    latidoFuerte: { id: 'latidoFuerte', nombre: 'Late fuerte', clase: 'skin-late-fuerte' },
     balanceo: { id: 'balanceo', nombre: 'Se balancea', clase: 'skin-balancea' },
     rebote: { id: 'rebote', nombre: 'Rebota', clase: 'skin-rebota' },
     vibracion: { id: 'vibracion', nombre: 'Vibra', clase: 'skin-vibra' },
     destello: { id: 'destello', nombre: 'Destella', clase: 'skin-destella' },
-    latidoFuerte: { id: 'latidoFuerte', nombre: 'Late fuerte', clase: 'skin-late-fuerte' },
   };
   let skinsGaleria = [];   // [{ id, nombre, imagen, animacion, tipos, autor, publico }]
 
