@@ -2008,15 +2008,21 @@ async function iniciar() {
     boton.addEventListener('pointerdown', jetDesbloquear, { passive: true });
     boton.addEventListener('click', () => {
       if (dispositivo.modo === 'interruptor') {
-        // Aquí NO se adivina: la palanca baja o sube según lo que diga el
-        // aparato, así que el sonido espera al cambio de estado real.
+        // El clic suena YA, en la dirección hacia la que la empujas. La palanca
+        // en cambio no se mueve hasta que el aparato confirma, porque enseña el
+        // estado real y no lo que quisiste.
+        //
+        // Antes el sonido también esperaba a la confirmación, "por no adivinar".
+        // Estaba mal pensado y se notó: con un interruptor de Tuya (Lobby) el
+        // clic llegaba tarde, mientras que en una puerta salía al instante. El
+        // clic es el MECANISMO bajo el dedo; que la luz encienda es el
+        // resultado, y son dos cosas distintas. Si el comando falla, oíste el
+        // clic y la palanca no se movió — que es exactamente lo que pasa al
+        // accionar un interruptor que no engancha.
         const antes = boton.classList.contains('activo');
-        if (demo) { pintarEstado(boton, !antes); pilderSonar(antes ? 'bajar' : 'subir'); return; }
-        alternar(boton, dispositivo).then(() => {
-          if (boton.classList.contains('activo') !== antes) {
-            pilderSonar(antes ? 'bajar' : 'subir');
-          }
-        });
+        pilderSonar(antes ? 'bajar' : 'subir');
+        if (demo) { pintarEstado(boton, !antes); return; }
+        alternar(boton, dispositivo);
         return;
       }
       // Puerta: sube ya —el chasquido es la respuesta al toque— y el de bajar
