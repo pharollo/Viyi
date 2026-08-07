@@ -1692,7 +1692,25 @@ const MAX_IMAGEN_SKIN = 220000;
 // es lo que evita que un rato de juego se convierta en una factura. Al admin no
 // se le aplica: él es quien cura la galería. Subir del carrete NO cuenta —no
 // cuesta nada— y por eso quien agote el día todavía puede hacer su botón.
-const MAX_IA_DIA = 3;
+//
+// El número vive en Firestore (`ajustes/skins.maxIaDia`) y no en el código: es
+// un dato que cambia según cuánta gente haya usando la app, y un dato que
+// cambia no se despliega. **0 = sin tope.** Si el campo no está, manda este
+// valor — que falte no puede significar barra libre por accidente.
+const AJUSTES_SKINS = 'ajustes/skins';
+const MAX_IA_DIA_DEFECTO = 3;
+
+async function topeIaDia() {
+  try {
+    const n = Number(((await db.doc(AJUSTES_SKINS).get()).data() || {}).maxIaDia);
+    return Number.isFinite(n) && n >= 0 ? n : MAX_IA_DIA_DEFECTO;
+  } catch (e) {
+    // Si no se puede leer el ajuste se aplica el tope de siempre. Fallar hacia
+    // "sin tope" convertiría un problema de Firestore en una factura.
+    console.error('No pude leer el tope de generaciones:', e.message);
+    return MAX_IA_DIA_DEFECTO;
+  }
+}
 
 // El día se cuenta en hora de Venezuela (UTC-4), no en UTC: si no, el cupo se
 // reiniciaría a las 8 de la noche y "3 al día" no significaría lo que parece.
@@ -1704,21 +1722,27 @@ function diaLocal() {
 // transacción porque el cupo es lo único que separa el juego de la factura: dos
 // toques rápidos al botón no deben colarse los dos.
 async function consumirCupoIA(uid) {
+  const tope = await topeIaDia();
+  // Sin tope no se lleva la cuenta: escribir un contador que nadie mira es
+  // gastar una transacción por gusto. `null` hace que la app no diga nada de
+  // cupo, igual que con el admin.
+  if (!tope) return null;
+
   const ref = db.doc(`usuarios/${uid}`);
   const hoy = diaLocal();
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const previo = (snap.exists && snap.data().iaSkins) || {};
     const usadas = previo.dia === hoy ? Number(previo.n) || 0 : 0;
-    if (usadas >= MAX_IA_DIA) {
+    if (usadas >= tope) {
       throw new HttpsError(
         'resource-exhausted',
-        `Ya generaste ${MAX_IA_DIA} botones hoy. Mañana tienes otros ${MAX_IA_DIA}, `
-        + 'y mientras puedes subir una foto del carrete.',
+        `Ya generaste ${tope} ${tope === 1 ? 'botón' : 'botones'} hoy. Mañana tienes `
+        + `${tope === 1 ? 'otro' : 'otros ' + tope}, y mientras puedes subir una foto del carrete.`,
       );
     }
     tx.set(ref, { iaSkins: { dia: hoy, n: usadas + 1 } }, { merge: true });
-    return MAX_IA_DIA - usadas - 1;
+    return tope - usadas - 1;
   });
 }
 
@@ -1731,8 +1755,6 @@ async function consumirCupoIA(uid) {
 //
 // La marca del día vive en `ajustes/skins.avisado` y se cuenta en hora de
 // Venezuela, igual que el cupo de IA.
-const AJUSTES_SKINS = 'ajustes/skins';
-
 async function avisarDeSkinsEsperando({ apiKey, nombre, autor }) {
   const ref = db.doc(AJUSTES_SKINS);
   const hoy = diaLocal();
@@ -1906,8 +1928,10 @@ exports.adminSkins = onCall({ timeoutSeconds: 120, secrets: [RESEND_API_KEY] }, 
       }
       throw new HttpsError('internal', `El generador respondió: ${ultimoError}`);
     } catch (err) {
-      // Sin imagen no se cobra el intento: el vecino no hizo nada mal.
-      if (!soyAdmin) await devolverCupoIA(uid);
+      // Sin imagen no se cobra el intento: el vecino no hizo nada mal. Solo se
+      // devuelve si se llegó a cobrar — con el admin y sin tope no se cobró
+      // nada, y restar de una cuenta que nadie lleva es escribir por gusto.
+      if (restantes !== null) await devolverCupoIA(uid);
       throw err;
     }
   }
