@@ -2133,13 +2133,15 @@ async function iniciar() {
     const relojes = [];
     boton._relojesDemo = relojes;
     boton.classList.add('enviando');
+    const ESPERA_FINGIDA = 350;   // lo que tarda el comando en salir
     relojes.push(setTimeout(() => {
       boton.classList.remove('enviando');
       boton.classList.add('exito');
-      const seg = Number(dispositivo.segundosApertura);
-      const dur = seg > 0 ? seg * 1000 : (dispositivo.subtipo === 'porton' ? 5000 : 1500);
-      relojes.push(setTimeout(() => boton.classList.remove('exito'), dur));
-    }, 350)); // simula lo que tarda el comando en salir
+      // Menos la espera fingida, por lo mismo que en `pulsar`: la muestra tiene
+      // que durar lo que dura de verdad, no eso más el viaje.
+      const queda = Math.max(0, duracionAbierto(dispositivo) - ESPERA_FINGIDA);
+      relojes.push(setTimeout(() => boton.classList.remove('exito'), queda));
+    }, ESPERA_FINGIDA));
   }
 
   // Corta la coreografía a media música. Hay que matar los relojes además de
@@ -2150,20 +2152,35 @@ async function iniciar() {
     boton.classList.remove('enviando', 'exito');
   }
 
+  // Cuánto se queda "activo" un control tras pulsarlo: lo que tarda ESA puerta
+  // en abrir (`segundosApertura`, por dispositivo). Con eso cualquier animación
+  // —persianas, bordado girando, el ojo de Hal, la palanca del Pilder— acompaña
+  // al portón real en vez de durar lo que le parezca.
+  function duracionAbierto(dispositivo) {
+    const seg = Number(dispositivo.segundosApertura);
+    return seg > 0 ? seg * 1000 : (dispositivo.subtipo === 'porton' ? 5000 : 1500);
+  }
+
   async function pulsar(boton, dispositivo) {
     if (boton.classList.contains('enviando')) return;
+    // El reloj arranca en el TOQUE, no cuando contesta el servidor.
+    //
+    // El control se enciende al tocarlo (`enviando`) y antes se le sumaba
+    // encima la duración entera al recibir respuesta, así que un portón puesto
+    // en 1 segundo se quedaba encendido el viaje a la nube MÁS ese segundo —dos
+    // o tres en total— y no se parecía al número configurado. Se notó con la
+    // palanca del Pilder, que al quedarse arriba lo hace evidente; a las otras
+    // animaciones les pasaba igual sin que saltara a la vista.
+    //
+    // El suelo sigue siendo el viaje de ida y vuelta: no se puede apagar antes
+    // de saber si la puerta abrió.
+    const desdeElToque = Date.now();
     boton.classList.add('enviando');
     try {
       await ejecutarComando({ dispositivoId: dispositivo.id });
       boton.classList.add('exito');
-      // Cuánto se queda "activo" el botón = lo que tarda ESA puerta en abrir
-      // (segundosApertura, configurable por dispositivo). Con eso cualquier
-      // animación —persianas, bordado girando, ojo de Hal latiendo— acompaña al
-      // portón real. Sin el dato, se mantiene el comportamiento de antes.
-      const seg = Number(dispositivo.segundosApertura);
-      const duracionExito = seg > 0 ? seg * 1000
-        : (dispositivo.subtipo === 'porton' ? 5000 : 1500);
-      setTimeout(() => boton.classList.remove('exito'), duracionExito);
+      const queda = Math.max(0, duracionAbierto(dispositivo) - (Date.now() - desdeElToque));
+      setTimeout(() => boton.classList.remove('exito'), queda);
     } catch (err) {
       toast(err.message || 'No se pudo enviar el comando.', 'error');
     } finally {
