@@ -1769,7 +1769,7 @@ async function avisarDeSkinsEsperando({ apiKey, nombre, autor }) {
       asunto: count === 1 ? 'ViYi · un botón espera tu aprobación' : `ViYi · ${count} botones esperan tu aprobación`,
       titulo: 'Botones esperando',
       cuerpo: `${cuantos} Mientras no lo apruebes solo lo ve quien lo hizo, así que nadie más puede ponérselo. `
-        + 'Los tienes en Perfil → Locker → Crear un botón, marcados como "esperando".',
+        + 'Los tienes en Locker → Diseñar botón, marcados como "esperando".',
       textoBoton: 'Abrir ViYi',
       enlace: 'https://www.viyi.ai/',
     });

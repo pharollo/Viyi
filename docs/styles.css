@@ -1827,29 +1827,44 @@ button:disabled {
 /* Carrusel de opciones: la centrada es la elegida (coverflow como el de los
    dispositivos). El padding lateral deja que la primera y la última se
    centren. */
+/* La galería del Locker: rejilla, no carrusel.
+   Era una fila horizontal con coverflow. Con cuatro opciones lucía; con veinte
+   se volvía una tira sin orden en la que había que arrastrar a ciegas para ver
+   si quedaba algo. En rejilla se ven todas de golpe.
+   `auto-fill` en vez de tres columnas fijas: en el teléfono salen tres y en una
+   pantalla ancha las que quepan, sin un segundo juego de medidas. */
 .vest-opciones {
-  display: flex;
-  gap: 0;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 16px 4px;
+  padding: 6px 0;
+  max-height: 46vh;
+  overflow-y: auto;
   scrollbar-width: none;
-  padding: 6px calc(50% - 46px);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
 }
 .vest-opciones::-webkit-scrollbar { display: none; }
 
-.vest-opciones .skin-op {
-  flex: 0 0 92px;
-  scroll-snap-align: center;
-  transition: transform 0.12s ease, opacity 0.12s ease;
+/* Los encabezados de grupo ocupan la fila entera; si no, se colocarían como
+   una ficha más y el grupo empezaría a media línea. */
+.vest-grupo {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
 }
-/* La centrada se marca en verde; el carrusel ya le da escala y opacidad. */
-.vest-opciones .skin-op.enfoque .skin-muestra {
+.vest-grupo:first-child { margin-top: 0; }
+
+/* La elegida se marca en verde. Antes esto colgaba de `.enfoque` —la que el
+   coverflow tenía centrada—, que en una rejilla no significa nada: ahora es
+   `.activa`, que la pone quien pinta. */
+.vest-opciones .skin-op.activa .skin-muestra {
   outline: 2px solid var(--primario);
   outline-offset: 3px;
 }
-.vest-opciones .skin-op.enfoque .skin-nom { color: var(--primario); }
+.vest-opciones .skin-op.activa .skin-nom { color: var(--primario); }
 
 .vest-nota {
   margin: 18px 0 0;
@@ -1925,6 +1940,15 @@ button:disabled {
   font-size: 12px;
   color: var(--texto-suave);
   font-weight: 600;
+  /* El nombre se queda dentro de su ficha. Sin tope se sale por los lados y
+     pisa al vecino — le pasa a "Diseñar botón" y le pasaba ya a cualquier skin
+     de nombre largo (se admiten hasta 24 caracteres). Parte en dos líneas en
+     vez de recortar con puntos suspensivos: el nombre es lo único que dice qué
+     es cada ficha, y medio nombre no lo dice. */
+  max-width: 84px;
+  text-align: center;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 .skin-op.activa .skin-muestra {
   outline: 2px solid var(--primario);

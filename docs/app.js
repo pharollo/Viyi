@@ -400,12 +400,27 @@ async function iniciar() {
   // pulso (puertas, ascensores) e interruptor (luces, relés). `tipos` vacío =
   // sirve para cualquier tipo de dispositivo.
   const MODOS_SKIN = ['pulso', 'interruptor'];
+  // `creado` viaja de tres maneras: Timestamp de Firestore recién traído, el
+  // {seconds, nanoseconds} en que se convierte al pasar por localStorage, o
+  // nada (los aspectos de fábrica). Sin aplanarlo, comparar fechas ordena por
+  // casualidad.
+  function milisegundosDe(creado) {
+    if (!creado) return 0;
+    if (typeof creado.toMillis === 'function') return creado.toMillis();
+    if (typeof creado.seconds === 'number') return creado.seconds * 1000;
+    const t = Date.parse(creado);
+    return Number.isNaN(t) ? 0 : t;
+  }
+
   function catalogoAspectos() {
     return CATALOGO_ASPECTOS.concat(skinsGaleria.map((s) => ({
       id: s.id,
       nombre: s.nombre,
       modos: MODOS_SKIN,
       tipos: Array.isArray(s.tipos) && s.tipos.length ? s.tipos : null,
+      // Para separar los recién llegados. Los de fábrica no la tienen —nacieron
+      // con la app— y por eso nunca caen en "Nuevos".
+      creado: milisegundosDe(s.creado),
     })));
   }
 
@@ -4317,6 +4332,10 @@ async function iniciar() {
     if (dispositivo) vestDisp = dispositivo;
     mostrarTab('tab-locker');
     cerrarMenu();
+    // El taller se recoge al ENTRAR, no al repintar. Si estuviera en
+    // `renderVestuario` se cerraría solo justo después de publicar un botón,
+    // que es cuando `refrescarSkins` repinta — en las manos de quien lo usaba.
+    $('seccion-crear-skin').classList.add('oculto');
     renderVestuario();   // se arma con los dispositivos que ve hoy
   }
   $('info-usuario').addEventListener('click', abrirPerfil);
@@ -4524,10 +4543,11 @@ async function iniciar() {
   // son perillas/sliders y todavía no tienen aspectos, así que quedan fuera.
   const dispConAspectos = () => (misDispositivos || []).filter((d) => aspectosDe(d).length > 1);
 
+  // Cuánto dura siendo "nuevo" un diseño de la galería.
+  const DIAS_NUEVO = 14;
+
   let vestDisp = null;      // dispositivo que se está vistiendo
   let vestAspecto = null;   // opción centrada en el carrusel
-  let vestTimer = null;
-  let vestTocado = false;   // ¿el último scroll del carrusel lo hizo el dedo?
 
   // Pinta el demo: el control REAL del dispositivo con el aspecto elegido, pero
   // en modo demo (se toca y se anima, sin mandarle nada al portón).
@@ -4552,57 +4572,67 @@ async function iniciar() {
     const cont = $('vest-opciones');
     cont.textContent = '';
     if (!vestDisp) return;
+
+    // Rejilla, no fila.
+    //
+    // Era un carrusel horizontal con coverflow: bonito con cuatro opciones,
+    // inservible con veinte —todo en una línea, sin orden, y para ver el final
+    // había que arrastrar a ciegas—. En rejilla se ven de golpe, y de paso se
+    // va la máquina que más errores ha dado del proyecto (centrar la elegida,
+    // elegir por scroll, el enfoque); aquí elegir es tocar, y ya.
     const ops = aspectosDe(vestDisp);
-    for (const a of ops) {
+    const marca = (a) => {
       const m = muestraAspecto(a, vestDisp);
       const op = document.createElement('button');
       op.type = 'button';
-      op.className = 'skin-op';
+      op.className = 'skin-op' + (a.id === vestAspecto ? ' activa' : '');
       op.dataset.aspecto = a.id;
       op.innerHTML = `<span class="skin-muestra ${m.clase}">${m.html}</span>`
         + `<span class="skin-nom">${escapar(a.nombre)}</span>`;
-      cont.appendChild(op);
+      return op;
+    };
+    const titulo = (texto) => {
+      const h = document.createElement('h3');
+      h.className = 'vest-grupo';
+      h.textContent = texto;
+      return h;
+    };
+
+    // "Nuevo" es por fecha y no por posición: con un número fijo ("los 6
+    // últimos") el grupo nunca se vacía y acaba llamando nuevo a algo de hace
+    // medio año. Así, cuando no hay novedades el grupo desaparece solo.
+    const desde = Date.now() - DIAS_NUEVO * 86400000;
+    const nuevos = ops.filter((a) => a.creado && a.creado >= desde)
+      .sort((a, b) => b.creado - a.creado);
+    const resto = ops.filter((a) => !nuevos.includes(a));
+
+    // Sin novedades no se escriben encabezados: un solo grupo titulado "Los
+    // demás" es una etiqueta que no separa nada de nada.
+    if (nuevos.length) {
+      cont.appendChild(titulo('Nuevos'));
+      for (const a of nuevos) cont.appendChild(marca(a));
+      cont.appendChild(titulo('Los demás'));
     }
+    for (const a of resto) cont.appendChild(marca(a));
+
     // Y al final, la ficha de fabricar.
     //
-    // Antes esto era una sección plegada DEBAJO del carrusel ("Crear un botón"),
-    // o sea una decisión aparte que había que tomar antes de saber que existía.
-    // Aquí se topa uno con ella eligiendo, que es justo el ánimo de mirar
-    // opciones: si ninguna te gusta, la siguiente ficha es hacerte una.
+    // Antes esto era una sección plegada DEBAJO ("Crear un botón"), o sea una
+    // decisión aparte que había que tomar antes de saber que existía. Aquí se
+    // topa uno con ella eligiendo, que es justo el ánimo de mirar opciones: si
+    // ninguna te gusta, la última ficha es hacerte una.
     const hacer = document.createElement('button');
     hacer.type = 'button';
     hacer.className = 'skin-op skin-op-crear';
     // Sin `dataset.aspecto` A PROPÓSITO: no es un aspecto y no debe poder
-    // elegirse ni centrarse como tal.
+    // elegirse como tal.
     hacer.innerHTML = '<span class="skin-muestra skin-muestra-crear">+</span>'
-      + '<span class="skin-nom">Hacer uno</span>';
+      + '<span class="skin-nom">Diseña Uno</span>';
     cont.appendChild(hacer);
 
-    activarCarrusel(cont); // coverflow + marca la centrada con .enfoque
-    // Este scroll es NUESTRO, no del dedo: que no se tome por una elección.
-    // Y se cancela cualquier decisión a medio cocer del carrusel anterior.
-    clearTimeout(vestTimer);
-    vestTocado = false;
-    centrarElegida(cont, ops);
-    // Si el panel todavía no estaba visible al pintar, clientWidth es 0 y el
-    // centro sale mal. Se repite en el siguiente frame, ya con layout de verdad.
-    requestAnimationFrame(() => { vestTocado = false; centrarElegida(cont, ops); });
-  }
-
-  // Deja centrada la opción que ya está elegida, sin animación (estado inicial).
-  function centrarElegida(cont, ops) {
-    if (!cont.clientWidth) return;
-    const i = Math.max(0, ops.findIndex((a) => a.id === vestAspecto));
-    const el = cont.children[i];
-    if (!el) return;
-    // Por rectángulos y NO por offsetLeft: .vest-opciones no es
-    // position:relative, así que offsetLeft se mide contra un ancestro y el
-    // scroll salía enorme → el navegador lo recortaba al máximo y centraba la
-    // ÚLTIMA opción. No se notaba porque Jet Switch ERA la última; al entrar
-    // los skins de galería dejó de serlo y quedó marcando el skin equivocado.
-    const rc = cont.getBoundingClientRect();
-    const r = el.getBoundingClientRect();
-    cont.scrollLeft += (r.left + r.width / 2) - (rc.left + rc.width / 2);
+    // Con muchas opciones la puesta puede quedar fuera de la vista. `nearest`
+    // no mueve nada si ya se ve, así que no da un salto al abrir.
+    cont.querySelector('.skin-op.activa')?.scrollIntoView({ block: 'nearest' });
   }
 
   function renderVestuario() {
@@ -4725,15 +4755,7 @@ async function iniciar() {
   // Si mientras se esperaban los 140 ms cambiaste de dispositivo, esta decisión
   // ya no es de nadie: escribirla le pondría al NUEVO el aspecto del anterior
   // (así el búnker acabó con el skin de una luz).
-  function alCentrarOpcion(paraId) {
-    if (!vestDisp || (paraId && vestDisp.id !== paraId)) return;
-    const foco = $('vest-opciones').querySelector('.skin-op.enfoque');
-    // La ficha de "Hacer uno" puede quedar centrada al deslizar, y no es un
-    // aspecto: sin esto `seleccionarAspecto(undefined)` se comería la elección.
-    if (foco && foco.dataset.aspecto) seleccionarAspecto(foco.dataset.aspecto);
-  }
-
-  // "Estilo guardado" bajo el carrusel: se enseña solo cuando el servidor YA
+  // "Estilo guardado" bajo la rejilla: se enseña solo cuando el servidor YA
   // confirmó, que es lo que la línea promete. Si vuelves a elegir antes de que se
   // desvanezca, el temporizador se reinicia en vez de encadenar avisos.
   let vestAvisoTimer = null;
@@ -4798,23 +4820,11 @@ async function iniciar() {
     // otro el botón vuelve a decir la verdad de ESTE.
     refrescarBotonEstilo();
   });
-  // El carrusel elige al asentarse el scroll (no en cada píxel).
-  // Solo el scroll que viene del dedo elige. Sin esto, el scrollLeft que pone
-  // pintarOpcionesVestuario para centrar la opción actual disparaba este mismo
-  // listener y GUARDABA en Firestore el aspecto que quedara enfocado — que al
-  // refrescar, con el panel aún oculto y clientWidth 0, era el equivocado. Un
-  // repintado nunca debe escribir nada.
-  $('vest-opciones').addEventListener('pointerdown', () => { vestTocado = true; }, { passive: true });
-  $('vest-opciones').addEventListener('wheel', () => { vestTocado = true; }, { passive: true });
-  $('vest-opciones').addEventListener('scroll', () => {
-    if (!vestTocado) return;
-    clearTimeout(vestTimer);
-    const paraId = vestDisp && vestDisp.id;
-    vestTimer = setTimeout(() => alCentrarOpcion(paraId), 140);
-  }, { passive: true });
-  // Tocar una opción la elige de una vez (y de paso la centra). Antes se
-  // esperaba a que el scroll la centrara, pero si el carrusel no llegaba a
-  // moverse ese evento nunca llegaba y el toque no hacía nada.
+  // Tocar una opción la elige. Punto. Antes esto convivía con elegir-por-scroll
+  // —el carrusel decidía al asentarse— y de esa convivencia salieron tres bugs:
+  // un toque que no hacía nada si el carrusel no llegaba a moverse, y un
+  // repintado que ESCRIBÍA en Firestore porque su propio scroll se tomaba por
+  // una elección. Con rejilla solo hay una manera de elegir.
   $('vest-opciones').addEventListener('click', (e) => {
     const b = e.target.closest('.skin-op');
     if (!b) return;
@@ -4823,10 +4833,14 @@ async function iniciar() {
     seleccionarAspecto(b.dataset.aspecto);
   });
 
-  // Abre el formulario de fabricar y baja hasta él. Lo llaman la ficha del
-  // carrusel y el propio encabezado plegable, que se queda por si alguien
-  // vuelve a buscarlo donde estaba.
+  // Aparece el taller y baja hasta él.
+  //
+  // La tarjeta entera nace oculta: antes estaba siempre ahí abajo, plegada bajo
+  // un "Crear un botón" que competía con la ficha del carrusel — dos puertas al
+  // mismo sitio en la misma pantalla. Ahora la única puerta es "Diseñar botón",
+  // y esta tarjeta es a dónde lleva.
   function abrirCreador() {
+    $('seccion-crear-skin').classList.remove('oculto');
     const form = $('form-skin');
     if (form.classList.contains('oculto')) $('btn-toggle-skin').click();
     $('seccion-crear-skin').scrollIntoView({ block: 'start', behavior: 'smooth' });
