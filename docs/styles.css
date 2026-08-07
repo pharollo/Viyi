@@ -970,9 +970,13 @@ button:disabled {
   inset: 0;
   background-repeat: no-repeat;
   background-size: 100% 100%;
-  /* Un pelo más lento que el Jet: aquí lo que cambia es una palanca y un
-     piloto, y a 0.13s el encendido se lee como un parpadeo. */
-  transition: opacity 0.18s ease;
+  /* CHASQUEA, no se funde. Medido: entre las dos fotos cambia el 57% del panel
+     y repartido por TODO él, no solo la palanca y los pilotos — son dos renders
+     distintos y en el encendido la luz roja salpica la plancha entera. Con un
+     fundido de 0.18s las dos texturas conviven durante ese rato y el panel
+     parece vibrar. Un interruptor de verdad tampoco se funde: salta.
+     Quedan 70ms para que el salto no sea un corte seco. */
+  transition: opacity 0.07s linear;
 }
 .pilder-off { background-image: url('pilder-off.webp?v=1'); }
 .pilder-on  { background-image: url('pilder-on.webp?v=1'); opacity: 0; }
@@ -984,9 +988,10 @@ button:disabled {
 .pilder.enviando .pilder-on,
 .pilder.exito .pilder-on { opacity: 1; }
 
-/* Al pulsar se hunde un poco, como el resto de controles. Sin sombra propia:
-   el panel ya trae la suya en la foto. */
-.pilder:active { transform: scale(0.985); }
+/* Sin encoger al pulsar. Lo tenía y era el otro candidato a "vibra": un
+   `transform` sin transición que iOS enciende y apaga con los micromovimientos
+   del dedo apoyado. Y no hace falta — la palanca que sube y el chasquido ya son
+   toda la respuesta al toque. */
 
 /* La muestra del Locker: el panel entero no cabe en un círculo de 58px, así
    que se encuadra en la palanca, que es lo que lo identifica. */
