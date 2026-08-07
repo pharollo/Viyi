@@ -1962,6 +1962,9 @@ button:disabled {
   margin-top: 8px;
 }
 #vest-editor { margin-top: 12px; }
+/* El Guardar del diseño, en el hueco que deja "Editar diseño". Mismo sitio y
+   mismo ancho: editando, ese renglón es la acción principal. */
+.vest-guardar-skin { display: block; width: 100%; margin: 8px 0 0; }
 /* Editando: fuera la galería y el Guardar del aspecto. Lo que queda es la
    muestra —el botón de verdad, a tamaño real— y el formulario justo debajo, que
    es lo único que hace falta para ver lo que estás cambiando. */
@@ -2891,17 +2894,36 @@ input:checked ~ .pase-tgl::before {
   margin-top: -4px;
 }
 
-.skin-acciones {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 4px;
-}
+/* Una sola acción con cuerpo y el resto en voz baja. Antes las tres iban en
+   fila con el mismo peso —guardar, borrar y quitar de la galería— y había que
+   leerlas todas para saber cuál era la normal. */
+.skin-acciones { margin-top: 8px; }
 
 .skin-acciones .btn-secundario {
-  flex: 1;
+  display: block;
+  width: 100%;
   margin: 0;
 }
+
+.skin-acciones-menores {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 18px;
+  margin-top: 12px;
+}
+
+/* Acciones habladas, no botones: salir, borrar, curar. Ninguna es lo que vienes
+   a hacer aquí, así que ninguna compite con Guardar cambios. */
+.btn-quieto {
+  background: none;
+  border: none;
+  color: var(--texto-suave);
+  font-size: 13px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.btn-quieto:active { color: var(--primario); }
 
 /* El nombre dentro de un interruptor con foto: el estilo base está pensado
    para el botón grande (168px) y en uno de 92 queda alto y se pierde sobre la

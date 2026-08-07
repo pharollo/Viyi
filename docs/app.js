@@ -4792,7 +4792,8 @@ async function iniciar() {
   // Sale del modo edición y deja la pantalla como estaba.
   function cerrarEditorSkin() {
     $('vestuario').classList.remove('editando');
-    $('btn-editar-skin').textContent = 'Editar diseño';
+    document.querySelector('.vest-guardar-skin')?.remove();   // vive fuera del editor
+    $('btn-editar-skin').classList.toggle('oculto', !puedoEditarSkin(skinElegido()));
     $('vest-editor').classList.add('oculto');
     $('vest-editor').textContent = '';
     msgEditorSkin('');
@@ -4942,19 +4943,25 @@ async function iniciar() {
 
     animacionOriginal = { id: s.id, clase: (ASPECTOS_IMAGEN[s.id] || {}).clase };
     caja.textContent = '';
-    caja.appendChild(editorDeSkin(s, msgEditorSkin, (valor) => {
+    const ed = editorDeSkin(s, msgEditorSkin, (valor) => {
       // Se prueba en la muestra de verdad, que está justo encima: el mismo
       // botón, del tamaño real, moviéndose como se movería al abrir la puerta.
       const anim = ANIMACIONES_SKIN[valor] || ANIMACIONES_SKIN.ninguna;
       if (ASPECTOS_IMAGEN[s.id]) ASPECTOS_IMAGEN[s.id].clase = anim.clase;
       pintarDemoVestuario();
       enseñarLaAnimacion();
-    }));
+    }, cerrarEditorSkin);
+    caja.appendChild(ed);
+    // Guardar sube al hueco donde estaba "Editar diseño", pegado a la muestra;
+    // abajo se quedan las de voz baja (cancelar, borrar, curar).
+    ed.botonGuardar.classList.add('vest-guardar-skin');
+    caja.before(ed.botonGuardar);
     caja.classList.remove('oculto');
-    // La galería y el Guardar se apartan: editando, lo único que importa es la
-    // muestra de arriba y el formulario.
+    // La galería, el Guardar del aspecto y el propio "Editar diseño" se
+    // apartan: editando, lo único que importa es la muestra de arriba y el
+    // formulario, y la salida vive dentro del formulario (Cancelar).
     $('vestuario').classList.add('editando');
-    $('btn-editar-skin').textContent = 'Listo';
+    $('btn-editar-skin').classList.add('oculto');
     $('vest-demo').scrollIntoView({ block: 'start', behavior: 'smooth' });
   });
 
@@ -5333,7 +5340,7 @@ async function iniciar() {
   // `avisar` lo pone quien lo usa, y no es un detalle: los mensajes de la lista
   // van a `#skin-msg`, que vive DENTRO del taller. Desde la galería, con el
   // taller recogido, un "no se pudo guardar" se escribiría donde nadie lo ve.
-  function editorDeSkin(s, avisar, alCambiarAnimacion) {
+  function editorDeSkin(s, avisar, alCambiarAnimacion, alCancelar) {
     const editor = document.createElement('div');
     editor.className = 'skin-editor';
     editor.innerHTML = '<label class="campo-perfil">Nombre'
@@ -5356,6 +5363,13 @@ async function iniciar() {
 
     const acciones = document.createElement('div');
     acciones.className = 'skin-acciones';
+
+    // Una sola acción con cuerpo —guardar— y el resto como texto callado. Antes
+    // "Guardar cambios", "Borrar" y "Quitar de la galería" competían en la
+    // misma fila con el mismo peso, y encima había un "Listo" arriba que se
+    // leía igual de terminal que guardar.
+    const menores = document.createElement('div');
+    menores.className = 'skin-acciones-menores';
 
     const guardar = document.createElement('button');
     guardar.type = 'button';
@@ -5401,14 +5415,25 @@ async function iniciar() {
         borrar.disabled = false;
       }
     });
-    acciones.append(guardar, borrar);
+    acciones.appendChild(guardar);
+    // Salir SIN guardar. Se llama Cancelar y no "Listo": lo que hace es
+    // descartar, y "Listo" prometía lo mismo que el botón de guardar.
+    if (alCancelar) {
+      const cancelar = document.createElement('button');
+      cancelar.type = 'button';
+      cancelar.className = 'btn-quieto';
+      cancelar.textContent = 'Cancelar';
+      cancelar.addEventListener('click', alCancelar);
+      menores.appendChild(cancelar);
+    }
+    menores.appendChild(borrar);
 
     // Curaduría, solo para el admin: abrir el botón de un vecino a la galería o
     // retirarlo. Retirar NO borra: su autor lo sigue usando.
     if (soyAdmin) {
       const publicar = document.createElement('button');
       publicar.type = 'button';
-      publicar.className = 'btn-secundario';
+      publicar.className = 'btn-quieto';
       publicar.textContent = pendiente ? 'Publicar en la galería' : 'Quitar de la galería';
       publicar.addEventListener('click', async () => {
         publicar.disabled = true;
@@ -5421,9 +5446,14 @@ async function iniciar() {
           publicar.disabled = false;
         }
       });
-      acciones.appendChild(publicar);
+      menores.appendChild(publicar);
     }
+    acciones.appendChild(menores);
     editor.appendChild(acciones);
+    // Se expone para que la galería pueda SUBIRLO al hueco de "Editar diseño":
+    // es la acción principal y ahí es donde ya está la mano. Mover el nodo se
+    // lleva sus listeners con él; no hay que volver a atar nada.
+    editor.botonGuardar = guardar;
     return editor;
   }
 
