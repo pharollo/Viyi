@@ -4528,15 +4528,42 @@ async function iniciar() {
     vestAspecto = aspectoDe(vestDisp);
     pintarDemoVestuario();
     pintarOpcionesVestuario();
+    // Al abrir el Locker, lo puesto ya está guardado: el botón nace apagado
+    // diciendo "Guardado", que es la señal de que no hay nada pendiente.
+    refrescarBotonEstilo();
   }
 
   // Aplica la opción elegida: repinta el demo y la guarda. Lo llaman tanto el
   // toque como el scroll del carrusel.
+  // Elegir es PROBARSE: repinta el demo y enciende el botón. No guarda.
+  //
+  // Antes escribía en Firestore en cuanto centrabas una opción. Funcionaba, pero
+  // no daba seguridad de que hubiera quedado: el aviso de abajo dura segundo y
+  // medio y aparece bajo el carrusel, mientras los ojos están en el botón. Con
+  // un Guardar que hay que tocar, se sabe qué se grabó y cuándo.
   function seleccionarAspecto(asp) {
     if (!vestDisp || !asp || asp === vestAspecto) return;
     vestAspecto = asp;
     pintarDemoVestuario();
-    guardarAspecto(vestDisp.id, asp);
+    refrescarBotonEstilo();
+  }
+
+  // El aspecto que el servidor tiene guardado para este dispositivo — no lo que
+  // se está probando.
+  function aspectoGuardado() {
+    if (!vestDisp) return null;
+    return (usuarioActual && usuarioActual.aspectos && usuarioActual.aspectos[vestDisp.id])
+      || vestDisp.aspecto || 'normal';
+  }
+
+  // El botón solo se enciende cuando hay algo que guardar. Apagado dice "esto ya
+  // es lo tuyo", que es justo la seguridad que faltaba.
+  function refrescarBotonEstilo() {
+    const b = $('btn-guardar-estilo');
+    if (!b) return;
+    const hayCambio = Boolean(vestDisp) && vestAspecto !== aspectoGuardado();
+    b.disabled = !hayCambio;
+    if (!b.dataset.ocupado) b.textContent = hayCambio ? 'Guardar' : 'Guardado';
   }
 
   // Al centrar otra opción deslizando el carrusel.
@@ -4588,6 +4615,22 @@ async function iniciar() {
     }
   }
 
+  // El acto de guardar. Se deja el botón en "Guardando…" mientras va, para que
+  // no parezca que el toque no hizo nada, y en "Guardado" al volver.
+  $('btn-guardar-estilo').addEventListener('click', async () => {
+    if (!vestDisp || !vestAspecto) return;
+    const b = $('btn-guardar-estilo');
+    b.dataset.ocupado = '1';
+    b.disabled = true;
+    b.textContent = 'Guardando…';
+    try {
+      await guardarAspecto(vestDisp.id, vestAspecto);
+    } finally {
+      delete b.dataset.ocupado;
+      refrescarBotonEstilo();
+    }
+  });
+
   $('vest-disp').addEventListener('change', (e) => {
     const d = dispConAspectos().find((x) => x.id === e.target.value);
     if (!d) return;
@@ -4595,6 +4638,9 @@ async function iniciar() {
     vestAspecto = aspectoDe(d);
     pintarDemoVestuario();
     pintarOpcionesVestuario();
+    // Cada dispositivo tiene su propio estilo guardado: al cambiar de uno a
+    // otro el botón vuelve a decir la verdad de ESTE.
+    refrescarBotonEstilo();
   });
   // El carrusel elige al asentarse el scroll (no en cada píxel).
   // Solo el scroll que viene del dedo elige. Sin esto, el scrollLeft que pone

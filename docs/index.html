@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=295">
+  <link rel="stylesheet" href="styles.css?v=296">
 </head>
 <body>
   <header>
@@ -248,9 +248,13 @@
             <select id="vest-disp" class="vest-select" aria-label="Dispositivo"></select>
             <div id="vest-demo" class="vest-demo"></div>
             <div id="vest-opciones" class="vest-opciones"></div>
-            <!-- La elección se guarda sola al centrarla; esto lo dice y se
-                 desvanece. Sin la señal, la gente buscaba un botón de guardar y
-                 acababa tocando el de los datos personales, que está arriba. -->
+            <!-- Elegir es PROBARSE; guardar es el acto.
+                 Antes se guardaba solo al centrar la opción, y aunque salía un
+                 "Estilo guardado" que se desvanecía, no daba seguridad: el aviso
+                 dura un segundo y medio y aparece aquí abajo mientras los ojos
+                 están en el botón. Un botón que hay que tocar deja claro qué se
+                 grabó y cuándo. -->
+            <button type="button" id="btn-guardar-estilo" class="btn-primario vest-guardar" disabled>Guardar</button>
             <p id="vest-guardado" class="vest-guardado">Estilo guardado</p>
             <p id="vest-nota" class="vest-ayuda vest-nota oculto"></p>
           </div>
@@ -335,6 +339,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=295"></script>
+  <script type="module" src="app.js?v=296"></script>
 </body>
 </html>
