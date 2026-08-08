@@ -1205,6 +1205,15 @@ main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
    —los iconos con color propio (portón, ascensor) no obedecen y el candado sí—
    y además chocaría con el verde que toma el icono al abrirse. El color del
    evento lo cargan el aro y el título, que basta y sobra. */
+/* Los accesos de administración dentro del perfil: mismo bloque en relieve del
+   menú de antes, pero apilados y a lo ancho de la tarjeta. */
+#seccion-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#seccion-admin .item-menu { width: 100%; }
+
 /* Campo de fecha: se ve el texto que escribimos nosotros y el control nativo
    va encima, invisible, para abrir el calendario del teléfono al tocarlo.
    Tiene el mismo aspecto hundido que el resto de campos. */

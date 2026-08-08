@@ -1118,7 +1118,8 @@ async function iniciar() {
     renderDispositivos(dispositivos);
     prepararGeneradorPases();
     const esAdmin = usuario.rol === 'admin';
-    $('btn-menu').classList.remove('oculto');
+    // La hamburguesa ya no existe: Admin y Actividad viven en Mi perfil, para
+    // que el administrador use la misma app que un vecino.
     document.querySelectorAll('.solo-admin').forEach((el) => el.classList.toggle('oculto', !esAdmin));
     // Crear un botón lo hace cualquiera, pero no significa lo mismo: el del
     // vecino nace suyo y privado; el del admin entra directo a la galería.
