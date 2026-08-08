@@ -1205,6 +1205,25 @@ main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
    —los iconos con color propio (portón, ascensor) no obedecen y el candado sí—
    y además chocaría con el verde que toma el icono al abrirse. El color del
    evento lo cargan el aro y el título, que basta y sobra. */
+/* Duración: fichas envueltas, todas a la vista. */
+.dur-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+/* Etiqueta de bloque: nombra el grupo cuando su contenido solo no lo dice.
+   "3 h" suelto no dice si es lo que dura o cuándo empieza. */
+.pase-etiqueta {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
 /* Los accesos de administración dentro del perfil: mismo bloque en relieve del
    menú de antes, pero apilados y a lo ancho de la tarjeta. */
 #seccion-admin {

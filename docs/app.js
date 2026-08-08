@@ -4676,64 +4676,15 @@ async function iniciar() {
   // Duración del pase: una sola rueda horizontal con scroll (3h · 6h · 24h ·
   // 7d · Indefinido). Se ve un valor faded a cada lado y el del centro es el
   // elegido. Los tokens coinciden con DURACIONES_MS del backend.
-  const DUR_RUEDA = [
-    ['3h', '3 h'], ['6h', '6 h'], ['24h', '24 h'], ['7d', '7 d'], ['indef', 'Indefinido'],
-  ];
-  let paseDuracionSel = '6h'; // por defecto la rueda en 6 h
-  const elRueda = $('dur-rueda');
-  const opsRueda = Array.from(elRueda.querySelectorAll('.dur-op'));
-  let ruedaCentrando = false;
-  let ruedaCentTmr = null;
-  let ruedaTmr = null;
+  let paseDuracionSel = '6h';   // la de siempre
 
-  function idxCentradoRueda() {
-    const cr = elRueda.getBoundingClientRect();
-    const centro = cr.left + cr.width / 2;
-    let best = 0;
-    let bestD = Infinity;
-    opsRueda.forEach((op, i) => {
-      const r = op.getBoundingClientRect();
-      const d = Math.abs(r.left + r.width / 2 - centro);
-      if (d < bestD) { bestD = d; best = i; }
-    });
-    return best;
-  }
-  function pintarCentroRueda() {
-    const i = idxCentradoRueda();
-    opsRueda.forEach((op, k) => op.classList.toggle('centro', k === i));
-    return i;
-  }
-  function centrarRueda(idx, suave) {
-    const op = opsRueda[idx];
-    if (!op) return;
-    const cr = elRueda.getBoundingClientRect();
-    const or = op.getBoundingClientRect();
-    const delta = (or.left + or.width / 2) - (cr.left + cr.width / 2);
-    if (Math.abs(delta) < 1) { pintarCentroRueda(); return; }
-    ruedaCentrando = true; // no cambiar la selección durante el scroll programático
-    clearTimeout(ruedaCentTmr);
-    ruedaCentTmr = setTimeout(() => { ruedaCentrando = false; }, suave ? 500 : 180);
-    elRueda.scrollTo({ left: elRueda.scrollLeft + delta, behavior: suave ? 'smooth' : 'auto' });
-  }
-  // Re-centrar en el valor actual cuando el panel se hace visible (oculto mide
-  // 0 y el centrado falla). Lo llama prepararGeneradorPases al abrir Pases.
-  function recentrarRueda() {
-    let i = DUR_RUEDA.findIndex(([t]) => t === paseDuracionSel);
-    if (i < 0) i = DUR_RUEDA.findIndex(([t]) => t === '6h');
-    centrarRueda(i, false);
-  }
-  elRueda.addEventListener('scroll', () => {
-    pintarCentroRueda();
-    if (ruedaCentrando) return;
-    clearTimeout(ruedaTmr);
-    ruedaTmr = setTimeout(() => {
-      paseDuracionSel = DUR_RUEDA[idxCentradoRueda()][0];
-    }, 100);
+  $('pase-duracion').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-dur]');
+    if (!b) return;
+    paseDuracionSel = b.dataset.dur;
+    $('pase-duracion').querySelectorAll('[data-dur]')
+      .forEach((c) => c.classList.toggle('activa', c === b));
   });
-  opsRueda.forEach((op, i) => op.addEventListener('click', () => {
-    centrarRueda(i, true);
-    paseDuracionSel = DUR_RUEDA[i][0];
-  }));
 
   // ---- Vestuario: el vecino elige el aspecto de CADA botón ----
   // La elección vive en su cuenta (usuarios/{uid}.aspectos[dispositivoId]), así
@@ -5740,6 +5691,7 @@ async function iniciar() {
     if (!b) return;
     paseMultiuso = b.dataset.tipo === 'multiuso';
     document.querySelectorAll('#pase-tipo .chip-scope').forEach((c) => c.classList.toggle('activa', c === b));
+    resumirOpciones();
   });
   function ocultarAyudaEnlace() {
     $('info-enlace').classList.add('oculto');
@@ -5905,7 +5857,6 @@ async function iniciar() {
     cargarMisPases();
     // La rueda de duración necesita centrarse ya con el panel visible (oculto
     // mide 0). En el frame siguiente ya hay layout.
-    requestAnimationFrame(recentrarRueda);
   }
 
   // Pinta en la cabecera de cada grupo (desplegable por tipo) cuántos
@@ -5987,6 +5938,29 @@ async function iniciar() {
   $('pase-desde').addEventListener('input', decirDesde);
   $('pase-desde').addEventListener('change', decirDesde);
 
+  // Abrir/cerrar las opciones. Al cerrarlas NO se deshace lo elegido: si
+  // programaste una fecha y las recoges, el pase sigue programado — lo dice el
+  // resumen del propio botón.
+  $('btn-pase-opciones').addEventListener('click', () => {
+    const caja = $('pase-opciones');
+    const abrir = caja.classList.contains('oculto');
+    caja.classList.toggle('oculto', !abrir);
+    $('btn-pase-opciones').setAttribute('aria-expanded', String(abrir));
+  });
+
+  // El botón dice lo que hay dentro cuando algo se salió de lo normal, para no
+  // tener que abrirlo para saberlo.
+  function resumirOpciones() {
+    const partes = [];
+    if ($('pase-cuando').querySelector('[data-cuando="luego"]').classList.contains('activa')) {
+      partes.push('programado');
+    }
+    if ($('pase-tipo').querySelector('[data-tipo="multiuso"]').classList.contains('activa')) {
+      partes.push('multiuso');
+    }
+    $('btn-pase-opciones').textContent = partes.length ? `Opciones · ${partes.join(' · ')}` : 'Opciones';
+  }
+
   $('pase-cuando').addEventListener('click', (e) => {
     const b = e.target.closest('[data-cuando]');
     if (!b) return;
@@ -6002,6 +5976,7 @@ async function iniciar() {
         .toISOString().slice(0, 16);
     }
     decirDesde();
+    resumirOpciones();
   });
 
   async function darAccesoDirecto() {

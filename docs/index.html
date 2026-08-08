@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=320">
+  <link rel="stylesheet" href="styles.css?v=321">
 </head>
 <body>
   <header>
@@ -122,51 +122,59 @@
           <input type="text" id="pase-evento" class="pase-evento" maxlength="60" autocapitalize="words" placeholder="Evento (Parrilla, Mahjong)" aria-label="Evento">
           <div id="pase-invitados-lista" class="pase-disp oculto"></div>
           <div id="pase-dispositivos" class="pase-disp"></div>
-          <div class="pase-duracion" id="pase-duracion">
-            <div class="dur-rueda-wrap activa" id="dur-rueda-wrap">
-              <div class="dur-rueda" id="dur-rueda">
-                <span class="dur-esp" aria-hidden="true"></span>
-                <button type="button" class="dur-op" data-dur="3h">3 h</button>
-                <button type="button" class="dur-op" data-dur="6h">6 h</button>
-                <button type="button" class="dur-op" data-dur="24h">24 h</button>
-                <button type="button" class="dur-op" data-dur="7d">7 d</button>
-                <button type="button" class="dur-op" data-dur="indef">Indefinido</button>
-                <span class="dur-esp" aria-hidden="true"></span>
+          <!-- Duración a la vista, no en una rueda.
+               Era un carrusel horizontal: solo enseñaba dos o tres valores a la
+               vez, así que las demás opciones no existían para quien no supiera
+               arrastrarlo — el propio usuario lo notó ("Programado no se ve
+               cuando está en 6 h"). Cinco fichas caben en dos filas y se ven
+               todas. De paso se van 65 líneas de máquina para elegir entre
+               cinco valores: centrar, medir el centro, decidir al asentarse el
+               scroll y no confundir el scroll propio con el del dedo. -->
+          <span class="pase-etiqueta">Cuánto dura</span>
+          <div class="dur-chips" id="pase-duracion">
+            <button type="button" class="chip-scope" data-dur="3h">3 h</button>
+            <button type="button" class="chip-scope activa" data-dur="6h">6 h</button>
+            <button type="button" class="chip-scope" data-dur="24h">24 h</button>
+            <button type="button" class="chip-scope" data-dur="7d">7 d</button>
+            <button type="button" class="chip-scope" data-dur="indef">Indefinido</button>
+          </div>
+          <!-- Lo ocasional, detrás de una puerta con nombre.
+               Compartir una puerta pedía siete decisiones —evento,
+               dispositivos, duración, ahora/programar, fecha, simple/multiuso y
+               generar— y de esas solo tres se cambian de verdad cada vez. Las
+               otras dos tienen un valor bueno por defecto (empieza ya, un solo
+               uso) y ahora solo aparecen si las pides.
+               Detrás de un botón con NOMBRE, no de un gesto: esconder algo sin
+               decir dónde está es lo que dejó el Locker invisible. -->
+          <button type="button" id="btn-pase-opciones" class="btn-desplegar" aria-expanded="false" aria-controls="pase-opciones">Opciones</button>
+          <div id="pase-opciones" class="form-desplegable oculto">
+            <div class="pase-scope" id="pase-cuando">
+              <button type="button" class="chip-scope activa" data-cuando="ya">Ahora</button>
+              <button type="button" class="chip-scope" data-cuando="luego">Programar</button>
+            </div>
+            <!-- Un solo campo: lo que se LEE lo escribimos nosotros en español,
+                 y el `datetime-local` va encima invisible para que al tocarlo se
+                 abra el calendario del teléfono. El formato del nativo sale en
+                 el idioma del aparato y no se puede forzar (Safari ignora
+                 `lang`), así que se enseña solo el nuestro. -->
+            <label class="campo-perfil oculto" id="pase-desde-caja">
+              <span class="campo-fecha">
+                <span id="pase-desde-dicho">Elige la fecha</span>
+                <input type="datetime-local" id="pase-desde" lang="es" aria-label="Empieza el">
+              </span>
+            </label>
+            <div class="pase-multi">
+              <div class="pase-scope" id="pase-tipo">
+                <button type="button" class="chip-scope activa" data-tipo="simple">Simple</button>
+                <button type="button" class="chip-scope" data-tipo="multiuso">Multiuso</button>
               </div>
+              <button type="button" id="btn-info-enlace" class="btn-info" aria-label="Qué significa cada tipo" aria-expanded="false">i</button>
             </div>
+            <p id="info-enlace" class="pase-ayuda oculto">
+              <strong>Simple</strong> lo usa una sola persona; al canjearlo se cierra.<br>
+              <strong>Multiuso</strong> lo pueden usar varias personas con el mismo enlace.
+            </p>
           </div>
-          <!-- Cuándo empieza. Por defecto "Ahora", que es el caso de siempre;
-               "Programar" abre la fecha. Mandas el pase cuando puedes y sirve
-               cuando toca: antes el reloj arrancaba al generar el enlace, así
-               que uno de 6 horas enviado de noche estaba gastado antes de que
-               empezara el evento. -->
-          <div class="pase-scope" id="pase-cuando">
-            <button type="button" class="chip-scope activa" data-cuando="ya">Ahora</button>
-            <button type="button" class="chip-scope" data-cuando="luego">Programar</button>
-          </div>
-          <!-- Un solo campo: lo que se LEE lo escribimos nosotros en español,
-               y el `datetime-local` va encima invisible para que al tocarlo se
-               abra el calendario del teléfono. El formato del campo nativo sale
-               en el idioma del aparato y no se puede forzar desde la página
-               (Safari ignora `lang`), así que en vez de enseñarlo y repetir la
-               fecha debajo —fecha debajo de fecha—, se enseña solo la nuestra. -->
-          <label class="campo-perfil oculto" id="pase-desde-caja">
-            <span class="campo-fecha">
-              <span id="pase-desde-dicho">Elige la fecha</span>
-              <input type="datetime-local" id="pase-desde" lang="es" aria-label="Empieza el">
-            </span>
-          </label>
-          <div class="pase-multi">
-            <div class="pase-scope" id="pase-tipo">
-              <button type="button" class="chip-scope activa" data-tipo="simple">Simple</button>
-              <button type="button" class="chip-scope" data-tipo="multiuso">Multiuso</button>
-            </div>
-            <button type="button" id="btn-info-enlace" class="btn-info" aria-label="Qué significa cada tipo" aria-expanded="false">i</button>
-          </div>
-          <p id="info-enlace" class="pase-ayuda oculto">
-            <strong>Simple</strong> lo usa una sola persona; al canjearlo se cierra.<br>
-            <strong>Multiuso</strong> lo pueden usar varias personas con el mismo enlace.
-          </p>
           <button id="btn-generar-pase" type="button" class="btn-primario">Generar</button>
           <div id="pase-resultado" class="pase-resultado oculto"></div>
         </div>
@@ -435,6 +443,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=335"></script>
+  <script type="module" src="app.js?v=337"></script>
 </body>
 </html>
