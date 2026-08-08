@@ -452,9 +452,11 @@ async function iniciar() {
       nombre: s.nombre,
       modos: MODOS_SKIN,
       tipos: Array.isArray(s.tipos) && s.tipos.length ? s.tipos : null,
-      // Para separar los recién llegados. Los de fábrica no la tienen —nacieron
-      // con la app— y por eso nunca caen en "Nuevos".
+      // Para ordenar la galería: cuándo llegó y cuánta gente se lo ha puesto.
+      // Los de fábrica no tienen ninguno de los dos —nacieron con la app y no
+      // están en la colección—, y por eso nunca entran en "Los últimos".
       creado: milisegundosDe(s.creado),
+      usos: Number(s.usos) || 0,
     })));
   }
 
@@ -4717,8 +4719,8 @@ async function iniciar() {
   // son perillas/sliders y todavía no tienen aspectos, así que quedan fuera.
   const dispConAspectos = () => (misDispositivos || []).filter((d) => aspectosDe(d).length > 1);
 
-  // Cuánto dura siendo "nuevo" un diseño de la galería.
-  const DIAS_NUEVO = 14;
+  // Cuántos diseños recientes se enseñan arriba, en "Los últimos".
+  const CUANTOS_ULTIMOS = 5;
 
   let vestDisp = null;      // dispositivo que se está vistiendo
   let vestAspecto = null;   // opción centrada en el carrusel
@@ -4772,13 +4774,27 @@ async function iniciar() {
       return h;
     };
 
-    // "Nuevo" es por fecha y no por posición: con un número fijo ("los 6
-    // últimos") el grupo nunca se vacía y acaba llamando nuevo a algo de hace
-    // medio año. Así, cuando no hay novedades el grupo desaparece solo.
-    const desde = Date.now() - DIAS_NUEVO * 86400000;
-    const nuevos = ops.filter((a) => a.creado && a.creado >= desde)
-      .sort((a, b) => b.creado - a.creado);
-    const resto = ops.filter((a) => !nuevos.includes(a));
+    // Arriba, LOS ÚLTIMOS que llegaron; abajo, el resto con los más puestos
+    // primero.
+    //
+    // Antes el grupo de arriba era por fecha ("los de los últimos 14 días"),
+    // razonando que un número fijo acaba llamando nuevo a algo de hace medio
+    // año. Pero se pasaba por alto el otro lado, y lo señaló el usuario: si
+    // nadie publica en dos semanas el grupo se vacía y la rejilla se queda en
+    // una lista plana de veinte fichas — se pierde la estructura entera. Y
+    // mientras no lleguen otros, esos SIGUEN siendo los últimos que hay.
+    // Por eso ahora es por posición y se llama "Los últimos": nunca se vacía y
+    // la palabra nunca miente, tengan la edad que tengan.
+    const ultimos = ops.filter((a) => a.creado)
+      .sort((a, b) => b.creado - a.creado)
+      .slice(0, CUANTOS_ULTIMOS);
+    // El resto conserva el orden del catálogo —Normal primero, que es el de
+    // volver atrás— y detrás los skins de galería por popularidad. Ordenar el
+    // bloque entero por usos hundiría a Normal hasta el final.
+    const resto = ops.filter((a) => !ultimos.includes(a));
+    const deFabrica = resto.filter((a) => !a.creado);
+    const usados = resto.filter((a) => a.creado).sort((a, b) => b.usos - a.usos || b.creado - a.creado);
+    const nuevos = ultimos;
 
     // La ficha de fabricar.
     //
@@ -4797,7 +4813,7 @@ async function iniciar() {
     // Sin novedades no se escriben encabezados: un solo grupo titulado "Los
     // demás" es una etiqueta que no separa nada de nada.
     if (nuevos.length) {
-      cont.appendChild(titulo('Nuevos'));
+      cont.appendChild(titulo('Los últimos'));
       for (const a of nuevos) cont.appendChild(marca(a));
       // Cierra los NUEVOS, no el final de la lista: hacerte uno es traer otra
       // novedad, y ahí se ve. Al final de todo quedaba debajo de veinte fichas
@@ -4805,7 +4821,7 @@ async function iniciar() {
       cont.appendChild(hacer);
       cont.appendChild(titulo('Los demás'));
     }
-    for (const a of resto) cont.appendChild(marca(a));
+    for (const a of deFabrica.concat(usados)) cont.appendChild(marca(a));
     // Sin grupo de novedades no hay dónde cerrar, así que va al final —que es
     // también el final de la única lista que hay.
     if (!nuevos.length) cont.appendChild(hacer);

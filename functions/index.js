@@ -908,7 +908,34 @@ exports.actualizarMiPerfil = onCall(async (request) => {
     }
   }
   if (typeof apellido === 'string') cambios.apellido = nombrePropio(apellido);
-  await db.doc(`usuarios/${uid}`).set(cambios, { merge: true });
+
+  // Cuántos se lo han puesto. El campo `usos` existía desde el principio y NADIE
+  // lo escribía, así que ordenar la galería por popularidad ordenaba por ceros.
+  //
+  // Se cuenta solo lo que CAMBIA: sin comparar con lo que ya tenía, cada vez que
+  // se guarda el perfil por cualquier motivo se sumaría otra vez. Y solo de los
+  // skins de galería — los aspectos de código no están en la colección.
+  //
+  // Es un contador de "veces que alguien se lo puso", no de usuarios actuales:
+  // no se resta al cambiar de aspecto. Para ordenar una galería eso vale, y
+  // restar exigiría saber si otro dispositivo del mismo vecino lo sigue usando.
+  const ref = db.doc(`usuarios/${uid}`);
+  let estrenados = [];
+  if (cambios.aspectos) {
+    const previos = ((await ref.get()).data() || {}).aspectos || {};
+    estrenados = [...new Set(Object.entries(cambios.aspectos)
+      .filter(([disp, asp]) => asp && previos[disp] !== asp)
+      .map(([, asp]) => asp))];
+  }
+  await ref.set(cambios, { merge: true });
+
+  // Va DESPUÉS de guardar y en su propio try: la elección del vecino ya está
+  // hecha, y fallar contando no puede deshacerla ni contársela como un error.
+  for (const asp of estrenados) {
+    await db.doc(`skins/${asp}`)
+      .update({ usos: admin.firestore.FieldValue.increment(1) })
+      .catch(() => { /* no es un skin de galería, o ya no existe */ });
+  }
   return { ok: true, perfil: cambios, descartados };
 });
 
