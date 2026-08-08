@@ -5862,7 +5862,10 @@ async function iniciar() {
   // generador + "Mis pases" (solo si tiene dispositivos propios para compartir).
   function prepararGeneradorPases() {
     refrescarAccesoInvitado();
-    const compartibles = dispositivosCompartibles();
+    // Copia: al administrador `dispositivosCompartibles()` le devuelve
+    // `misDispositivos` en persona, y ordenar aquí le reordenaría de paso la
+    // pantalla de Controles.
+    const compartibles = dispositivosCompartibles().slice();
     const puedeCompartir = compartibles.length > 0;
     $('pase-generador').classList.toggle('oculto', !puedeCompartir);
     $('pase-mis').classList.toggle('oculto', !puedeCompartir);
@@ -5880,6 +5883,17 @@ async function iniciar() {
     //
     // Solo se preselecciona cuando son pocos: con veinte a la vista, empezar
     // con uno marcado es empezar a punto de compartir algo que no miraste.
+    // Ordenadas por tipo y luego por nombre: al perderse los desplegables por
+    // tipo, sin orden las puertas quedaban salteadas entre los ascensores. Es
+    // el MISMO orden de TIPOS que usa la pantalla de Controles, así que las
+    // fichas caen donde ya estás acostumbrado a verlas.
+    const porTipo = (d) => {
+      const i = TIPOS.findIndex((t) => t.clave === (d.tipo || 'otro'));
+      return i < 0 ? TIPOS.length : i;
+    };
+    compartibles.sort((a, b) => porTipo(a) - porTipo(b)
+      || (a.nombre || '').localeCompare(b.nombre || '', 'es'));
+
     const pocos = compartibles.length <= MAX_FICHAS_PASE;
     $('pase-buscar').classList.toggle('oculto', pocos);
     $('pase-buscar').value = '';
