@@ -12,6 +12,9 @@ function mostrarVista(id) {
   // El header con marca + usuario solo tiene sentido dentro del panel;
   // en login/config/sin-acceso la tarjeta central ya lleva el branding.
   document.querySelector('header').classList.toggle('oculto', id !== 'vista-panel');
+  // La barra de secciones solo con sesión abierta: en la pantalla de entrada no
+  // hay ninguna sección a la que ir, y encima tapaba el pie de esa pantalla.
+  document.getElementById('barra-abajo').classList.toggle('oculto', id !== 'vista-panel');
   // Fuera del panel, el menú lateral siempre cerrado.
   if (id !== 'vista-panel') {
     $('menu-lateral').classList.remove('abierto');
@@ -112,6 +115,7 @@ async function iniciar() {
   let registroApellidoPendiente = null;
   let paseEventoPendiente = '';
   let paseInvitadorPendiente = '';
+  let pasePendiente = null;   // qué abre, vigencia y desde cuándo, para el billete
   function limpiarUrlPase() {
     const u = new URL(location.href);
     u.searchParams.delete('p');
@@ -122,6 +126,22 @@ async function iniciar() {
   function pintarEventoPase() {
     document.querySelectorAll('.pase-evento-info').forEach((el) => {
       el.textContent = '';
+      // Con datos del pase, el BILLETE; es lo que estás aceptando y merece
+      // verse entero antes de dar tu correo. Sin ellos, la línea de siempre.
+      if (pasePendiente) {
+        el.appendChild(tarjetaPase({
+          evento: paseEventoPendiente,
+          lugares: pasePendiente.lugares,
+          invitador: paseInvitadorPendiente,
+          duracion: DUR_TEXTO[pasePendiente.duracion] || '',
+          desde: pasePendiente.desde
+            ? new Date(pasePendiente.desde).toLocaleString('es', { dateStyle: 'long', timeStyle: 'short' })
+            : '',
+          tipo: pasePendiente.multiuso ? 'Varias personas' : 'Una persona',
+        }));
+        el.classList.remove('oculto');
+        return;
+      }
       if (!paseEventoPendiente) { el.classList.add('oculto'); return; }
       el.append(paseInvitadorPendiente
         ? `${paseInvitadorPendiente} te ha invitado a `
@@ -680,6 +700,7 @@ async function iniciar() {
           .then((r) => {
             paseEventoPendiente = (r.data && r.data.evento) || '';
             paseInvitadorPendiente = r.data ? [r.data.porNombre, r.data.porApellido].filter(Boolean).join(' ') : '';
+            pasePendiente = (r.data && r.data.pase) || null;
             pintarEventoPase();
           })
           .catch(() => {});
@@ -843,6 +864,7 @@ async function iniciar() {
       const res = await verificarEmail({ token: paseTokenPendiente, email });
       paseEventoPendiente = (res.data && res.data.evento) || paseEventoPendiente;
       paseInvitadorPendiente = (res.data ? [res.data.porNombre, res.data.porApellido].filter(Boolean).join(' ') : '') || paseInvitadorPendiente;
+      pasePendiente = (res.data && res.data.pase) || pasePendiente;
       pintarEventoPase();
       if (res.data && res.data.existe) {
         if (res.data.tieneGoogle && !res.data.tieneClave) {
@@ -3373,6 +3395,7 @@ async function iniciar() {
   }
 
   function botonForm(texto, clase, alHacerClic) {
+
     const b = document.createElement('button');
     b.type = 'button';
     b.className = clase;
@@ -5688,7 +5711,6 @@ async function iniciar() {
     paseMultiuso = b.dataset.tipo === 'multiuso';
     $('pase-acciones').querySelectorAll('[data-tipo]')
       .forEach((x) => x.classList.toggle('activa', x === b));
-    $('btn-generar-pase').classList.remove('oculto');
   });
   $('btn-generar-pase').addEventListener('click', (e) => generarEnlacePase(e.currentTarget));
   // Al encender/apagar un dispositivo, refrescar el conteo de su grupo.
@@ -5876,10 +5898,11 @@ async function iniciar() {
     }
     actualizarConteosGrupos();
     $('pase-evento').value = '';
-    // Sin tipo elegido al abrir: el Generar aparece cuando decidas cuál.
+    // Al abrir, Simple: es lo normal y así no hay nada que decidir para el
+    // caso de siempre.
     paseMultiuso = false;
-    $('pase-acciones').querySelectorAll('[data-tipo]').forEach((x) => x.classList.remove('activa'));
-    if (paseModo !== 'frecuentes') $('btn-generar-pase').classList.add('oculto');
+    $('pase-acciones').querySelectorAll('[data-tipo]')
+      .forEach((x) => x.classList.toggle('activa', x.dataset.tipo === 'simple'));
     ocultarAyudaEnlace();
     $('pase-resultado').classList.add('oculto');
     cargarMisPases();
@@ -5943,7 +5966,6 @@ async function iniciar() {
     // así que en frecuentes no hay tipo que elegir y el botón sale directo.
     $('btn-generar-pase').textContent = frec ? 'Invitar' : 'Generar';
     $('pase-acciones').classList.toggle('oculto', frec);
-    $('btn-generar-pase').classList.toggle('oculto', !frec);
     if (frec) ocultarAyudaEnlace(); // su ayuda tampoco aplica en frecuentes
     document.querySelectorAll('#pase-modo .chip-scope').forEach((c) =>
       c.classList.toggle('activa', (c.dataset.modo === 'frecuentes') === frec));
@@ -6107,10 +6129,21 @@ async function iniciar() {
       tipo: paseMultiuso ? 'Varias personas' : 'Una persona',
     }));
 
+    // UNA acción, la que sirve en este aparato. Copiar te deja el trabajo a
+    // medias —el enlace en el portapapeles y tú buscando dónde pegarlo—;
+    // compartir hace lo que querías: elegir a quién y mandarlo.
+    //
+    // ⚠️ Preguntar por `navigator.share` YA NO distingue el aparato: los
+    // navegadores de escritorio también lo traen y macOS abre su propia hoja.
+    // Se pregunta por el puntero, que es lo que de verdad separa un teléfono de
+    // un escritorio: con ratón, lo natural es copiar y pegar donde estés
+    // trabajando; con el dedo, mandarlo por la hoja del sistema.
+    const conDedo = !window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
     // El enlace, solo donde hace falta verlo: sin hoja de compartir, copiar es
     // lo único que hay y conviene poder seleccionarlo a mano si falla.
     let campo = null;
-    if (!navigator.share) {
+    if (!(navigator.share && conDedo)) {
       campo = document.createElement('input');
       campo.type = 'text';
       campo.readOnly = true;
@@ -6120,13 +6153,10 @@ async function iniciar() {
       cont.appendChild(campo);
     }
 
-    // UNA acción, la que sirve en este aparato. Copiar te deja el trabajo a
-    // medias —el enlace en el portapapeles y tú buscando dónde pegarlo—;
-    // compartir hace lo que querías: elegir a quién y mandarlo.
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'btn-primario pase-generar';
-    if (navigator.share) {
+    if (navigator.share && conDedo) {
       b.textContent = 'Compartir';
       // Cerrar la hoja no es un fallo y no se pinta como tal.
       b.addEventListener('click', () => {
@@ -6261,7 +6291,9 @@ async function iniciar() {
       bCopiar.className = 'btn-mini';
       bCopiar.textContent = 'Copiar';
       bCopiar.addEventListener('click', async () => {
-        const ok = await copiarTexto(mensajePase(url));
+        // Solo el enlace: aquí lo que quieres es pegarlo donde estés. El
+        // "esta es tu llave" acompaña al compartir, no al portapapeles.
+        const ok = await copiarTexto(url);
         toast(ok ? 'Copiado' : 'No se pudo copiar.', ok ? undefined : 'error');
       });
       acciones.appendChild(bCopiar);

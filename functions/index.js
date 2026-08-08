@@ -2149,6 +2149,10 @@ exports.verificarEmail = onCall(async (request) => {
   let evento = '';
   let porNombre = '';
   let porApellido = '';
+  // Lo que se enseña en el billete antes de entrar. No es una fuga: quien tiene
+  // el enlace puede canjearlo, así que saber qué abre y hasta cuándo es menos de
+  // lo que ya podría hacer — y es justo lo que hay que saber para aceptarlo.
+  let pase = null;
   if (token) {
     if (typeof token !== 'string') {
       throw new HttpsError('invalid-argument', 'El enlace no es válido.');
@@ -2157,13 +2161,25 @@ exports.verificarEmail = onCall(async (request) => {
     if (!paseSnap.exists) {
       throw new HttpsError('not-found', 'El enlace no es válido.');
     }
-    evento = paseSnap.data().evento || '';
-    porNombre = paseSnap.data().porNombre || '';
-    porApellido = paseSnap.data().porApellido || '';
+    const d = paseSnap.data();
+    evento = d.evento || '';
+    porNombre = d.porNombre || '';
+    porApellido = d.porApellido || '';
+    const nombres = [];
+    for (const id of (d.dispositivos || []).slice(0, 8)) {
+      const dev = await db.doc(`dispositivos/${id}`).get();
+      nombres.push((dev.exists && dev.data().nombre) || id);
+    }
+    pase = {
+      lugares: nombres.join(' · '),
+      duracion: d.duracion || '',
+      desde: d.desde && typeof d.desde.toMillis === 'function' ? d.desde.toMillis() : 0,
+      multiuso: d.multiuso === true,
+    };
   }
   // Sin correo: solo devuelve info del pase (para mostrar el evento al abrir).
   if (!email || typeof email !== 'string' || !email.includes('@')) {
-    return { evento, porNombre, porApellido };
+    return { evento, porNombre, porApellido, pase };
   }
   try {
     const rec = await admin.auth().getUserByEmail(email.trim());
@@ -2175,10 +2191,11 @@ exports.verificarEmail = onCall(async (request) => {
       evento,
       porNombre,
       porApellido,
+      pase,
     };
   } catch (err) {
     if (err.code === 'auth/user-not-found') {
-      return { existe: false, tieneClave: false, tieneGoogle: false, evento, porNombre, porApellido };
+      return { existe: false, tieneClave: false, tieneGoogle: false, evento, porNombre, porApellido, pase };
     }
     throw new HttpsError('internal', 'No se pudo verificar el correo.');
   }

@@ -170,12 +170,14 @@
                fichas y su párrafo de ayuda.
                En modo "frecuentes" solo queda uno: el multiuso es cosa de
                enlaces. -->
-          <!-- El tipo se ELIGE y Generar confirma. Los dos botones no generan
-               por sí solos: crear un acceso a una puerta merece un toque más,
-               y así el enlace no sale de un roce. Generar aparece al elegir,
-               debajo y a lo ancho. -->
+          <!-- El tipo se ELIGE y Generar confirma. Los dos botones no generan por
+               sí solos: crear un acceso a una puerta merece un toque más, y así
+               el enlace no sale de un roce.
+               Simple viene puesto y Generar está siempre ahí: esconderlo hasta
+               elegir obligaba a decidir entre Simple y Multiuso, cuando lo
+               normal es Simple y quien no lo sea ya lo cambiará. -->
           <div class="pase-acciones" id="pase-acciones">
-            <button id="pase-simple" type="button" class="btn-secundario" data-tipo="simple">Simple</button>
+            <button id="pase-simple" type="button" class="btn-secundario activa" data-tipo="simple">Simple</button>
             <button id="pase-multi" type="button" class="btn-secundario" data-tipo="multiuso">Multiuso</button>
             <button type="button" id="btn-info-enlace" class="btn-info" aria-label="Qué diferencia hay" aria-expanded="false">i</button>
           </div>
@@ -183,7 +185,7 @@
             <strong>Simple</strong> lo usa una sola persona; al canjearlo se cierra.<br>
             <strong>Multiuso</strong> lo pueden usar varias personas con el mismo enlace.
           </p>
-          <button id="btn-generar-pase" type="button" class="btn-primario pase-generar oculto">Generar</button>
+          <button id="btn-generar-pase" type="button" class="btn-primario pase-generar">Generar</button>
           <div id="pase-resultado" class="pase-resultado oculto"></div>
         </div>
         <div id="pase-mis">
@@ -451,6 +453,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=346"></script>
+  <script type="module" src="app.js?v=350"></script>
 </body>
 </html>
