@@ -1905,6 +1905,12 @@ button:disabled {
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 18px;
+  /* El nombre va CENTRADO, para que caiga a plomo bajo el botón de arriba. Los
+     dos rellenos tienen que medir lo mismo: la flecha se come 38px a la derecha
+     y con 14 a la izquierda el texto quedaría 12px corrido, que es justo lo que
+     se nota cuando algo pretende estar centrado. */
+  text-align: center;
+  padding-left: 38px;
   padding-right: 38px;
 }
 
