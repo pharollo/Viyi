@@ -5684,6 +5684,10 @@ async function iniciar() {
   $('btn-generar-multi').addEventListener('click', (e) => { paseMultiuso = true; generarEnlacePase(e.currentTarget); });
   // Al encender/apagar un dispositivo, refrescar el conteo de su grupo.
   $('pase-dispositivos').addEventListener('change', actualizarConteosGrupos);
+  $('pase-dispositivos').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-disp]');
+    if (b) b.classList.toggle('activa');   // se pueden compartir varias a la vez
+  });
 
   // ---- Tipo de enlace: Simple (default) / Multiuso, con ayuda desplegable ----
   let paseMultiuso = false;
@@ -5823,6 +5827,32 @@ async function iniciar() {
       lab.innerHTML = `<input type="checkbox" value="${escapar(id)}"><span class="pase-tgl" aria-hidden="true"></span><span class="pase-nom">${escapar(nombre)}</span>`;
       return lab;
     };
+    // Con pocos aparatos, FICHAS y la primera ya puesta.
+    //
+    // Casi todo el mundo tiene uno o dos: pedirle que abra un desplegable y
+    // marque una casilla es pedir una decisión que ya está tomada. Con muchos
+    // —el caso del administrador— se quedan agrupados por tipo: veinte fichas
+    // sueltas serían peor que un desplegable.
+    //
+    // Solo se preselecciona en modo fichas, donde la elegida se VE sin abrir
+    // nada. Preseleccionar dentro de un grupo cerrado sería compartir una
+    // puerta que no llegaste a mirar.
+    if (compartibles.length <= MAX_FICHAS_PASE) {
+      const fichas = document.createElement('div');
+      fichas.className = 'pase-fichas';
+      compartibles.forEach((d, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ficha-disp' + (i === 0 ? ' activa' : '');
+        b.dataset.disp = d.id;
+        // El icono es el MISMO del botón real, así que la ficha se reconoce sin
+        // leer: quien busca su portón busca la forma que ya conoce.
+        b.innerHTML = `<span class="ficha-icono">${iconoDe(d)}</span>`
+          + `<span class="ficha-nom">${escapar(d.nombre)}</span>`;
+        fichas.appendChild(b);
+      });
+      cont.appendChild(fichas);
+    } else {
     let primerGrupo = true;
     for (const t of TIPOS) {
       const delTipo = compartibles.filter((d) => (d.tipo || 'otro') === t.clave);
@@ -5839,6 +5869,7 @@ async function iniciar() {
       for (const d of delTipo) cuerpo.appendChild(filaCasilla(d.id, d.nombre));
       grupo.appendChild(cuerpo);
       cont.appendChild(grupo);
+    }
     }
     actualizarConteosGrupos();
     $('pase-evento').value = '';
@@ -5859,6 +5890,16 @@ async function iniciar() {
       const badge = g.querySelector('.pase-grupo-conteo');
       if (badge) { badge.textContent = n; badge.hidden = n === 0; }
     });
+  }
+
+  // Hasta aquí se enseñan como fichas; por encima, agrupados por tipo.
+  const MAX_FICHAS_PASE = 6;
+
+  // Lo elegido, venga de fichas o de casillas.
+  function seleccionPase() {
+    const fichas = [...document.querySelectorAll('#pase-dispositivos [data-disp].activa')];
+    if (fichas.length) return fichas.map((b) => b.dataset.disp);
+    return [...document.querySelectorAll('#pase-dispositivos input:checked')].map((i) => i.value);
   }
 
   let paseModo = 'enlace';
@@ -5970,7 +6011,7 @@ async function iniciar() {
   });
 
   async function darAccesoDirecto() {
-    const seleccion = [...document.querySelectorAll('#pase-dispositivos input:checked')].map((i) => i.value);
+    const seleccion = seleccionPase();
     if (!seleccion.length) { toast('Elige al menos un dispositivo.', 'error'); return; }
     const aQuienes = [...document.querySelectorAll('#pase-invitados-lista input:checked')].map((i) => i.value);
     if (!aQuienes.length) { toast('Elige al menos un invitado.', 'error'); return; }
@@ -6001,7 +6042,7 @@ async function iniciar() {
   // personas se ponía a trabajar el botón de al lado.
   async function generarEnlacePase(boton) {
     if (paseModo === 'frecuentes') return darAccesoDirecto();
-    const seleccion = [...document.querySelectorAll('#pase-dispositivos input:checked')].map((i) => i.value);
+    const seleccion = seleccionPase();
     if (!seleccion.length) { toast('Elige al menos un dispositivo.', 'error'); return; }
     const decia = boton.textContent;
     const ambos = [$('btn-generar-pase'), $('btn-generar-multi')];
