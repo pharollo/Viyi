@@ -4892,9 +4892,19 @@ async function iniciar() {
     for (const a of porFecha.concat(deFabrica)) cont.appendChild(marca(a));
 
 
-    // Con muchas opciones la puesta puede quedar fuera de la vista. `nearest`
-    // no mueve nada si ya se ve, así que no da un salto al abrir.
-    cont.querySelector('.skin-op.activa')?.scrollIntoView({ block: 'nearest' });
+    // Con muchas opciones la puesta puede quedar fuera de la vista DE LA
+    // REJILLA, que tiene su propio scroll.
+    //
+    // ⚠️ Se mueve `scrollTop` a mano en vez de usar `scrollIntoView`: ese
+    // arrastra también a los ANCESTROS, así que al entrar al Locker bajaba la
+    // página entera y no empezabas por arriba. Aquí solo se mueve la rejilla.
+    const puesta = cont.querySelector('.skin-op.activa');
+    if (puesta) {
+      const dentro = puesta.offsetTop - cont.offsetTop;
+      if (dentro < cont.scrollTop || dentro + puesta.offsetHeight > cont.scrollTop + cont.clientHeight) {
+        cont.scrollTop = Math.max(0, dentro - 8);
+      }
+    }
   }
 
   function renderVestuario() {
