@@ -2593,7 +2593,9 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
 .vest-editar {
   display: block;
   width: 100%;
-  margin-top: 8px;
+  /* Aire por los dos lados: debajo viene el primer encabezado de la galería
+     ("Destacados"), y sin margen quedaban pegados. */
+  margin: 8px 0 18px;
 }
 #vest-editor { margin-top: 12px; }
 /* El Guardar del diseño, en el hueco que deja "Editar diseño". Mismo sitio y
