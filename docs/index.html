@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=315">
+  <link rel="stylesheet" href="styles.css?v=316">
 </head>
 <body>
   <header>
@@ -367,17 +367,39 @@
   </main>
 
   <div id="backdrop" class="backdrop oculto"></div>
-  <nav id="menu-lateral" class="menu-lateral" aria-label="Secciones">
-    <button type="button" class="item-menu activa" data-tab="tab-controles">Controles</button>
-    <button type="button" class="item-menu" data-tab="tab-pases">Pases</button>
-    <button type="button" class="item-menu" data-tab="tab-locker">Locker</button>
+  <!-- Navegación principal ABAJO y siempre a la vista.
+       Estaba en un menú hamburguesa, y de ahí salió el problema de fondo del
+       Locker: nadie lo encontraba porque la navegación estaba escondida detrás
+       de un icono. Lo que se usa a diario vive aquí; lo demás —admin, actividad,
+       perfil, salir— sigue en el menú lateral, ahora detrás de "Más". -->
+  <nav id="barra-abajo" class="barra-abajo" aria-label="Secciones">
+    <button type="button" class="item-barra item-menu activa" data-tab="tab-controles">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="9" width="16" height="12" rx="3"/><path d="M8 9V6.5a4 4 0 0 1 8 0V9"/><circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>
+      <span>Controles</span>
+    </button>
+    <button type="button" class="item-barra item-menu" data-tab="tab-pases">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5A2.5 2.5 0 0 0 5.5 6h13A2.5 2.5 0 0 0 21 8.5v2a2 2 0 0 0 0 3v2A2.5 2.5 0 0 0 18.5 18h-13A2.5 2.5 0 0 0 3 15.5v-2a2 2 0 0 0 0-3z"/><path d="M14 6v12" stroke-dasharray="2 3"/></svg>
+      <span>Pases</span>
+    </button>
+    <button type="button" class="item-barra item-menu" data-tab="tab-locker">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2"/></svg>
+      <span>Locker</span>
+    </button>
+    <button type="button" id="btn-mas" class="item-barra" aria-label="Más secciones">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>
+      <span>Más</span>
+    </button>
+  </nav>
+
+  <nav id="menu-lateral" class="menu-lateral" aria-label="Más secciones">
     <button type="button" class="item-menu solo-admin" data-tab="tab-gestion">Admin</button>
     <button type="button" class="item-menu solo-admin" data-tab="tab-registro">Actividad</button>
+    <button type="button" class="item-menu" data-tab="tab-perfil">Mi perfil</button>
     <button id="btn-salir" type="button" class="item-menu item-salir">Salir</button>
   </nav>
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=326"></script>
+  <script type="module" src="app.js?v=327"></script>
 </body>
 </html>

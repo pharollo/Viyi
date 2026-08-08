@@ -4426,6 +4426,7 @@ async function iniciar() {
     $('backdrop').classList.add('oculto');
   };
   $('btn-menu').addEventListener('click', abrirMenu);
+  $('btn-mas').addEventListener('click', abrirMenu);
   $('backdrop').addEventListener('click', cerrarMenu);
   document.querySelectorAll('.item-menu').forEach((p) => {
     p.addEventListener('click', () => {

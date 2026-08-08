@@ -510,6 +510,60 @@ button:disabled {
   background: rgba(0, 0, 0, 0.55);
 }
 
+/* Barra de secciones abajo: la navegación de diario, siempre a la vista.
+   Estaba en un menú hamburguesa y de ahí salió el problema del Locker —nadie
+   lo encontraba porque la navegación estaba escondida—. Lo que se usa todos los
+   días vive aquí; el resto sigue en el lateral, detrás de "Más".
+   `env(safe-area-inset-bottom)` para que en un iPhone no quede bajo la barra
+   del sistema. */
+.barra-abajo {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  display: flex;
+  background: var(--superficie);
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.item-barra {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px 9px;
+  border: none;
+  background: none;
+  color: var(--texto-suave);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Los botones de la barra llevan también `item-menu` —así heredan el cambio de
+   pestaña y la marca de activo sin duplicar código— pero NO su aspecto: esa
+   clase pinta un bloque en relieve pensado para el menú lateral, y dentro de la
+   barra salía un recuadro hundido alrededor de la sección abierta. Aquí lo
+   único que marca es el color. */
+.barra-abajo .item-menu {
+  text-align: center;
+  border-radius: 0;
+  padding: 10px 4px 9px;
+  font-size: 11px;
+  background: none;
+  box-shadow: none;
+}
+.item-barra.activa,
+.barra-abajo .item-menu.activa { color: var(--primario); box-shadow: none; }
+.item-barra:active { opacity: 0.6; }
+
+/* Sitio para la barra: sin esto lo último de cada pantalla queda debajo. */
+main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+
 .menu-lateral {
   position: fixed;
   top: 0;
