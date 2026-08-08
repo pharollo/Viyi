@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=335">
+  <link rel="stylesheet" href="styles.css?v=336">
 </head>
 <body>
   <header>
@@ -121,6 +121,7 @@
           </div>
           <input type="text" id="pase-evento" class="pase-evento" maxlength="60" autocapitalize="words" placeholder="Evento (Parrilla, Mahjong)" aria-label="Evento">
           <div id="pase-invitados-lista" class="pase-disp oculto"></div>
+          <input type="search" id="pase-buscar" class="buscador oculto" placeholder="Buscar" aria-label="Buscar dispositivo" autocomplete="off">
           <div id="pase-dispositivos" class="pase-disp"></div>
           <!-- Duración a la vista, no en una rueda.
                Era un carrusel horizontal: solo enseñaba dos o tres valores a la
@@ -452,6 +453,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=357"></script>
+  <script type="module" src="app.js?v=359"></script>
 </body>
 </html>

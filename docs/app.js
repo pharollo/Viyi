@@ -4884,19 +4884,17 @@ async function iniciar() {
     for (const a of porFecha.concat(deFabrica)) cont.appendChild(marca(a));
 
 
-    // Con muchas opciones la puesta puede quedar fuera de la vista DE LA
-    // REJILLA, que tiene su propio scroll.
+    // La rejilla siempre empieza por arriba, en Destacados y "Diseña Uno".
     //
-    // ⚠️ Se mueve `scrollTop` a mano en vez de usar `scrollIntoView`: ese
-    // arrastra también a los ANCESTROS, así que al entrar al Locker bajaba la
-    // página entera y no empezabas por arriba. Aquí solo se mueve la rejilla.
-    const puesta = cont.querySelector('.skin-op.activa');
-    if (puesta) {
-      const dentro = puesta.offsetTop - cont.offsetTop;
-      if (dentro < cont.scrollTop || dentro + puesta.offsetHeight > cont.scrollTop + cont.clientHeight) {
-        cont.scrollTop = Math.max(0, dentro - 8);
-      }
-    }
+    // Antes bajaba sola hasta el estilo PUESTO. Sonaba servicial, pero el
+    // puesto suele estar en "Los demás", así que al entrar al Locker te
+    // encontrabas la galería a mitad de camino: sin los destacados, sin el
+    // botón de crear y con una fila de nombres cortada arriba. El puesto ya
+    // se distingue por su anillo verde; no hacía falta ir a buscarlo.
+    //
+    // ⚠️ `scrollTop` a mano y no `scrollIntoView`: ese arrastra también a los
+    // ANCESTROS, y bajaría la página entera además de la rejilla.
+    cont.scrollTop = 0;
   }
 
   function renderVestuario() {
@@ -5735,7 +5733,16 @@ async function iniciar() {
   });
   $('btn-generar-pase').addEventListener('click', (e) => generarEnlacePase(e.currentTarget));
   // Al encender/apagar un dispositivo, refrescar el conteo de su grupo.
-  $('pase-dispositivos').addEventListener('change', actualizarConteosGrupos);
+  $('pase-buscar').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll('#pase-dispositivos [data-disp]').forEach((b) => {
+      // Lo elegido no se esconde nunca: si desapareciera al escribir, se
+      // compartiría algo que ya no se ve. Se comparte lo MARCADO, no lo visible.
+      const calza = !q || b.dataset.busca.includes(q) || b.classList.contains('activa');
+      b.classList.toggle('oculto', !calza);
+    });
+  });
+
   $('pase-dispositivos').addEventListener('click', (e) => {
     const b = e.target.closest('[data-disp]');
     if (b) b.classList.toggle('activa');   // se pueden compartir varias a la vez
@@ -5864,60 +5871,35 @@ async function iniciar() {
     aplicarModoPase();
     const cont = $('pase-dispositivos');
     cont.textContent = '';
-    // Dispositivos agrupados por tipo en desplegables (<details>), colapsados
-    // por defecto; el conteo verde en la cabecera muestra cuántos hay elegidos
-    // dentro de un grupo cerrado.
-    const filaCasilla = (id, nombre) => {
-      const lab = document.createElement('label');
-      lab.className = 'pase-casilla';
-      lab.innerHTML = `<input type="checkbox" value="${escapar(id)}"><span class="pase-tgl" aria-hidden="true"></span><span class="pase-nom">${escapar(nombre)}</span>`;
-      return lab;
-    };
-    // Con pocos aparatos, FICHAS y la primera ya puesta.
+    // Los aparatos, SIEMPRE como fichas con su icono.
     //
-    // Casi todo el mundo tiene uno o dos: pedirle que abra un desplegable y
-    // marque una casilla es pedir una decisión que ya está tomada. Con muchos
-    // —el caso del administrador— se quedan agrupados por tipo: veinte fichas
-    // sueltas serían peor que un desplegable.
+    // Antes había dos formas: fichas con pocos y desplegables por tipo con
+    // muchos. Dos maneras de hacer lo mismo, y la de los desplegables escondía
+    // lo que buscabas. Ahora es una sola, y lo que resuelve el caso del
+    // administrador —veinte aparatos— es el buscador, no agruparlos.
     //
-    // Solo se preselecciona en modo fichas, donde la elegida se VE sin abrir
-    // nada. Preseleccionar dentro de un grupo cerrado sería compartir una
-    // puerta que no llegaste a mirar.
-    if (compartibles.length <= MAX_FICHAS_PASE) {
-      const fichas = document.createElement('div');
-      fichas.className = 'pase-fichas';
-      compartibles.forEach((d, i) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'ficha-disp' + (i === 0 ? ' activa' : '');
-        b.dataset.disp = d.id;
-        // El icono es el MISMO del botón real, así que la ficha se reconoce sin
-        // leer: quien busca su portón busca la forma que ya conoce.
-        b.innerHTML = `<span class="ficha-icono">${iconoDe(d)}</span>`
-          + `<span class="ficha-nom">${escapar(d.nombre)}</span>`;
-        fichas.appendChild(b);
-      });
-      cont.appendChild(fichas);
-    } else {
-    let primerGrupo = true;
-    for (const t of TIPOS) {
-      const delTipo = compartibles.filter((d) => (d.tipo || 'otro') === t.clave);
-      if (!delTipo.length) continue;
-      const grupo = document.createElement('details');
-      grupo.className = 'pase-grupo';
-      if (primerGrupo) { grupo.open = true; primerGrupo = false; } // el primero (Puertas) abierto
-      grupo.innerHTML = '<summary class="pase-grupo-cab">'
-        + '<svg class="pase-grupo-flecha" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>'
-        + `<span class="pase-grupo-tit">${escapar(t.titulo)}</span>`
-        + '<span class="pase-grupo-conteo" hidden></span></summary>';
-      const cuerpo = document.createElement('div');
-      cuerpo.className = 'pase-grupo-cuerpo';
-      for (const d of delTipo) cuerpo.appendChild(filaCasilla(d.id, d.nombre));
-      grupo.appendChild(cuerpo);
-      cont.appendChild(grupo);
-    }
-    }
-    actualizarConteosGrupos();
+    // Solo se preselecciona cuando son pocos: con veinte a la vista, empezar
+    // con uno marcado es empezar a punto de compartir algo que no miraste.
+    const pocos = compartibles.length <= MAX_FICHAS_PASE;
+    $('pase-buscar').classList.toggle('oculto', pocos);
+    $('pase-buscar').value = '';
+
+    const fichas = document.createElement('div');
+    fichas.className = 'pase-fichas';
+    compartibles.forEach((d, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ficha-disp' + (pocos && i === 0 ? ' activa' : '');
+      b.dataset.disp = d.id;
+      b.dataset.busca = (d.nombre || '').toLowerCase();
+      // El icono es el MISMO del botón real, así que la ficha se reconoce sin
+      // leer: quien busca su portón busca la forma que ya conoce.
+      b.innerHTML = `<span class="ficha-icono">${iconoDe(d)}</span>`
+        + `<span class="ficha-nom">${escapar(d.nombre)}</span>`;
+      fichas.appendChild(b);
+    });
+    cont.appendChild(fichas);
+
     $('pase-evento').value = '';
     // Al abrir, Simple: es lo normal y así no hay nada que decidir para el
     // caso de siempre.
@@ -5931,25 +5913,14 @@ async function iniciar() {
     // mide 0). En el frame siguiente ya hay layout.
   }
 
-  // Pinta en la cabecera de cada grupo (desplegable por tipo) cuántos
-  // dispositivos hay elegidos dentro; se oculta si es 0. Así un grupo colapsado
-  // avisa si tiene selecciones adentro.
-  function actualizarConteosGrupos() {
-    document.querySelectorAll('#pase-dispositivos .pase-grupo').forEach((g) => {
-      const n = g.querySelectorAll('input:checked').length;
-      const badge = g.querySelector('.pase-grupo-conteo');
-      if (badge) { badge.textContent = n; badge.hidden = n === 0; }
-    });
-  }
 
   // Hasta aquí se enseñan como fichas; por encima, agrupados por tipo.
   const MAX_FICHAS_PASE = 6;
 
   // Lo elegido, venga de fichas o de casillas.
   function seleccionPase() {
-    const fichas = [...document.querySelectorAll('#pase-dispositivos [data-disp].activa')];
-    if (fichas.length) return fichas.map((b) => b.dataset.disp);
-    return [...document.querySelectorAll('#pase-dispositivos input:checked')].map((i) => i.value);
+    return [...document.querySelectorAll('#pase-dispositivos [data-disp].activa')]
+      .map((b) => b.dataset.disp);
   }
 
   let paseModo = 'enlace';

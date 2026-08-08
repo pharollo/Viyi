@@ -1332,16 +1332,20 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
    con una ya puesta. Se reconocen sin leer —el icono es el mismo del botón
    real— y elegir es un toque en algo que se ve, no marcar una casilla dentro de
    un desplegable. */
+/* Rejilla, no fila envuelta: con tres o cuatro aparatos daba igual, pero al
+   pasar de seis la última fila quedaba con una ficha estirada al doble de
+   ancho que las de arriba. En rejilla todas miden lo mismo aunque la última
+   fila vaya sola. `grid-auto-rows: 1fr` iguala el alto de TODAS las filas a la
+   más alta, así un nombre que parte en dos líneas no deja un escalón. */
 .pase-fichas {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  grid-auto-rows: 1fr;
   gap: 10px;
   margin-bottom: 16px;
 }
 
 .ficha-disp {
-  flex: 1 1 92px;
-  max-width: 140px;
   display: flex;
   flex-direction: column;
   align-items: center;
