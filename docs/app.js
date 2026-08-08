@@ -5541,7 +5541,7 @@ async function iniciar() {
     // "Guardar cambios" y no "Guardar": en la galería este botón convive con el
     // Guardar del aspecto (el que te lo pone), y dos "Guardar" a la vista
     // obligan a adivinar cuál hace qué.
-    guardar.textContent = 'Guardar cambios';
+    guardar.textContent = 'Guardar';
     guardar.addEventListener('click', async () => {
       const nombre = editor.querySelector('.ed-nombre').value.trim();
       if (!nombre) { avisar('Ponle un nombre.', true); return; }
@@ -5598,7 +5598,7 @@ async function iniciar() {
       const publicar = document.createElement('button');
       publicar.type = 'button';
       publicar.className = 'btn-quieto';
-      publicar.textContent = pendiente ? 'Publicar en la galería' : 'Quitar de la galería';
+      publicar.textContent = pendiente ? 'Publicar' : 'Retirar';
       publicar.addEventListener('click', async () => {
         publicar.disabled = true;
         try {
@@ -5892,7 +5892,7 @@ async function iniciar() {
   function aplicarModoPase() {
     const frec = paseModo === 'frecuentes';
     $('pase-invitados-lista').classList.toggle('oculto', !frec);
-    $('btn-generar-pase').textContent = frec ? 'Invitar' : 'Para una persona';
+    $('btn-generar-pase').textContent = frec ? 'Invitar' : 'Simple';
     // Multiuso es cosa de enlaces: a un invitado conocido se le da acceso y ya.
     $('btn-generar-multi').classList.toggle('oculto', frec);
     $('btn-info-enlace').classList.toggle('oculto', frec);

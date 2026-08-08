@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=323">
+  <link rel="stylesheet" href="styles.css?v=324">
 </head>
 <body>
   <header>
@@ -52,7 +52,7 @@
         <p class="pase-evento-info oculto"></p>
         <input type="email" id="pase-email" required autocomplete="email" inputmode="email" placeholder="Email" aria-label="Email">
         <button type="submit" id="btn-continuar" class="btn-primario">Continuar</button>
-        <button type="button" id="btn-google" class="btn-secundario oculto">Continuar con Google</button>
+        <button type="button" id="btn-google" class="btn-secundario oculto">Google</button>
         <p id="error-email" class="mensaje-error oculto"></p>
       </form>
     </section>
@@ -136,7 +136,7 @@
             <button type="button" class="chip-scope activa" data-dur="6h">6 h</button>
             <button type="button" class="chip-scope" data-dur="24h">24 h</button>
             <button type="button" class="chip-scope" data-dur="7d">7 d</button>
-            <button type="button" class="chip-scope" data-dur="indef">Indefinido</button>
+            <button type="button" class="chip-scope chip-infinito" data-dur="indef" aria-label="Indefinido" title="Indefinido">∞</button>
           </div>
           <!-- Lo ocasional, detrás de una puerta con nombre.
                Compartir una puerta pedía siete decisiones —evento,
@@ -172,13 +172,13 @@
                En modo "frecuentes" solo queda uno: el multiuso es cosa de
                enlaces. -->
           <div class="pase-acciones" id="pase-acciones">
-            <button id="btn-generar-pase" type="button" class="btn-primario">Para una persona</button>
-            <button id="btn-generar-multi" type="button" class="btn-secundario">Para varias</button>
+            <button id="btn-generar-pase" type="button" class="btn-primario">Simple</button>
+            <button id="btn-generar-multi" type="button" class="btn-secundario">Multiuso</button>
             <button type="button" id="btn-info-enlace" class="btn-info" aria-label="Qué diferencia hay" aria-expanded="false">i</button>
           </div>
           <p id="info-enlace" class="pase-ayuda oculto">
-            <strong>Para una persona</strong> se cierra en cuanto alguien lo canjea.<br>
-            <strong>Para varias</strong> lo pueden usar todos los que reciban el enlace.
+            <strong>Simple</strong> se cierra en cuanto alguien lo canjea.<br>
+            <strong>Multiuso</strong> lo pueden usar todos los que reciban el enlace.
           </p>
           <div id="pase-resultado" class="pase-resultado oculto"></div>
         </div>
@@ -213,7 +213,7 @@
         <ul id="gestion-inmuebles" class="lista-gestion"></ul>
         <div class="encabezado-admin" data-seccion="vecinos">
           <h2>Vecinos</h2>
-          <button id="btn-vecinos-lote" type="button" class="btn-secundario">+ En lote</button>
+          <button id="btn-vecinos-lote" type="button" class="btn-secundario">+ Lote</button>
           <button id="btn-nuevo-usuario" type="button" class="btn-secundario">+ Agregar</button>
         </div>
         <ul id="gestion-usuarios" class="lista-gestion"></ul>
@@ -269,7 +269,7 @@
                  Guardar se apartan (`#vestuario.editando`). Cambiar el nombre o
                  la animación con el botón grande fuera de la pantalla era
                  editar a ciegas: lo que se toca aquí se ve ahí arriba. -->
-            <button type="button" id="btn-editar-skin" class="btn-secundario vest-editar oculto">Editar diseño</button>
+            <button type="button" id="btn-editar-skin" class="btn-secundario vest-editar oculto">Editar</button>
             <div id="vest-editor" class="oculto"></div>
             <p id="vest-editor-msg" class="oculto"></p>
             <div id="vest-opciones" class="vest-opciones"></div>
@@ -292,7 +292,7 @@
              con el QR de la consola (Devices -> Link App Account -> Add App
              Account). -->
         <div class="tarjeta oculto" id="seccion-crear-skin">
-          <button type="button" id="btn-toggle-skin" class="btn-desplegar" aria-expanded="false" aria-controls="form-skin">Crear un botón</button>
+          <button type="button" id="btn-toggle-skin" class="btn-desplegar" aria-expanded="false" aria-controls="form-skin">Diseñar</button>
           <form id="form-skin" class="form-desplegable oculto">
             <label class="campo-perfil">Descríbelo
               <textarea id="skin-prompt" rows="2" maxlength="700" placeholder="Una ficha de mahjong de marfil"></textarea>
@@ -341,7 +341,7 @@
               <div class="campo-perfil">Para
                 <div class="skin-tipos" id="skin-tipos"></div>
               </div>
-              <button type="button" id="btn-publicar-skin" class="btn-primario">Guardar mi botón</button>
+              <button type="button" id="btn-publicar-skin" class="btn-primario">Guardar</button>
             </div>
             <p id="skin-msg" class="mensaje-error oculto"></p>
             <div id="skin-lista" class="skin-lista"></div>
@@ -372,15 +372,15 @@
                skin. El Locker ya se mudó a su propia pestaña, pero la regla se
                queda: un Guardar encendido sobre un formulario sin cambios
                promete trabajo que no hay. -->
-          <button type="submit" id="btn-guardar-perfil" class="btn-primario oculto">Guardar datos</button>
+          <button type="submit" id="btn-guardar-perfil" class="btn-primario oculto">Guardar</button>
           <p id="perfil-msg" class="mensaje-error oculto"></p>
         </form>
         <div class="tarjeta oculto" id="seccion-tuya">
-          <button type="button" id="btn-vincular-tuya" class="btn-secundario">Vincular mi cuenta Tuya</button>
+          <button type="button" id="btn-vincular-tuya" class="btn-secundario">Vincular</button>
           <p id="tuya-msg" class="campo-ayuda">Para usar en ViYi los dispositivos que ya tienes en tu app Smart Life. Eliges cuáles compartes.</p>
         </div>
         <div class="tarjeta" id="seccion-clave">
-          <button type="button" id="btn-toggle-clave" class="btn-desplegar" aria-expanded="false" aria-controls="form-clave">Cambiar clave</button>
+          <button type="button" id="btn-toggle-clave" class="btn-desplegar" aria-expanded="false" aria-controls="form-clave">Clave</button>
           <form id="form-clave" class="form-desplegable oculto">
             <div class="campo-clave">
               <input type="password" id="clave-actual" autocomplete="current-password" placeholder="Clave actual">
@@ -447,6 +447,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=338"></script>
+  <script type="module" src="app.js?v=340"></script>
 </body>
 </html>

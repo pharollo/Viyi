@@ -1225,6 +1225,17 @@ main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   margin-bottom: 16px;
 }
 
+/* "Indefinido" pasa a ser el símbolo de infinito: una sola palabra no le
+   bastaba y ninguna cabía sin partirse. El símbolo pide más cuerpo que el texto
+   de al lado para leerse a la misma distancia, y `aria-label` conserva la
+   palabra para quien no ve el glifo. */
+.chip-infinito {
+  font-size: 22px;
+  line-height: 1;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
 /* Duración: fichas envueltas, todas a la vista. */
 .dur-chips {
   display: flex;
