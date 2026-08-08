@@ -4719,8 +4719,8 @@ async function iniciar() {
   // son perillas/sliders y todavía no tienen aspectos, así que quedan fuera.
   const dispConAspectos = () => (misDispositivos || []).filter((d) => aspectosDe(d).length > 1);
 
-  // Cuántos diseños recientes se enseñan arriba, en "Los últimos".
-  const CUANTOS_ULTIMOS = 5;
+  // Cuántos diseños se destacan arriba, en "Los más usados".
+  const CUANTOS_ARRIBA = 5;
 
   let vestDisp = null;      // dispositivo que se está vistiendo
   let vestAspecto = null;   // opción centrada en el carrusel
@@ -4774,30 +4774,30 @@ async function iniciar() {
       return h;
     };
 
-    // Arriba, LOS ÚLTIMOS que llegaron; abajo, el resto con los más puestos
-    // primero.
+    // Arriba LOS MÁS USADOS; abajo el resto por fecha, y los de fábrica al final.
     //
-    // Antes el grupo de arriba era por fecha ("los de los últimos 14 días"),
-    // razonando que un número fijo acaba llamando nuevo a algo de hace medio
-    // año. Pero se pasaba por alto el otro lado, y lo señaló el usuario: si
-    // nadie publica en dos semanas el grupo se vacía y la rejilla se queda en
-    // una lista plana de veinte fichas — se pierde la estructura entera. Y
-    // mientras no lleguen otros, esos SIGUEN siendo los últimos que hay.
-    // Por eso ahora es por posición y se llama "Los últimos": nunca se vacía y
-    // la palabra nunca miente, tengan la edad que tengan.
-    const ultimos = ops.filter((a) => a.creado)
-      .sort((a, b) => b.creado - a.creado)
-      .slice(0, CUANTOS_ULTIMOS);
-    // En "Los demás" van primero los diseños de la galería y AL FINAL los de
-    // fábrica. Lo pidió así el usuario y tiene su lógica: los de la galería son
-    // lo que vienes a mirar —cambian, los hace gente, crecen—; los de fábrica
-    // son el fondo de armario, ahí para cuando los busques.
-    // Los de fábrica no están en la colección, así que no tienen fecha ni usos
-    // que comparar: conservan el orden del catálogo entre ellos.
-    const resto = ops.filter((a) => !ultimos.includes(a));
+    // El grupo de arriba era por recencia y pasó a ser por uso: así la
+    // popularidad tiene su escaparate y abajo queda un orden cronológico
+    // limpio, en vez de dos bloques peleándose por el mismo criterio.
+    //
+    // ⚠️ Solo entran los que tienen usos DE VERDAD. Si se dejara que el
+    // desempate llenara el hueco, uno que no le gusta a nadie ocuparía el
+    // escaparate por el mérito de ser reciente — y el encabezado estaría
+    // mintiendo. Mientras nadie use nada el grupo no existe, y se va llenando
+    // solo conforme la gente se ponga diseños.
+    const populares = ops.filter((a) => a.creado && a.usos > 0)
+      .sort((a, b) => b.usos - a.usos || b.creado - a.creado)
+      .slice(0, CUANTOS_ARRIBA);
+    const resto = ops.filter((a) => !populares.includes(a));
+    // Abajo, del más nuevo al más viejo. La popularidad NO va de segunda clave a
+    // propósito: no hay dos diseños con la misma fecha de creación, así que
+    // nunca llegaría a decidir nada y sería una regla escrita para no usarse.
+    const porFecha = resto.filter((a) => a.creado).sort((a, b) => b.creado - a.creado);
+    // Los de fábrica cierran. No están en la colección, así que no tienen fecha
+    // ni usos que comparar: conservan el orden del catálogo entre ellos.
     const deFabrica = resto.filter((a) => !a.creado);
-    const usados = resto.filter((a) => a.creado).sort((a, b) => b.usos - a.usos || b.creado - a.creado);
-    const nuevos = ultimos;
+    const nuevos = populares;
+    const usados = porFecha;
 
     // La ficha de fabricar.
     //
@@ -4815,19 +4815,19 @@ async function iniciar() {
 
     // Sin novedades no se escriben encabezados: un solo grupo titulado "Los
     // demás" es una etiqueta que no separa nada de nada.
+    if (!populares.length) cont.appendChild(hacer);
     if (nuevos.length) {
-      cont.appendChild(titulo('Los últimos'));
+      cont.appendChild(titulo('Los más usados'));
       for (const a of nuevos) cont.appendChild(marca(a));
-      // Cierra los NUEVOS, no el final de la lista: hacerte uno es traer otra
-      // novedad, y ahí se ve. Al final de todo quedaba debajo de veinte fichas
-      // de fábrica, que es donde no mira nadie.
+      // Cierra el grupo de arriba; si ese grupo todavía no existe, la ficha
+      // abre la lista (más arriba). En cualquiera de los dos casos queda a la
+      // vista: al final de todo quedaría debajo de todo el catálogo, que es
+      // donde no mira nadie.
       cont.appendChild(hacer);
       cont.appendChild(titulo('Los demás'));
     }
-    for (const a of usados.concat(deFabrica)) cont.appendChild(marca(a));
-    // Sin grupo de novedades no hay dónde cerrar, así que va al final —que es
-    // también el final de la única lista que hay.
-    if (!nuevos.length) cont.appendChild(hacer);
+    for (const a of porFecha.concat(deFabrica)) cont.appendChild(marca(a));
+
 
     // Con muchas opciones la puesta puede quedar fuera de la vista. `nearest`
     // no mueve nada si ya se ve, así que no da un salto al abrir.
