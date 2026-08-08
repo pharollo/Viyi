@@ -1394,38 +1394,14 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
 }
 #seccion-admin .item-menu { width: 100%; }
 
-/* Campo de fecha: se ve el texto que escribimos nosotros y el control nativo
-   va encima, invisible, para abrir el calendario del teléfono al tocarlo.
-   Tiene el mismo aspecto hundido que el resto de campos. */
-.campo-fecha {
-  position: relative;
-  display: block;
-  padding: 13px 14px;
-  border-radius: 12px;
-  background: var(--fondo);
-  color: var(--texto);
-  font-size: 15px;
-  font-weight: 600;
-  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
+/* Los accesos de administración dentro del perfil: mismo bloque en relieve del
+   menú de antes, pero apilados y a lo ancho de la tarjeta. */
+#seccion-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.campo-fecha input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: none;
-  box-shadow: none;
-  opacity: 0;          /* invisible, pero sigue abriendo el calendario al tocar */
-  -webkit-appearance: none;
-  appearance: none;
-}
-.campo-fecha:focus-within {
-  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara),
-              0 0 0 2px var(--primario);
-}
+#seccion-admin .item-menu { width: 100%; }
 
 /* Pase programado que todavía no empieza: el control se ve, pero apagado y con
    su hora debajo. Enseñarlo apagado y no esconderlo es a propósito — el

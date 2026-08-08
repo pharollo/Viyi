@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=331">
+  <link rel="stylesheet" href="styles.css?v=332">
 </head>
 <body>
   <header>
@@ -152,17 +152,16 @@
               <button type="button" class="chip-scope activa" data-cuando="ya">Ahora</button>
               <button type="button" class="chip-scope" data-cuando="luego">Programar</button>
             </div>
-            <!-- Un solo campo: lo que se LEE lo escribimos nosotros en español,
-                 y el `datetime-local` va encima invisible para que al tocarlo se
-                 abra el calendario del teléfono. El formato del nativo sale en
-                 el idioma del aparato y no se puede forzar (Safari ignora
-                 `lang`), así que se enseña solo el nuestro. -->
-            <label class="campo-perfil oculto" id="pase-desde-caja">
-              <span class="campo-fecha">
-                <span id="pase-desde-dicho">Elige la fecha</span>
-                <input type="datetime-local" id="pase-desde" lang="es" aria-label="Empieza el">
-              </span>
-            </label>
+            <!-- Campo nativo, a la vista y sin trucos.
+               Estuvo escondido bajo un texto nuestro en español, porque el
+               formato del nativo sale en el idioma del teléfono y no se puede
+               forzar (Safari ignora `lang`). Pero un `datetime-local` con
+               opacidad 0 deja de abrir el calendario en escritorio y en el
+               iPhone no dejaba poner la hora: se rompió el control por arreglar
+               un detalle de idioma. El idioma lo pone el aparato y ya está. -->
+          <label class="campo-perfil oculto" id="pase-desde-caja">
+            <input type="datetime-local" id="pase-desde" lang="es" aria-label="Empieza el">
+          </label>
           </div>
           <!-- El tipo de pase ES la acción, no un campo previo. Antes había que
                elegir "Simple" o "Multiuso" y DESPUÉS pulsar Generar: dos pasos y
@@ -452,6 +451,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=345"></script>
+  <script type="module" src="app.js?v=346"></script>
 </body>
 </html>

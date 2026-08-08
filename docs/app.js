@@ -5964,31 +5964,6 @@ async function iniciar() {
     return Number.isFinite(ms) ? ms : null;
   }
 
-  // La fecha elegida, escrita en español. El campo nativo la enseña en el
-  // idioma del teléfono y no se puede forzar; esta línea sí es nuestra.
-  function decirDesde() {
-    const el = $('pase-desde-dicho');
-    const v = $('pase-desde').value;
-    const ms = v ? new Date(v).getTime() : NaN;
-    if (!Number.isFinite(ms)) { el.textContent = 'Elige la fecha'; return; }
-    const f = new Date(ms);
-    const dia = f.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
-    const hora = f.toLocaleTimeString('es', { hour: 'numeric', minute: '2-digit' });
-    el.textContent = `${dia.charAt(0).toUpperCase()}${dia.slice(1)} a las ${hora}`;
-  }
-  $('pase-desde').addEventListener('input', decirDesde);
-  $('pase-desde').addEventListener('change', decirDesde);
-
-  // Abrir/cerrar las opciones. Al cerrarlas NO se deshace lo elegido: si
-  // programaste una fecha y las recoges, el pase sigue programado — lo dice el
-  // resumen del propio botón.
-  $('btn-pase-opciones').addEventListener('click', () => {
-    const caja = $('pase-opciones');
-    const abrir = caja.classList.contains('oculto');
-    caja.classList.toggle('oculto', !abrir);
-    $('btn-pase-opciones').setAttribute('aria-expanded', String(abrir));
-  });
-
   $('pase-cuando').addEventListener('click', (e) => {
     const b = e.target.closest('[data-cuando]');
     if (!b) return;
@@ -6003,7 +5978,6 @@ async function iniciar() {
       $('pase-desde').value = new Date(t.getTime() - t.getTimezoneOffset() * 60000)
         .toISOString().slice(0, 16);
     }
-    decirDesde();
   });
 
   async function darAccesoDirecto() {
