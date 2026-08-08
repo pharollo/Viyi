@@ -2534,7 +2534,10 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
 .vest-demo {
   display: flex;
   justify-content: center;
-  padding: 4px 0 18px;
+  /* Simétrico: el botón va centrado en su espacio. Los 4/18 de antes venían de
+     cuando la muestra llevaba su nombre debajo —el hueco de abajo era para esa
+     etiqueta—; al quitarla, el botón quedó descolgado hacia arriba. */
+  padding: 12px 0;
 }
 
 /* Carrusel de opciones: la centrada es la elegida (coverflow como el de los
