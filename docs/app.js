@@ -4780,12 +4780,17 @@ async function iniciar() {
     // popularidad tiene su escaparate y abajo queda un orden cronológico
     // limpio, en vez de dos bloques peleándose por el mismo criterio.
     //
-    // ⚠️ Solo entran los que tienen usos DE VERDAD. Si se dejara que el
-    // desempate llenara el hueco, uno que no le gusta a nadie ocuparía el
-    // escaparate por el mérito de ser reciente — y el encabezado estaría
-    // mintiendo. Mientras nadie use nada el grupo no existe, y se va llenando
-    // solo conforme la gente se ponga diseños.
-    const populares = ops.filter((a) => a.creado && a.usos > 0)
+    // El grupo de arriba existe SIEMPRE: son cinco huecos fijos, no un grupo que
+    // aparece y desaparece. Se probó a que solo entraran los que tuvieran usos
+    // —para que ninguno flojo ocupara sitio por ser reciente— y el resultado
+    // fue peor: hoy nadie tiene usos, así que la galería se quedaba en una
+    // lista corrida y se perdían las tres secciones.
+    //
+    // Manda el uso y la fecha es el desempate, así que hoy se llena con lo más
+    // reciente y se va convirtiendo en popularidad solo, conforme la gente se
+    // ponga diseños. Por eso el encabezado es "Destacados" y no "Los más
+    // usados": hoy no sería verdad.
+    const populares = ops.filter((a) => a.creado)
       .sort((a, b) => b.usos - a.usos || b.creado - a.creado)
       .slice(0, CUANTOS_ARRIBA);
     const resto = ops.filter((a) => !populares.includes(a));
@@ -4815,9 +4820,8 @@ async function iniciar() {
 
     // Sin novedades no se escriben encabezados: un solo grupo titulado "Los
     // demás" es una etiqueta que no separa nada de nada.
-    if (!populares.length) cont.appendChild(hacer);
     if (nuevos.length) {
-      cont.appendChild(titulo('Los más usados'));
+      cont.appendChild(titulo('Destacados'));
       for (const a of nuevos) cont.appendChild(marca(a));
       // Cierra el grupo de arriba; si ese grupo todavía no existe, la ficha
       // abre la lista (más arriba). En cualquiera de los dos casos queda a la
