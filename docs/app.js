@@ -1441,18 +1441,35 @@ async function iniciar() {
   // que abrir la app te para la música del carro para hacer "clic" — reportado
   // tal cual por el usuario.
   //
-  // `ambient` le dice al sistema que esto se MEZCLA con lo demás y no manda:
-  // no interrumpe nada y se calla si el teléfono está en silencio, que es
-  // exactamente lo que debe hacer un clic de interfaz. Safari 16.4+; donde no
-  // exista, se queda como estaba.
+  // `transient`: el clic BAJA un momento lo que suene y se restaura solo. La
+  // música del carro sigue, y el chasquido se oye encima.
+  //
+  // Se probó antes con `ambient` —mezcla sin mandar— y se pasó de frenada: esa
+  // categoría además se calla con el interruptor de silencio del iPhone, así
+  // que ViYi dejó de sonar del todo, no solo en el carro. `transient` es el
+  // término medio: no interrumpe y sí se oye.
+  //
+  // Safari 16.4+; donde no exista, se queda como estaba.
   try {
-    if (navigator.audioSession) navigator.audioSession.type = 'ambient';
+    if (navigator.audioSession) navigator.audioSession.type = 'transient';
   } catch (e) { /* el navegador no lo soporta: nada que hacer */ }
 
   // Audios del Jet Switch, compartidos por todos sus controles. Dos elementos
   // separados: la tapa en MP3, el toggle en WAV (su MP3 no sonaba en iPhone).
   const jetTapa = new Audio('click-tapa.mp3?v=3'); jetTapa.preload = 'auto';
   const jetToggle = new Audio('click-toggle.wav?v=2'); jetToggle.preload = 'auto';
+  // El sonido del Pilder: DOS archivos, uno por clic.
+  //
+  // Venían los dos en un mismo wav y se reproducía por tramos, saltando con
+  // `currentTime`. En el iPhone no sonaba —el Jet sí, porque reproduce archivos
+  // enteros desde el principio—: iOS no deja buscar dentro de un audio que
+  // todavía no tiene los metadatos cargados, así que el salto fallaba y con él
+  // la reproducción. Partido en dos, se reproduce igual que el Jet, que es el
+  // camino que ya sabemos que funciona en ese teléfono.
+  const pilderSube = new Audio('pilder-sube.wav?v=1'); pilderSube.preload = 'auto';
+  const pilderBaja = new Audio('pilder-baja.wav?v=1'); pilderBaja.preload = 'auto';
+  const pilderSonar = (cual) => jetSonar(cual === 'bajar' ? pilderBaja : pilderSube);
+
   const jetSonar = (a) => { try { a.muted = false; a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } };
   // Desbloqueo de iOS al primer toque (pointerdown): reproduce ambos audios en
   // silencio y los pausa, para que suenen aunque la acción salte en el
@@ -1463,7 +1480,7 @@ async function iniciar() {
     // El del Pilder entra en el MISMO desbloqueo: iOS lo concede por gesto del
     // usuario, no por audio, y montar un segundo mecanismo significaría que el
     // primer toque de una palanca fuera mudo según por dónde hubieras entrado.
-    [jetTapa, jetToggle, pilderAudio].forEach((a) => {
+    [jetTapa, jetToggle, pilderSube, pilderBaja].forEach((a) => {
       try {
         a.muted = true; const p = a.play();
         if (p && p.then) p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
@@ -1471,31 +1488,6 @@ async function iniciar() {
       } catch (e) { /* ignore */ }
     });
   };
-
-  // El sonido del Pilder: los DOS clics viven en un solo archivo, así que se
-  // reproduce por tramos. Un `<audio>` por sonido sería más simple, pero el
-  // archivo llegó así y partirlo a mano es una pieza más que mantener.
-  //
-  // Dónde corta: medido sobre la envolvente del wav, no a ojo. Subir ocupa
-  // 0.15-0.30s (es un racimo: una palanca de verdad hace varios chasquidos) y
-  // bajar 0.40-0.50s.
-  const pilderAudio = new Audio('toggle_pilder.wav?v=1'); pilderAudio.preload = 'auto';
-  const PILDER_TRAMOS = { subir: [0.15, 0.30], bajar: [0.40, 0.50] };
-  let pilderCorte = null;
-  function pilderSonar(cual) {
-    const [desde, hasta] = PILDER_TRAMOS[cual] || PILDER_TRAMOS.subir;
-    try {
-      clearTimeout(pilderCorte);
-      pilderAudio.muted = false;
-      pilderAudio.currentTime = desde;
-      const p = pilderAudio.play();
-      if (p && p.catch) p.catch(() => {});
-      // Se para solo al acabar SU tramo; si no, seguiría hasta el final del
-      // archivo y sonarían los dos clics de un tirón.
-      pilderCorte = setTimeout(() => { try { pilderAudio.pause(); } catch (e) { /* ignore */ } },
-        (hasta - desde) * 1000);
-    } catch (e) { /* ignore */ }
-  }
 
   // Control tipo "Jet Switch": tapa de seguridad roja + palanca. Se desliza la
   // tapa hacia arriba (armar) y luego la palanca (abrir). Es MOMENTARY como un
