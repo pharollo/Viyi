@@ -1205,6 +1205,16 @@ main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
    —los iconos con color propio (portón, ascensor) no obedecen y el candado sí—
    y además chocaría con el verde que toma el icono al abrirse. El color del
    evento lo cargan el aro y el título, que basta y sobra. */
+/* "Opciones" no es un encabezado: es una puerta discreta a lo que casi nunca
+   se toca. En negrita competía con Generar, que sí es la acción, y sin aire
+   quedaba pegada a él. */
+#btn-pase-opciones {
+  font-weight: 500;
+  color: var(--texto-suave);
+  padding: 6px 0;
+  margin-bottom: 16px;
+}
+
 /* Duración: fichas envueltas, todas a la vista. */
 .dur-chips {
   display: flex;
