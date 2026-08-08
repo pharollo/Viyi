@@ -1311,11 +1311,17 @@ button:disabled {
 /* Rebota: pega un brinco y cae con un rebotico. Salta el botón entero —con su
    sombra— porque un salto que deja la sombra quieta no se lee como salto. */
 @keyframes rebotar-skin {
-  0%, 100% { transform: translateY(0); }
-  30%      { transform: translateY(-9%); }
-  50%      { transform: translateY(0); }
-  68%      { transform: translateY(-3%); }
-  84%      { transform: translateY(0); }
+  0%      { transform: translateY(0) scale(1, 1); }
+  8%      { transform: translateY(2%) scale(1.06, 0.94); }      /* se agacha: anticipación */
+  18%     { transform: translateY(-6%) scale(0.94, 1.08); filter: blur(0.6px); }  /* se estira al despegar */
+  32%     { transform: translateY(-11%) scale(1, 1); filter: none; }              /* flota arriba */
+  46%     { transform: translateY(-6%) scale(0.95, 1.07); filter: blur(0.6px); }
+  54%     { transform: translateY(0) scale(1.1, 0.9); filter: none; }             /* aplasta al caer */
+  62%     { transform: translateY(0) scale(0.98, 1.02); }                          /* rebote del propio cuerpo */
+  70%     { transform: translateY(-3.5%) scale(1, 1); }
+  80%     { transform: translateY(0) scale(1.05, 0.95); }
+  88%     { transform: translateY(0) scale(0.99, 1.01); }
+  100%    { transform: translateY(0) scale(1, 1); }
 }
 .boton-circular.skin-rebota.enviando,
 .boton-circular.skin-rebota.exito {
@@ -1367,8 +1373,12 @@ button:disabled {
 /* Late fuerte: el latido de siempre pero con cuerpo, creciendo además de
    brillar. Va en el botón y no en la imagen, porque el aro es parte del latido. */
 @keyframes latir-fuerte-skin {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.05); }
+  0%   { transform: scale(1, 1); }
+  14%  { transform: scale(1.07, 0.95); }     /* sístole: se ensancha y se achata */
+  28%  { transform: scale(0.97, 1.04); }
+  42%  { transform: scale(1.04, 0.98); }     /* el segundo golpe, más flojo */
+  58%  { transform: scale(0.99, 1.01); }
+  100% { transform: scale(1, 1); }
 }
 .boton-circular.skin-late-fuerte.enviando,
 .boton-circular.skin-late-fuerte.exito {
@@ -1402,8 +1412,13 @@ button:disabled {
   bottom: -40%;
   left: 0;
   width: 38%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.62), transparent);
-  animation: barrer-skin 1.6s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+  /* `screen` y no `overlay`: overlay respeta los oscuros, y sobre una foto
+     oscura —que son casi todas aquí— el barrido no se veía. Screen siempre
+     aclara, así que la luz se lee igual sobre negro que sobre blanco. */
+  mix-blend-mode: screen;
+  filter: blur(3px);
+  animation: barrer-skin 1.6s cubic-bezier(0.6, 0, 0.25, 1) infinite;
   pointer-events: none;
   z-index: 1;
 }
@@ -1414,11 +1429,15 @@ button:disabled {
 @keyframes irradiar-skin {
   0% {
     box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara),
-                0 0 0 0 rgba(165, 255, 46, 0.55);
+                0 0 0 0 rgba(165, 255, 46, 0.6), 0 0 0 0 rgba(165, 255, 46, 0);
+  }
+  50% {
+    box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara),
+                0 0 0 17px rgba(165, 255, 46, 0.14), 0 0 0 0 rgba(165, 255, 46, 0.5);
   }
   100% {
     box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara),
-                0 0 0 26px rgba(165, 255, 46, 0);
+                0 0 0 30px rgba(165, 255, 46, 0), 0 0 0 17px rgba(165, 255, 46, 0);
   }
 }
 .boton-circular.skin-irradia.enviando,
@@ -1449,12 +1468,17 @@ button:disabled {
    mitad de vuelta se ve el dorso, que es la misma foto en espejo: para un
    motivo centrado no se nota y evita tener que pintar una cara de atrás. */
 @keyframes voltear-skin {
-  0%   { transform: perspective(620px) rotateY(0deg); }
-  100% { transform: perspective(620px) rotateY(360deg); }
+  0%    { transform: perspective(620px) rotateY(0deg); }
+  14%   { transform: perspective(620px) rotateY(-26deg); }        /* toma impulso hacia atrás */
+  38%   { transform: perspective(620px) rotateY(150deg); filter: blur(1.4px); }   /* lo rápido va borroso */
+  62%   { transform: perspective(620px) rotateY(300deg); filter: blur(1.1px); }
+  82%   { transform: perspective(620px) rotateY(378deg); filter: none; }          /* se pasa de largo */
+  92%   { transform: perspective(620px) rotateY(352deg); }                         /* y vuelve */
+  100%  { transform: perspective(620px) rotateY(360deg); }
 }
 .boton-circular.skin-voltea.enviando,
 .boton-circular.skin-voltea.exito {
-  animation: voltear-skin 2.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  animation: voltear-skin 2.4s linear infinite;   /* el ritmo va en los keyframes, no en la curva */
 }
 
 /* Titila: el arranque de un tubo de neón. Los tiempos son IRREGULARES a
@@ -1507,13 +1531,13 @@ button:disabled {
 .boton-circular.skin-compuerta.exito::before {
   left: 0;
   border-right: 1px solid rgba(255, 255, 255, 0.14);
-  animation: abrir-izquierda 0.75s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+  animation: abrir-izquierda 0.85s cubic-bezier(0.62, -0.24, 0.27, 1.32) forwards;
 }
 .boton-circular.skin-compuerta.enviando::after,
 .boton-circular.skin-compuerta.exito::after {
   right: 0;
   border-left: 1px solid rgba(0, 0, 0, 0.45);
-  animation: abrir-derecha 0.75s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+  animation: abrir-derecha 0.85s cubic-bezier(0.62, -0.24, 0.27, 1.32) forwards;
 }
 
 /* Rastrea: el brazo de un radar. Es un `conic-gradient` girando —un solo
@@ -1534,6 +1558,7 @@ button:disabled {
     rgba(165, 255, 46, 0.16) 42deg,
     transparent 96deg,
     transparent 360deg);
+  filter: blur(4px);
   animation: rastrear-skin 1.9s linear infinite;
   z-index: 1;
   pointer-events: none;
@@ -1568,6 +1593,120 @@ button:disabled {
 .boton-circular.skin-acerca.exito .boton-logo {
   animation: acercar-skin 6s ease-out forwards;
 }
+
+/* Holo: lámina holográfica, como una carta de colección al inclinarla.
+   Aquí no hay nada moviéndose: lo que cambia es CÓMO se mezcla una capa de
+   color con la foto (`color-dodge` quema los claros y respeta los oscuros, que
+   es justo lo que hace el nacarado real). Dos capas a distinta velocidad y en
+   ángulos cruzados — con una sola se ve la trama y parece un fondo de pantalla.
+   `background-size` grande y `background-position` animada en vez de mover el
+   elemento: así la lámina "corre" por dentro sin desplazar nada. */
+@keyframes holo-uno {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+@keyframes holo-dos {
+  0%   { background-position: 100% 50%; opacity: 0.55; }
+  50%  { opacity: 0.85; }
+  100% { background-position: -100% 50%; opacity: 0.55; }
+}
+.boton-circular.skin-holo.enviando::before,
+.boton-circular.skin-holo.exito::before,
+.boton-circular.skin-holo.enviando::after,
+.boton-circular.skin-holo.exito::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  background-size: 200% 100%;
+  mix-blend-mode: color-dodge;
+}
+.boton-circular.skin-holo.enviando::before,
+.boton-circular.skin-holo.exito::before {
+  background-image: linear-gradient(72deg,
+    transparent 12%, rgba(255, 60, 172, 0.55) 26%, rgba(90, 220, 255, 0.55) 38%,
+    rgba(180, 255, 90, 0.5) 50%, transparent 66%);
+  animation: holo-uno 2.6s linear infinite;
+}
+.boton-circular.skin-holo.enviando::after,
+.boton-circular.skin-holo.exito::after {
+  background-image: linear-gradient(-58deg,
+    transparent 20%, rgba(255, 225, 90, 0.45) 34%, rgba(160, 90, 255, 0.5) 48%, transparent 64%);
+  animation: holo-dos 3.7s ease-in-out infinite;
+}
+/* El pulso genérico se calla: baja la opacidad al 45% y apagaría la lámina. */
+.boton-circular.skin-holo.enviando,
+.boton-circular.skin-holo.exito { animation: none; }
+
+/* Se envuelve: dos telas oscuras entran por los lados, tapan el botón y se
+   retiran. En un skin de Batman se lee como la capa cerrándose; en cualquier
+   otro, como algo que se cubre y se descubre.
+   Es la inversa de "Se abre" pero con oficio distinto: el borde interior va
+   REDONDEADO —una tela no tiene el canto recto de una hoja de puerta—, entran
+   con inercia (rebasan un poco al juntarse) y se van desfasadas, primero una y
+   luego la otra, que es lo que impide que parezca un telón de PowerPoint. */
+@keyframes envolver-izquierda {
+  0%          { transform: translateX(-104%) rotate(-6deg); }
+  26%, 58%    { transform: translateX(0) rotate(0deg); }
+  88%, 100%   { transform: translateX(-104%) rotate(-6deg); }
+}
+@keyframes envolver-derecha {
+  0%          { transform: translateX(104%) rotate(6deg); }
+  32%, 64%    { transform: translateX(0) rotate(0deg); }
+  94%, 100%   { transform: translateX(104%) rotate(6deg); }
+}
+.boton-circular.skin-envuelve.enviando::before,
+.boton-circular.skin-envuelve.exito::before,
+.boton-circular.skin-envuelve.enviando::after,
+.boton-circular.skin-envuelve.exito::after {
+  content: '';
+  position: absolute;
+  top: -6%;
+  bottom: -6%;
+  width: 56%;
+  z-index: 2;
+  pointer-events: none;
+}
+.boton-circular.skin-envuelve.enviando::before,
+.boton-circular.skin-envuelve.exito::before {
+  left: 0;
+  background: linear-gradient(105deg, #0e0f12 60%, #23262c 100%);
+  border-radius: 0 60% 55% 0 / 0 50% 50% 0;
+  animation: envolver-izquierda 2.8s cubic-bezier(0.5, -0.2, 0.3, 1.2) infinite;
+}
+.boton-circular.skin-envuelve.enviando::after,
+.boton-circular.skin-envuelve.exito::after {
+  right: 0;
+  background: linear-gradient(255deg, #0e0f12 60%, #23262c 100%);
+  border-radius: 60% 0 0 55% / 50% 0 0 50%;
+  animation: envolver-derecha 2.8s cubic-bezier(0.5, -0.2, 0.3, 1.2) infinite;
+}
+
+/* Colorea: el dibujo se enciende en colores.
+   El truco es que `hue-rotate` solo mueve el TONO, y un píxel sin saturación
+   —negros, grises, el fondo oscuro de casi todos estos botones— no tiene tono
+   que mover. Así que lo único que cambia de color son los trazos del dibujo:
+   en la mandala se lee como el contorno iluminándose, sin haber recortado nada.
+   El `saturate` va antes para que hasta un dorado apagado tenga color que girar,
+   y el brillo late medio ciclo por detrás del tono — si subieran a la vez se
+   vería un parpadeo en lugar de luz recorriendo el dibujo. */
+@keyframes colorear-skin {
+  0%   { filter: saturate(1.9) hue-rotate(0deg) brightness(1.1); }
+  25%  { filter: saturate(2.3) hue-rotate(90deg) brightness(1.28); }
+  50%  { filter: saturate(1.9) hue-rotate(180deg) brightness(1.1); }
+  75%  { filter: saturate(2.3) hue-rotate(270deg) brightness(1.28); }
+  100% { filter: saturate(1.9) hue-rotate(360deg) brightness(1.1); }
+}
+.boton-circular.skin-colorea.enviando .boton-logo,
+.boton-circular.skin-colorea.exito .boton-logo {
+  animation: colorear-skin 3.4s linear infinite;
+}
+/* Y calla el pulso genérico: apagar el botón al 45% mientras el dibujo se
+   enciende deja el color turbio. */
+.boton-circular.skin-colorea.enviando,
+.boton-circular.skin-colorea.exito { animation: none; }
 
 /* Nombre abajo DENTRO del anillo (sobre la franja oscura, no sobre la foto)
    para los botones con imagen (Argentina, Bordado). Una sola línea; el largo

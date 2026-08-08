@@ -1684,7 +1684,7 @@ exports.adminEliminarDispositivo = onCall(RARA, async (request) => {
 const ANIMACIONES_SKIN = ['ninguna', 'girar', 'latido', 'latidoFuerte',
   'balanceo', 'rebote', 'vibracion', 'destello',
   'barrido', 'onda', 'orbita', 'volteo', 'titileo',
-  'compuerta', 'radar', 'chispa', 'acercamiento'];
+  'compuerta', 'radar', 'chispa', 'acercamiento', 'holo', 'capa', 'color'];
 const TIPOS_SKIN = ['puerta', 'cortina', 'ascensor', 'luz', 'termostato', 'rele', 'otro'];
 // Un data URI de WebP de 256px ronda los 20 KB. Se topa MUY por debajo del
 // límite de 1 MB del documento para que un skin no pueda inflar la lectura de

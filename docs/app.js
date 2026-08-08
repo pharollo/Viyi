@@ -348,6 +348,9 @@ async function iniciar() {
     radar: { id: 'radar', nombre: 'Rastrea', clase: 'skin-rastrea' },
     chispa: { id: 'chispa', nombre: 'Chispea', clase: 'skin-chispea' },
     acercamiento: { id: 'acercamiento', nombre: 'Se acerca', clase: 'skin-acerca' },
+    holo: { id: 'holo', nombre: 'Holo', clase: 'skin-holo' },
+    capa: { id: 'capa', nombre: 'Se envuelve', clase: 'skin-envuelve' },
+    color: { id: 'color', nombre: 'Colorea', clase: 'skin-colorea' },
   };
   let skinsGaleria = [];   // [{ id, nombre, imagen, animacion, tipos, autor, publico }]
   // La animación que tenía un skin antes de empezar a probarle otras, para
