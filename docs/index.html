@@ -370,8 +370,10 @@
   <!-- Navegación principal ABAJO y siempre a la vista.
        Estaba en un menú hamburguesa, y de ahí salió el problema de fondo del
        Locker: nadie lo encontraba porque la navegación estaba escondida detrás
-       de un icono. Lo que se usa a diario vive aquí; lo demás —admin, actividad,
-       perfil, salir— sigue en el menú lateral, ahora detrás de "Más". -->
+       de un icono. Aquí van las tres de diario; lo demás —admin, actividad,
+       perfil, salir— sigue en el menú lateral de la hamburguesa.
+       Sin botón "Más": abría exactamente el mismo menú que la hamburguesa, o
+       sea dos puertas a un metro la una de la otra para el mismo sitio. -->
   <nav id="barra-abajo" class="barra-abajo" aria-label="Secciones">
     <button type="button" class="item-barra item-menu activa" data-tab="tab-controles">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="9" width="16" height="12" rx="3"/><path d="M8 9V6.5a4 4 0 0 1 8 0V9"/><circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>
@@ -385,10 +387,6 @@
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2"/></svg>
       <span>Locker</span>
     </button>
-    <button type="button" id="btn-mas" class="item-barra" aria-label="Más secciones">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>
-      <span>Más</span>
-    </button>
   </nav>
 
   <nav id="menu-lateral" class="menu-lateral" aria-label="Más secciones">
@@ -400,6 +398,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=327"></script>
+  <script type="module" src="app.js?v=328"></script>
 </body>
 </html>
