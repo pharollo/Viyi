@@ -38,7 +38,12 @@ service cloud.firestore {
     function tieneAcceso(id) {
       let u = miUsuario();
       return id in u.get('dispositivos', [])
-        || (id in u.get('accesos', {}) && u.accesos[id].expira > request.time)
+        // Un acceso temporal vale si YA empezó y todavía no venció. `desde`
+        // puede no estar (accesos de antes de los pases programados): sin él,
+        // vale desde siempre.
+        || (id in u.get('accesos', {})
+            && u.accesos[id].expira > request.time
+            && u.accesos[id].get('desde', request.time) <= request.time)
         || (resource.data.get('inmueble', '') != ''
             && resource.data.inmueble in u.get('inmueblesIds', []));
     }

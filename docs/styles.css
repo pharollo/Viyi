@@ -1205,6 +1205,28 @@ main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
    —los iconos con color propio (portón, ascensor) no obedecen y el candado sí—
    y además chocaría con el verde que toma el icono al abrirse. El color del
    evento lo cargan el aro y el título, que basta y sobra. */
+/* Pase programado que todavía no empieza: el control se ve, pero apagado y con
+   su hora debajo. Enseñarlo apagado y no esconderlo es a propósito — el
+   invitado tiene que saber que ese acceso EXISTE y cuándo servirá; un botón que
+   aparece de la nada a las ocho es peor que uno que espera a la vista. */
+.control.aun-no .boton-circular,
+.control.aun-no .perilla,
+.control.aun-no .jet-switch,
+.control.aun-no .pilder,
+.control.aun-no .rueda-ctrl {
+  opacity: 0.38;
+  filter: grayscale(0.7);
+  pointer-events: none;
+}
+.aun-no-texto {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primario);
+  text-align: center;
+}
+
 /* Aro del color del evento, pegado al borde interior del anillo. */
 .control.evento .anillo::after {
   content: '';

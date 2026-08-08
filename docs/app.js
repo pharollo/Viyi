@@ -494,6 +494,37 @@ async function iniciar() {
   //
   // No para lo propio: un dispositivo que es tuyo de forma permanente no es "de
   // un evento" aunque además tengas un pase suyo.
+  // Milisegundos de un Timestamp de Firestore, venga recién traído o de la
+  // caché de localStorage (donde se convierte en {seconds, nanoseconds}).
+  function msDeCampo(t) {
+    if (!t) return 0;
+    if (typeof t.toMillis === 'function') return t.toMillis();
+    if (typeof t.seconds === 'number') return t.seconds * 1000;
+    const n = Date.parse(t);
+    return Number.isNaN(n) ? 0 : n;
+  }
+
+  // Cuándo empieza un acceso que todavía no vale, o 0 si ya está vigente.
+  //
+  // Un pase se puede programar: se canjea en cuanto llega —el invitado se
+  // registra tranquilo— pero no abre nada hasta su hora. El botón tiene que
+  // decir CUÁNDO; si no, es un botón que no funciona y nadie sabe por qué, que
+  // es la forma más rápida de que te llamen por teléfono.
+  function empiezaEn(d) {
+    if (!usuarioActual || (usuarioActual.dispositivos || []).includes(d.id)) return 0;
+    const acc = (usuarioActual.accesos || {})[d.id];
+    const ms = msDeCampo(acc && acc.desde);
+    return ms > Date.now() ? ms : 0;
+  }
+
+  function cuandoEmpiezaTexto(ms) {
+    const f = new Date(ms);
+    const hoy = new Date().toDateString() === f.toDateString();
+    const hora = f.toLocaleTimeString('es', { hour: 'numeric', minute: '2-digit' });
+    if (hoy) return `Disponible a las ${hora}`;
+    return `Disponible el ${f.toLocaleDateString('es', { day: 'numeric', month: 'short' })} a las ${hora}`;
+  }
+
   function eventoDe(d) {
     if (!usuarioActual || !usuarioActual.accesos) return '';
     if ((usuarioActual.dispositivos || []).includes(d.id)) return '';
@@ -2071,7 +2102,26 @@ async function iniciar() {
     return control;
   }
 
+  // Un pase programado todavía no vale: el control se apaga y DICE desde
+  // cuándo. Se hace aquí, en la puerta de salida por la que pasan todas las
+  // formas de control (botón, Jet, Pilder, Sabiem, rueda…), en vez de repetirlo
+  // en cada una.
   function tarjetaDispositivo(dispositivo, demo, aspectoForzado) {
+    const control = construirTarjeta(dispositivo, demo, aspectoForzado);
+    // Ni en la muestra del Locker ni en el demo: ahí no se abre nada de verdad.
+    const empieza = (demo || aspectoForzado) ? 0 : empiezaEn(dispositivo);
+    if (empieza) {
+      control.classList.add('aun-no');
+      control.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+      const aviso = document.createElement('span');
+      aviso.className = 'aun-no-texto';
+      aviso.textContent = cuandoEmpiezaTexto(empieza);
+      control.appendChild(aviso);
+    }
+    return control;
+  }
+
+  function construirTarjeta(dispositivo, demo, aspectoForzado) {
     // El aspecto sale del vestuario del vecino (o del que puso el admin).
     const aspecto = aspectoForzado || aspectoDe(dispositivo);
     // Si le llegó por un pase con título, el botón se viste de ese evento. Se
@@ -5907,6 +5957,36 @@ async function iniciar() {
     if (frec) $('pase-resultado').classList.add('oculto');
   }
 
+  // Cuándo empieza el pase, en milisegundos. `null` = ya.
+  //
+  // `datetime-local` da una hora SIN zona, y el navegador la interpreta en la
+  // del teléfono — que es justo lo que quiere quien la escribe: "a las 8 de la
+  // noche" es su 8 de la noche. Al servidor va como milisegundos absolutos, así
+  // que no hay ambigüedad después.
+  function desdeElegido() {
+    if (!$('pase-cuando').querySelector('[data-cuando="luego"]').classList.contains('activa')) return null;
+    const v = $('pase-desde').value;
+    if (!v) return null;
+    const ms = new Date(v).getTime();
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  $('pase-cuando').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cuando]');
+    if (!b) return;
+    $('pase-cuando').querySelectorAll('[data-cuando]').forEach((x) => x.classList.toggle('activa', x === b));
+    const programado = b.dataset.cuando === 'luego';
+    $('pase-desde-caja').classList.toggle('oculto', !programado);
+    // Se propone dentro de una hora, redondeado: es lo más cercano a "no ahora"
+    // y evita que el campo arranque vacío, que obliga a teclearlo todo.
+    if (programado && !$('pase-desde').value) {
+      const t = new Date(Date.now() + 3600000);
+      t.setMinutes(0, 0, 0);
+      $('pase-desde').value = new Date(t.getTime() - t.getTimezoneOffset() * 60000)
+        .toISOString().slice(0, 16);
+    }
+  });
+
   async function darAccesoDirecto() {
     const seleccion = [...document.querySelectorAll('#pase-dispositivos input:checked')].map((i) => i.value);
     if (!seleccion.length) { toast('Elige al menos un dispositivo.', 'error'); return; }
@@ -5918,7 +5998,7 @@ async function iniciar() {
     try {
       const evento = tituloCase($('pase-evento').value.trim());
       const res = await darAcceso({
-        uids: aQuienes, dispositivos: seleccion, duracion: paseDuracionSel, evento,
+        uids: aQuienes, dispositivos: seleccion, duracion: paseDuracionSel, evento, desde: desdeElegido(),
       });
       const d = (res.data && res.data.dados) || 0;
       const a = (res.data && res.data.avisados) || 0;
@@ -5945,7 +6025,7 @@ async function iniciar() {
     try {
       const multiuso = paseMultiuso;
       const evento = tituloCase($('pase-evento').value.trim());
-      const res = await crearPase({ dispositivos: seleccion, duracion: paseDuracionSel, multiuso, evento });
+      const res = await crearPase({ dispositivos: seleccion, duracion: paseDuracionSel, multiuso, evento, desde: desdeElegido() });
       const url = `${location.origin}${location.pathname}?p=${res.data.token}`;
       mostrarResultadoPase(url);
       cargarMisPases();

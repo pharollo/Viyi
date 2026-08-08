@@ -298,6 +298,29 @@ const msDeDuracion = (d) => (d === 'indef' ? null : DURACIONES_MS[d] || null);
 // Sentinela "sin vencimiento" (fácil de comparar en reglas y backend).
 const FIN_INDEFINIDO = admin.firestore.Timestamp.fromDate(new Date('9999-12-31T00:00:00Z'));
 
+// Un pase puede empezar MÁS TARDE de cuando se manda.
+//
+// Antes el reloj arrancaba al generar el enlace, así que uno de 6 horas enviado
+// a medianoche estaba gastado antes de que empezara la fiesta. Ahora la
+// duración cuenta desde `desde`, no desde el envío.
+//
+// Se admite hasta 90 días por delante —más que eso no es un evento, es otra
+// cosa— y se tolera un minuto hacia atrás para no pelear con el reloj del
+// teléfono, que casi nunca coincide con el del servidor.
+const MAX_PROGRAMADO_MS = 90 * 24 * 3600 * 1000;
+function desdeCuando(valor) {
+  if (valor == null || valor === '') return admin.firestore.Timestamp.now();
+  const ms = Number(valor);
+  if (!Number.isFinite(ms)) {
+    throw new HttpsError('invalid-argument', 'La fecha de inicio no se entiende.');
+  }
+  if (ms > Date.now() + MAX_PROGRAMADO_MS) {
+    throw new HttpsError('invalid-argument', 'No se puede programar con más de 90 días.');
+  }
+  // Un inicio en el pasado no es un error: significa "ya".
+  return admin.firestore.Timestamp.fromMillis(Math.max(ms, Date.now() - 60000));
+}
+
 // El registro va PARTIDO en dos a propósito:
 //   · `registros/{id}`               → qué pasó y dónde (sin identificar a nadie)
 //   · `registros/{id}/privado/quien` → quién lo hizo
@@ -367,7 +390,13 @@ async function autorizar(uid, dispositivoId) {
   if (!tienePermiso) {
     const acceso = (usuario.accesos || {})[dispositivoId];
     if (acceso && acceso.expira && typeof acceso.expira.toMillis === 'function') {
-      tienePermiso = acceso.expira.toMillis() > Date.now();
+      // Dos condiciones, no una: que no haya vencido y que YA haya empezado.
+      // Un pase programado se canjea en cuanto llega —el invitado se registra
+      // tranquilo en casa— pero no abre nada hasta su hora. Sin `desde`, vale
+      // desde siempre: así los pases de antes siguen funcionando igual.
+      const empezo = !acceso.desde || typeof acceso.desde.toMillis !== 'function'
+        || acceso.desde.toMillis() <= Date.now();
+      tienePermiso = empezo && acceso.expira.toMillis() > Date.now();
     }
   }
   // Acceso heredado del inmueble. Va al final a propósito: solo se lee el
@@ -2620,7 +2649,8 @@ exports.darAcceso = onCall({ ...OCASIONAL, secrets: [RESEND_API_KEY] }, async (r
   }
 
   const ms = msDeDuracion(duracion);
-  const expira = ms == null ? FIN_INDEFINIDO : admin.firestore.Timestamp.fromMillis(Date.now() + ms);
+  const desde = desdeCuando((request.data || {}).desde);
+  const expira = ms == null ? FIN_INDEFINIDO : admin.firestore.Timestamp.fromMillis(desde.toMillis() + ms);
   const limpio = (typeof evento === 'string' ? evento.trim() : '').slice(0, 60);
   const vence = ms == null ? '' : new Date(expira.toMillis())
     .toLocaleString('es-VE', { timeZone: 'America/Caracas', dateStyle: 'long', timeStyle: 'short' });
@@ -2642,6 +2672,7 @@ exports.darAcceso = onCall({ ...OCASIONAL, secrets: [RESEND_API_KEY] }, async (r
     const accesos = destinoSnap.data().accesos || {};
     for (const id of compartir) {
       accesos[id] = {
+        desde,
         expira,
         por: yo,
         token: null, // acceso directo: no nació de un enlace
@@ -2679,7 +2710,7 @@ exports.crearPase = onCall(OCASIONAL, async (request) => {
     throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
   }
   const uid = request.auth.uid;
-  const { dispositivos, duracion, multiuso, evento } = request.data || {};
+  const { dispositivos, duracion, multiuso, evento, desde: desdeMs } = request.data || {};
   if (!Array.isArray(dispositivos) || !dispositivos.length) {
     throw new HttpsError('invalid-argument', 'Elige al menos un dispositivo para compartir.');
   }
@@ -2696,11 +2727,12 @@ exports.crearPase = onCall(OCASIONAL, async (request) => {
   if (!compartir.length) {
     throw new HttpsError('permission-denied', 'No puedes compartir esos dispositivos.');
   }
-  // El plazo corre desde que se genera el enlace: vencimiento absoluto.
+  // El plazo corre desde `desde` (por defecto, ya): vencimiento absoluto.
   const ms = msDeDuracion(duracion);
+  const desde = desdeCuando(desdeMs);
   const expira = ms == null
     ? FIN_INDEFINIDO
-    : admin.firestore.Timestamp.fromMillis(Date.now() + ms);
+    : admin.firestore.Timestamp.fromMillis(desde.toMillis() + ms);
   // Token corto y URL-safe (12 chars, 72 bits) para un enlace más corto.
   const token = crypto.randomBytes(9).toString('base64url');
   await db.doc(`pases/${token}`).set({
@@ -2710,6 +2742,7 @@ exports.crearPase = onCall(OCASIONAL, async (request) => {
     dispositivos: compartir,
     evento: (typeof evento === 'string' ? evento.trim() : '').slice(0, 60),
     duracion,
+    desde,
     expira,
     multiuso: multiuso === true,
     usado: false,
@@ -2758,6 +2791,9 @@ exports.canjearPase = onCall(async (request) => {
   const accesos = {};
   for (const id of (pase.dispositivos || [])) {
     accesos[id] = {
+      // Se copia tal cual el pase: canjear no adelanta la hora. El invitado ya
+      // tiene su botón, y ese botón no abre hasta que empiece.
+      desde: pase.desde || null,
       expira,
       por: pase.por,
       token,

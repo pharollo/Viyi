@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=316">
+  <link rel="stylesheet" href="styles.css?v=317">
 </head>
 <body>
   <header>
@@ -135,6 +135,18 @@
               </div>
             </div>
           </div>
+          <!-- Cuándo empieza. Por defecto "Ahora", que es el caso de siempre;
+               "Programar" abre la fecha. Mandas el pase cuando puedes y sirve
+               cuando toca: antes el reloj arrancaba al generar el enlace, así
+               que uno de 6 horas enviado de noche estaba gastado antes de que
+               empezara el evento. -->
+          <div class="pase-scope" id="pase-cuando">
+            <button type="button" class="chip-scope activa" data-cuando="ya">Ahora</button>
+            <button type="button" class="chip-scope" data-cuando="luego">Programar</button>
+          </div>
+          <label class="campo-perfil oculto" id="pase-desde-caja">Empieza el
+            <input type="datetime-local" id="pase-desde">
+          </label>
           <div class="pase-multi">
             <div class="pase-scope" id="pase-tipo">
               <button type="button" class="chip-scope activa" data-tipo="simple">Simple</button>
@@ -406,6 +418,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=330"></script>
+  <script type="module" src="app.js?v=331"></script>
 </body>
 </html>
