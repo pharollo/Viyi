@@ -1009,7 +1009,12 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
    El fondo negro del render está transparentado, así que el panel se apoya en
    el fondo de la app en vez de traer su propio recuadro negro. */
 .pilder {
-  --pilder-s: 0.564;
+  /* Escala calculada para que el panel mida lo MISMO de alto que un botón
+     redondo con su aro (168 + 26×2 = 220). En una fila la altura la manda el
+     control más alto, así que un Pilder de 249 dejaba 29px de hueco debajo de
+     todos los demás — y con el Pilder fuera de pantalla en un carrusel, ese
+     hueco aparecía sin culpable a la vista. 220/442 = 0.4977. */
+  --pilder-s: 0.4977;
   position: relative;
   width: calc(280px * var(--pilder-s));
   height: calc(442px * var(--pilder-s));
@@ -2492,10 +2497,6 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
   color: var(--texto-suave);
   margin: -6px 0 16px;
 }
-/* La del gesto va justo debajo del encabezado, no pegada a un control, así que
-   el margen negativo de arriba —pensado para colgar de un campo— aquí la mete
-   dentro del título. */
-.vest-gesto { margin: 0 0 14px; }
 
 /* Dropdown del dispositivo que se está vistiendo. */
 .vest-select {

@@ -1302,7 +1302,7 @@ async function iniciar() {
   // Ancho real de cada control según su aspecto. Estaba en 220 para todo, y el
   // Mando mide 170, el Jet 157 y el Sabiem 150: con anchos tan distintos las
   // decisiones de maquetado salían mal (se veían tres y un pedazo de otro).
-  const ANCHOS_ASPECTO = { rueda: 150, jet: 157, sabiem: 150, mando: 170, pilder: 158 };
+  const ANCHOS_ASPECTO = { rueda: 150, jet: 157, sabiem: 150, mando: 170, pilder: 140 };   // 280 × 0.4977, la escala que lo iguala en alto al redondo
   const ANCHO_CONTROL = (d) => ANCHOS_ASPECTO[aspectoDe(d)] || 220;
   // En compacto solo se achica el botón circular (168+26+26 -> 122+17+17); los
   // controles propios (rueda, jet, sabiem, mando) no cambian de tamaño.
