@@ -1434,6 +1434,21 @@ async function iniciar() {
 
   // Coloca el nombre dentro del botón, debajo del icono.
 
+  // ⚠️ Los sonidos de ViYi son AMBIENTALES, no reproducción.
+  //
+  // Por defecto iOS trata el audio de una web como si fuera música: al sonar un
+  // clic, corta lo que estuviera sonando. Conectado al CarPlay eso significa
+  // que abrir la app te para la música del carro para hacer "clic" — reportado
+  // tal cual por el usuario.
+  //
+  // `ambient` le dice al sistema que esto se MEZCLA con lo demás y no manda:
+  // no interrumpe nada y se calla si el teléfono está en silencio, que es
+  // exactamente lo que debe hacer un clic de interfaz. Safari 16.4+; donde no
+  // exista, se queda como estaba.
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = 'ambient';
+  } catch (e) { /* el navegador no lo soporta: nada que hacer */ }
+
   // Audios del Jet Switch, compartidos por todos sus controles. Dos elementos
   // separados: la tapa en MP3, el toggle en WAV (su MP3 no sonaba en iPhone).
   const jetTapa = new Audio('click-tapa.mp3?v=3'); jetTapa.preload = 'auto';
