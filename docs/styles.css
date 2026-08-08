@@ -1978,6 +1978,15 @@ button:disabled {
 /* El Guardar del diseño, en el hueco que deja "Editar diseño". Mismo sitio y
    mismo ancho: editando, ese renglón es la acción principal. */
 .vest-guardar-skin { display: block; width: 100%; margin: 8px 0 0; }
+/* En el Locker la muestra no lleva nombre: el selector que está justo debajo
+   ya dice de qué dispositivo es, y verlo dos veces seguidas se lee como un
+   error. Va por CSS y sobre `.etiqueta-control`, que es la clase que usan TODOS
+   los controles —botón redondo, Jet, Pilder, Sabiem, Mando—, así que ninguno se
+   queda con su nombre por su cuenta.
+   Ojo: fuera del Locker esa etiqueta se queda. Ahí es lo único que identifica
+   cada botón. */
+#vest-demo .etiqueta-control { display: none; }
+
 /* Editando: fuera la galería y el Guardar del aspecto. Lo que queda es la
    muestra —el botón de verdad, a tamaño real— y el formulario justo debajo, que
    es lo único que hace falta para ver lo que estás cambiando. */
