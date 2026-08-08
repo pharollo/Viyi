@@ -1205,6 +1205,15 @@ main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
    —los iconos con color propio (portón, ascensor) no obedecen y el candado sí—
    y además chocaría con el verde que toma el icono al abrirse. El color del
    evento lo cargan el aro y el título, que basta y sobra. */
+/* La fecha del pase escrita en español, bajo el campo nativo. */
+.pase-desde-dicho {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primario);
+}
+
 /* Pase programado que todavía no empieza: el control se ve, pero apagado y con
    su hora debajo. Enseñarlo apagado y no esconderlo es a propósito — el
    invitado tiene que saber que ese acceso EXISTE y cuándo servirá; un botón que

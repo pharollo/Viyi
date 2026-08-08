@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=317">
+  <link rel="stylesheet" href="styles.css?v=318">
 </head>
 <body>
   <header>
@@ -145,7 +145,12 @@
             <button type="button" class="chip-scope" data-cuando="luego">Programar</button>
           </div>
           <label class="campo-perfil oculto" id="pase-desde-caja">Empieza el
-            <input type="datetime-local" id="pase-desde">
+            <!-- `lang="es"` lo respetan Chrome y Firefox para el formato; Safari
+                 usa el idioma del TELÉFONO y no hay forma de forzarlo desde la
+                 página. Por eso debajo va la fecha escrita por nosotros: eso sí
+                 sale en español siempre. -->
+            <input type="datetime-local" id="pase-desde" lang="es">
+            <span id="pase-desde-dicho" class="pase-desde-dicho"></span>
           </label>
           <div class="pase-multi">
             <div class="pase-scope" id="pase-tipo">
@@ -418,6 +423,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=331"></script>
+  <script type="module" src="app.js?v=332"></script>
 </body>
 </html>
