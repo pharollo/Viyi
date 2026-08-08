@@ -5977,7 +5977,7 @@ async function iniciar() {
     const el = $('pase-desde-dicho');
     const v = $('pase-desde').value;
     const ms = v ? new Date(v).getTime() : NaN;
-    if (!Number.isFinite(ms)) { el.textContent = ''; return; }
+    if (!Number.isFinite(ms)) { el.textContent = 'Elige la fecha'; return; }
     const f = new Date(ms);
     const dia = f.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
     const hora = f.toLocaleTimeString('es', { hour: 'numeric', minute: '2-digit' });

@@ -1205,13 +1205,37 @@ main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
    —los iconos con color propio (portón, ascensor) no obedecen y el candado sí—
    y además chocaría con el verde que toma el icono al abrirse. El color del
    evento lo cargan el aro y el título, que basta y sobra. */
-/* La fecha del pase escrita en español, bajo el campo nativo. */
-.pase-desde-dicho {
+/* Campo de fecha: se ve el texto que escribimos nosotros y el control nativo
+   va encima, invisible, para abrir el calendario del teléfono al tocarlo.
+   Tiene el mismo aspecto hundido que el resto de campos. */
+.campo-fecha {
+  position: relative;
   display: block;
-  margin-top: 6px;
-  font-size: 13px;
+  padding: 13px 14px;
+  border-radius: 12px;
+  background: var(--fondo);
+  color: var(--texto);
+  font-size: 15px;
   font-weight: 600;
-  color: var(--primario);
+  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
+}
+.campo-fecha input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  opacity: 0;          /* invisible, pero sigue abriendo el calendario al tocar */
+  -webkit-appearance: none;
+  appearance: none;
+}
+.campo-fecha:focus-within {
+  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara),
+              0 0 0 2px var(--primario);
 }
 
 /* Pase programado que todavía no empieza: el control se ve, pero apagado y con

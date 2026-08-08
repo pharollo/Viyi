@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=318">
+  <link rel="stylesheet" href="styles.css?v=319">
 </head>
 <body>
   <header>
@@ -144,13 +144,17 @@
             <button type="button" class="chip-scope activa" data-cuando="ya">Ahora</button>
             <button type="button" class="chip-scope" data-cuando="luego">Programar</button>
           </div>
+          <!-- Un solo campo: lo que se LEE lo escribimos nosotros en español,
+               y el `datetime-local` va encima invisible para que al tocarlo se
+               abra el calendario del teléfono. El formato del campo nativo sale
+               en el idioma del aparato y no se puede forzar desde la página
+               (Safari ignora `lang`), así que en vez de enseñarlo y repetir la
+               fecha debajo —fecha debajo de fecha—, se enseña solo la nuestra. -->
           <label class="campo-perfil oculto" id="pase-desde-caja">Empieza el
-            <!-- `lang="es"` lo respetan Chrome y Firefox para el formato; Safari
-                 usa el idioma del TELÉFONO y no hay forma de forzarlo desde la
-                 página. Por eso debajo va la fecha escrita por nosotros: eso sí
-                 sale en español siempre. -->
-            <input type="datetime-local" id="pase-desde" lang="es">
-            <span id="pase-desde-dicho" class="pase-desde-dicho"></span>
+            <span class="campo-fecha">
+              <span id="pase-desde-dicho">Elige la fecha</span>
+              <input type="datetime-local" id="pase-desde" lang="es" aria-label="Empieza el">
+            </span>
           </label>
           <div class="pase-multi">
             <div class="pase-scope" id="pase-tipo">
@@ -423,6 +427,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=332"></script>
+  <script type="module" src="app.js?v=333"></script>
 </body>
 </html>
