@@ -1205,6 +1205,16 @@ main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
    —los iconos con color propio (portón, ascensor) no obedecen y el candado sí—
    y además chocaría con el verde que toma el icono al abrirse. El color del
    evento lo cargan el aro y el título, que basta y sobra. */
+/* Los dos tipos de pase como acciones. El de una persona es el habitual, así
+   que se lleva el relieve principal; el de varias va secundario al lado. */
+.pase-acciones {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pase-acciones .btn-primario,
+.pase-acciones .btn-secundario { flex: 1; margin: 0; }
+
 /* "Opciones" no es un encabezado: es una puerta discreta a lo que casi nunca
    se toca. En negrita competía con Generar, que sí es la acción, y sin aire
    quedaba pegada a él. */

@@ -5680,19 +5680,13 @@ async function iniciar() {
     }
   });
 
-  $('btn-generar-pase').addEventListener('click', generarEnlacePase);
+  $('btn-generar-pase').addEventListener('click', (e) => { paseMultiuso = false; generarEnlacePase(e.currentTarget); });
+  $('btn-generar-multi').addEventListener('click', (e) => { paseMultiuso = true; generarEnlacePase(e.currentTarget); });
   // Al encender/apagar un dispositivo, refrescar el conteo de su grupo.
   $('pase-dispositivos').addEventListener('change', actualizarConteosGrupos);
 
   // ---- Tipo de enlace: Simple (default) / Multiuso, con ayuda desplegable ----
   let paseMultiuso = false;
-  $('pase-tipo').addEventListener('click', (e) => {
-    const b = e.target.closest('.chip-scope');
-    if (!b) return;
-    paseMultiuso = b.dataset.tipo === 'multiuso';
-    document.querySelectorAll('#pase-tipo .chip-scope').forEach((c) => c.classList.toggle('activa', c === b));
-    resumirOpciones();
-  });
   function ocultarAyudaEnlace() {
     $('info-enlace').classList.add('oculto');
     $('btn-info-enlace').setAttribute('aria-expanded', 'false');
@@ -5848,10 +5842,7 @@ async function iniciar() {
     }
     actualizarConteosGrupos();
     $('pase-evento').value = '';
-    // El tipo de enlace vuelve a Simple (lo más común) cada vez que se abre.
-    paseMultiuso = false;
-    document.querySelectorAll('#pase-tipo .chip-scope').forEach((c) =>
-      c.classList.toggle('activa', c.dataset.tipo === 'simple'));
+    // Ya no hay tipo que reponer: lo decide el botón que pulses.
     ocultarAyudaEnlace();
     $('pase-resultado').classList.add('oculto');
     cargarMisPases();
@@ -5901,8 +5892,10 @@ async function iniciar() {
   function aplicarModoPase() {
     const frec = paseModo === 'frecuentes';
     $('pase-invitados-lista').classList.toggle('oculto', !frec);
-    $('btn-generar-pase').textContent = frec ? 'Invitar' : 'Generar';
-    document.querySelector('.pase-multi').classList.toggle('oculto', frec);
+    $('btn-generar-pase').textContent = frec ? 'Invitar' : 'Para una persona';
+    // Multiuso es cosa de enlaces: a un invitado conocido se le da acceso y ya.
+    $('btn-generar-multi').classList.toggle('oculto', frec);
+    $('btn-info-enlace').classList.toggle('oculto', frec);
     if (frec) ocultarAyudaEnlace(); // su ayuda tampoco aplica en frecuentes
     document.querySelectorAll('#pase-modo .chip-scope').forEach((c) =>
       c.classList.toggle('activa', (c.dataset.modo === 'frecuentes') === frec));
@@ -5955,9 +5948,6 @@ async function iniciar() {
     if ($('pase-cuando').querySelector('[data-cuando="luego"]').classList.contains('activa')) {
       partes.push('programado');
     }
-    if ($('pase-tipo').querySelector('[data-tipo="multiuso"]').classList.contains('activa')) {
-      partes.push('multiuso');
-    }
     $('btn-pase-opciones').textContent = partes.length ? `Opciones · ${partes.join(' · ')}` : 'Opciones';
   }
 
@@ -6007,12 +5997,15 @@ async function iniciar() {
     }
   }
 
-  async function generarEnlacePase() {
+  // `boton` es el que se PULSÓ. Sin eso, al generar un enlace para varias
+  // personas se ponía a trabajar el botón de al lado.
+  async function generarEnlacePase(boton) {
     if (paseModo === 'frecuentes') return darAccesoDirecto();
     const seleccion = [...document.querySelectorAll('#pase-dispositivos input:checked')].map((i) => i.value);
     if (!seleccion.length) { toast('Elige al menos un dispositivo.', 'error'); return; }
-    const boton = $('btn-generar-pase');
-    boton.disabled = true;
+    const decia = boton.textContent;
+    const ambos = [$('btn-generar-pase'), $('btn-generar-multi')];
+    ambos.forEach((b) => { b.disabled = true; });
     boton.textContent = 'Generando…';
     try {
       const multiuso = paseMultiuso;
@@ -6024,8 +6017,8 @@ async function iniciar() {
     } catch (err) {
       toast((err && err.message) || 'No se pudo generar el enlace.', 'error');
     } finally {
-      boton.disabled = false;
-      boton.textContent = 'Generar';
+      ambos.forEach((b) => { b.disabled = false; });
+      boton.textContent = decia;
     }
   }
 
