@@ -1893,7 +1893,9 @@ button:disabled {
   font-family: inherit;
   font-size: 15px;
   font-weight: 600;
-  margin-bottom: 18px;
+  /* Aire arriba y abajo: ahora va ENTRE la muestra y las acciones, no encabezando
+     la tarjeta, así que necesita separarse de las dos. */
+  margin: 18px 0;
   box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
   outline: none;
   -webkit-appearance: none;

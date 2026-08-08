@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=309">
+  <link rel="stylesheet" href="styles.css?v=310">
 </head>
 <body>
   <header>
@@ -227,8 +227,11 @@
         <p class="vest-ayuda vest-gesto">Mantén pulsado un botón en Controles para vestirlo ahí mismo.</p>
         <div class="tarjeta" id="seccion-skin">
           <div id="vestuario">
-            <select id="vest-disp" class="vest-select" aria-label="Dispositivo"></select>
+            <!-- El botón, primero y solo: es lo que vienes a mirar. El selector
+                 de dispositivo va DEBAJO, junto a las acciones — dice sobre qué
+                 estás trabajando, que es contexto, no protagonista. -->
             <div id="vest-demo" class="vest-demo"></div>
+            <select id="vest-disp" class="vest-select" aria-label="Dispositivo"></select>
             <!-- Editar va PEGADO a la muestra, y al abrirlo la galería y el
                  Guardar se apartan (`#vestuario.editando`). Cambiar el nombre o
                  la animación con el botón grande fuera de la pantalla era
@@ -363,6 +366,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=317"></script>
+  <script type="module" src="app.js?v=318"></script>
 </body>
 </html>
