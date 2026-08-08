@@ -5056,6 +5056,11 @@ async function iniciar() {
     // formulario, y la salida vive dentro del formulario (Cancelar).
     $('vestuario').classList.add('editando');
     $('btn-editar-skin').classList.add('oculto');
+    // Y se recoge el taller. Vive en una tarjeta HERMANA, fuera de `#vestuario`,
+    // así que la regla de `editando` no lo alcanza: si lo habías abierto antes
+    // con "Diseña Uno", su lista —con la miniatura de cada botón tuyo— se
+    // quedaba justo debajo del editor. Editas uno; los demás sobran.
+    $('seccion-crear-skin').classList.add('oculto');
     $('vest-demo').scrollIntoView({ block: 'start', behavior: 'smooth' });
   });
 
@@ -5091,6 +5096,7 @@ async function iniciar() {
   // mismo sitio en la misma pantalla. Ahora la única puerta es "Diseñar botón",
   // y esta tarjeta es a dónde lleva.
   function abrirCreador() {
+    cerrarEditorSkin();   // uno u otro, no los dos abiertos a la vez
     $('seccion-crear-skin').classList.remove('oculto');
     const form = $('form-skin');
     if (form.classList.contains('oculto')) $('btn-toggle-skin').click();
