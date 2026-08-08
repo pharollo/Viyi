@@ -1216,8 +1216,22 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
   align-items: center;
   gap: 10px;
 }
-.pase-acciones .btn-primario,
 .pase-acciones .btn-secundario { flex: 1; margin: 0; }
+/* El tipo elegido se hunde y se pone verde, como todo lo elegido en la app.
+   `.btn-secundario` no traía estado de activo —nunca lo había necesitado— y sin
+   esto elegías y no se notaba. */
+.pase-acciones [data-tipo].activa {
+  color: var(--primario);
+  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
+}
+/* El que de verdad crea el enlace: a lo ancho y debajo de los dos, y no está
+   hasta que eliges el tipo. Con los dos tipos generando directo, un roce creaba
+   un acceso a tu puerta — preocupación del usuario, y con razón. */
+.pase-generar {
+  display: block;
+  width: 100%;
+  margin: 14px 0 0;
+}
 
 /* "Opciones" no es un encabezado: es una puerta discreta a lo que casi nunca
    se toca. En negrita competía con Generar, que sí es la acción, y sin aire

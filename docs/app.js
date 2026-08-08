@@ -5680,8 +5680,17 @@ async function iniciar() {
     }
   });
 
-  $('btn-generar-pase').addEventListener('click', (e) => { paseMultiuso = false; generarEnlacePase(e.currentTarget); });
-  $('btn-generar-multi').addEventListener('click', (e) => { paseMultiuso = true; generarEnlacePase(e.currentTarget); });
+  // Elegir el tipo enseña el Generar. Mientras no elijas, no hay nada que
+  // pulsar por error.
+  $('pase-acciones').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tipo]');
+    if (!b) return;
+    paseMultiuso = b.dataset.tipo === 'multiuso';
+    $('pase-acciones').querySelectorAll('[data-tipo]')
+      .forEach((x) => x.classList.toggle('activa', x === b));
+    $('btn-generar-pase').classList.remove('oculto');
+  });
+  $('btn-generar-pase').addEventListener('click', (e) => generarEnlacePase(e.currentTarget));
   // Al encender/apagar un dispositivo, refrescar el conteo de su grupo.
   $('pase-dispositivos').addEventListener('change', actualizarConteosGrupos);
   $('pase-dispositivos').addEventListener('click', (e) => {
@@ -5873,7 +5882,10 @@ async function iniciar() {
     }
     actualizarConteosGrupos();
     $('pase-evento').value = '';
-    // Ya no hay tipo que reponer: lo decide el botón que pulses.
+    // Sin tipo elegido al abrir: el Generar aparece cuando decidas cuál.
+    paseMultiuso = false;
+    $('pase-acciones').querySelectorAll('[data-tipo]').forEach((x) => x.classList.remove('activa'));
+    if (paseModo !== 'frecuentes') $('btn-generar-pase').classList.add('oculto');
     ocultarAyudaEnlace();
     $('pase-resultado').classList.add('oculto');
     cargarMisPases();
@@ -5933,10 +5945,11 @@ async function iniciar() {
   function aplicarModoPase() {
     const frec = paseModo === 'frecuentes';
     $('pase-invitados-lista').classList.toggle('oculto', !frec);
-    $('btn-generar-pase').textContent = frec ? 'Invitar' : 'Simple';
-    // Multiuso es cosa de enlaces: a un invitado conocido se le da acceso y ya.
-    $('btn-generar-multi').classList.toggle('oculto', frec);
-    $('btn-info-enlace').classList.toggle('oculto', frec);
+    // Multiuso es cosa de enlaces: a un invitado conocido se le da acceso y ya,
+    // así que en frecuentes no hay tipo que elegir y el botón sale directo.
+    $('btn-generar-pase').textContent = frec ? 'Invitar' : 'Generar';
+    $('pase-acciones').classList.toggle('oculto', frec);
+    $('btn-generar-pase').classList.toggle('oculto', !frec);
     if (frec) ocultarAyudaEnlace(); // su ayuda tampoco aplica en frecuentes
     document.querySelectorAll('#pase-modo .chip-scope').forEach((c) =>
       c.classList.toggle('activa', (c.dataset.modo === 'frecuentes') === frec));
@@ -6045,8 +6058,7 @@ async function iniciar() {
     const seleccion = seleccionPase();
     if (!seleccion.length) { toast('Elige al menos un dispositivo.', 'error'); return; }
     const decia = boton.textContent;
-    const ambos = [$('btn-generar-pase'), $('btn-generar-multi')];
-    ambos.forEach((b) => { b.disabled = true; });
+    boton.disabled = true;
     boton.textContent = 'Generando…';
     try {
       const multiuso = paseMultiuso;
@@ -6058,7 +6070,7 @@ async function iniciar() {
     } catch (err) {
       toast((err && err.message) || 'No se pudo generar el enlace.', 'error');
     } finally {
-      ambos.forEach((b) => { b.disabled = false; });
+      boton.disabled = false;
       boton.textContent = decia;
     }
   }
