@@ -6098,28 +6098,34 @@ async function iniciar() {
     campo.value = mensajePase(url);
     campo.className = 'pase-url';
     campo.addEventListener('focus', () => campo.select());
+    // UNA acción, la que sirve en este aparato.
+    //
+    // Antes estaban las dos: Copiar siempre y Compartir además si el navegador
+    // lo soportaba. Pero copiar te deja el trabajo a medias —el enlace en el
+    // portapapeles y tú buscando dónde pegarlo— mientras que compartir hace lo
+    // que de verdad querías: elegir a quién y mandarlo. Tener las dos obliga a
+    // decidir entre ellas, y esa decisión no le importa a nadie.
+    // Copiar se queda donde es lo único que hay: el escritorio.
     const acciones = document.createElement('div');
     acciones.className = 'pase-acciones';
-    const bCopiar = document.createElement('button');
-    bCopiar.type = 'button';
-    bCopiar.className = 'btn-secundario';
-    bCopiar.textContent = 'Copiar';
-    bCopiar.addEventListener('click', async () => {
-      const ok = await copiarTexto(mensajePase(url));
-      if (ok) toast('Copiado');
-      else { campo.select(); toast('Selecciona y copia el mensaje.'); }
-    });
-    acciones.appendChild(bCopiar);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn-primario pase-generar';
     if (navigator.share) {
-      const bShare = document.createElement('button');
-      bShare.type = 'button';
-      bShare.className = 'btn-secundario';
-      bShare.textContent = 'Compartir';
-      bShare.addEventListener('click', () => {
+      b.textContent = 'Compartir';
+      b.addEventListener('click', () => {
+        // Cerrar la hoja no es un fallo y no se pinta como tal.
         navigator.share({ title: 'ViYi', text: mensajePase(url) }).catch(() => {});
       });
-      acciones.appendChild(bShare);
+    } else {
+      b.textContent = 'Copiar';
+      b.addEventListener('click', async () => {
+        const ok = await copiarTexto(mensajePase(url));
+        if (ok) toast('Copiado');
+        else { campo.select(); toast('Selecciona y copia el mensaje.'); }
+      });
     }
+    acciones.appendChild(b);
     cont.appendChild(titulo);
     cont.appendChild(campo);
     cont.appendChild(acciones);
