@@ -134,7 +134,11 @@ async function iniciar() {
           lugares: pasePendiente.lugares,
           invitador: paseInvitadorPendiente,
           duracion: DUR_TEXTO[pasePendiente.duracion] || '',
-          desde: pasePendiente.desde
+          // Solo si de verdad EMPIEZA MÁS TARDE. Todos los pases llevan fecha
+          // de inicio —por defecto, la de creación—, así que enseñarla siempre
+          // era escribir "desde ahora" con muchas palabras. Dos minutos de
+          // margen: entre que se genera y se abre el enlace pasa un rato.
+          desde: pasePendiente.desde > Date.now() + 120000
             ? new Date(pasePendiente.desde).toLocaleString('es', { dateStyle: 'long', timeStyle: 'short' })
             : '',
           tipo: pasePendiente.multiuso ? 'Varias personas' : 'Una persona',
@@ -5985,6 +5989,15 @@ async function iniciar() {
     const ms = new Date(v).getTime();
     return Number.isFinite(ms) ? ms : null;
   }
+
+  // Abrir y cerrar las opciones. Al cerrarlas NO se deshace lo elegido: si
+  // programaste una fecha y las recoges, el pase sigue programado.
+  $('btn-pase-opciones').addEventListener('click', () => {
+    const caja = $('pase-opciones');
+    const abrir = caja.classList.contains('oculto');
+    caja.classList.toggle('oculto', !abrir);
+    $('btn-pase-opciones').setAttribute('aria-expanded', String(abrir));
+  });
 
   $('pase-cuando').addEventListener('click', (e) => {
     const b = e.target.closest('[data-cuando]');
