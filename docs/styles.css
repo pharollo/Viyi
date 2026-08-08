@@ -1254,6 +1254,75 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
   padding-bottom: 6px;
 }
 
+/* --- El billete de acceso ------------------------------------------------
+   El mismo para el que lo genera y para el invitado. Formal a propósito: es un
+   documento de acceso, no un adorno — rótulos en mayúsculas espaciadas, el
+   evento grande, y un troquel entre lo que ES y sus condiciones. */
+.billete {
+  position: relative;
+  border-radius: 18px;
+  padding: 20px 20px 18px;
+  background: var(--fondo);
+  box-shadow: inset 4px 4px 10px var(--sombra-oscura), inset -4px -4px 10px var(--sombra-clara);
+  margin-bottom: 14px;
+}
+
+.billete-rotulo {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.billete-evento {
+  display: block;
+  margin-top: 6px;
+  font-size: 22px;
+  line-height: 1.2;
+  color: var(--texto);
+  overflow-wrap: anywhere;
+}
+
+/* El troquel: la línea de puntos y las dos muescas laterales. Es lo que hace
+   que se lea como un billete y no como otra tarjeta más. */
+.billete-cuerpo {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.14);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 14px 18px;
+}
+.billete-cuerpo::before,
+.billete-cuerpo::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--superficie);
+  margin-top: -28px;
+}
+.billete-cuerpo::before { left: -9px; }
+.billete-cuerpo::after { right: -9px; }
+
+.billete-valor {
+  display: block;
+  margin-top: 3px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--texto);
+  overflow-wrap: anywhere;
+}
+
+.billete-pie {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+
 /* Los aparatos como TARJETAS cuando son pocos: icono arriba y nombre debajo,
    con una ya puesta. Se reconocen sin leer —el icono es el mismo del botón
    real— y elegir es un toque en algo que se ve, no marcar una casilla dentro de

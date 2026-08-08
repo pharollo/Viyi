@@ -5775,22 +5775,16 @@ async function iniciar() {
       if (g.invitador && fecha) subtexto = `Te invitó ${g.invitador} · ${fecha}`;
       else if (g.invitador) subtexto = `Te invitó ${g.invitador}`;
       else if (fecha) subtexto = `Invitado el ${fecha}`;
-      if (g.evento || subtexto) {
-        const cab = document.createElement('div');
-        cab.className = 'acceso-cab';
-        if (g.evento) {
-          const ev = document.createElement('strong');
-          ev.textContent = g.evento;
-          cab.appendChild(ev);
-        }
-        if (subtexto) {
-          const inv = document.createElement('span');
-          inv.className = 'acceso-invitador';
-          inv.textContent = subtexto;
-          cab.appendChild(inv);
-        }
-        card.appendChild(cab);
-      }
+      // El mismo billete que ve quien lo genera. Antes esto era una cabecera
+      // suelta con el evento y una línea de "te invitó"; ahora la invitación
+      // tiene la forma de lo que es.
+      const empieza = g.disp.map((d) => empiezaEn(d)).find(Boolean);
+      card.appendChild(tarjetaPase({
+        evento: g.evento,
+        lugares: g.disp.map((d) => d.nombre).join(' · '),
+        invitador: g.invitador,
+        desde: empieza ? new Date(empieza).toLocaleString('es', { dateStyle: 'long', timeStyle: 'short' }) : '',
+      }));
       for (const d of g.disp) {
         const ms = msExpira(usuarioActual.accesos[d.id] && usuarioActual.accesos[d.id].expira);
         const fila = document.createElement('div');
@@ -6085,36 +6079,94 @@ async function iniciar() {
   // Mensaje que se comparte con el invitado (no solo la URL pelada).
   const mensajePase = (url) => `Usa ViYi para abrir la puerta, esta es tu llave ${url}`;
 
+  // --- El pase, con forma de pase ------------------------------------------
+  //
+  // Un mismo billete para los dos lados: el que se genera y el que recibe el
+  // invitado. Antes eran dos cosas distintas —una URL en una caja de texto y
+  // una lista de filas— y ninguna de las dos se parecía a un pase.
+  //
+  // Formal a propósito: es un documento de acceso, no un adorno. Mayúsculas
+  // espaciadas para los rótulos, el evento grande, y el troquel entre la parte
+  // de arriba (qué es) y la de abajo (sus condiciones).
+  const DUR_TEXTO = { '3h': '3 horas', '6h': '6 horas', '24h': '24 horas', '7d': '7 días', indef: 'Sin vencimiento' };
+
+  function tarjetaPase({ evento, lugares, duracion, desde, tipo, invitador, pie }) {
+    const t = document.createElement('div');
+    t.className = 'billete';
+
+    const cab = document.createElement('div');
+    cab.className = 'billete-cab';
+    cab.innerHTML = '<span class="billete-rotulo">Pase de acceso</span>'
+      + `<strong class="billete-evento">${escapar(evento || 'Acceso')}</strong>`;
+    t.appendChild(cab);
+
+    const dato = (rotulo, valor) => {
+      if (!valor) return null;
+      const d = document.createElement('div');
+      d.className = 'billete-dato';
+      d.innerHTML = `<span class="billete-rotulo">${escapar(rotulo)}</span>`
+        + `<span class="billete-valor">${escapar(valor)}</span>`;
+      return d;
+    };
+
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'billete-cuerpo';
+    [dato('Abre', lugares), dato('De', invitador), dato('Desde', desde),
+     dato('Vigencia', duracion), dato('Uso', tipo)]
+      .filter(Boolean).forEach((d) => cuerpo.appendChild(d));
+    t.appendChild(cuerpo);
+
+    if (pie) {
+      const p = document.createElement('p');
+      p.className = 'billete-pie';
+      p.textContent = pie;
+      t.appendChild(p);
+    }
+    return t;
+  }
+
   function mostrarResultadoPase(url) {
     const cont = $('pase-resultado');
     cont.classList.remove('oculto');
-    cont.innerHTML = '';
-    const titulo = document.createElement('p');
-    titulo.className = 'pase-ok';
-    titulo.textContent = '¡Enlace listo! ¡Compártelo!';
-    const campo = document.createElement('input');
-    campo.type = 'text';
-    campo.readOnly = true;
-    campo.value = mensajePase(url);
-    campo.className = 'pase-url';
-    campo.addEventListener('focus', () => campo.select());
-    // UNA acción, la que sirve en este aparato.
-    //
-    // Antes estaban las dos: Copiar siempre y Compartir además si el navegador
-    // lo soportaba. Pero copiar te deja el trabajo a medias —el enlace en el
-    // portapapeles y tú buscando dónde pegarlo— mientras que compartir hace lo
-    // que de verdad querías: elegir a quién y mandarlo. Tener las dos obliga a
-    // decidir entre ellas, y esa decisión no le importa a nadie.
-    // Copiar se queda donde es lo único que hay: el escritorio.
-    const acciones = document.createElement('div');
-    acciones.className = 'pase-acciones';
+    cont.textContent = '';
+
+    // Los datos salen de lo que acabas de elegir, no de un viaje al servidor:
+    // el pase ya está creado y esto solo lo enseña.
+    const nombres = seleccionPase()
+      .map((id) => (misDispositivos.find((d) => d.id === id) || {}).nombre)
+      .filter(Boolean).join(' · ');
+    const desdeMs = desdeElegido();
+    cont.appendChild(tarjetaPase({
+      evento: tituloCase($('pase-evento').value.trim()),
+      lugares: nombres,
+      duracion: DUR_TEXTO[paseDuracionSel] || '',
+      desde: desdeMs ? new Date(desdeMs).toLocaleString('es', { dateStyle: 'long', timeStyle: 'short' }) : '',
+      tipo: paseMultiuso ? 'Varias personas' : 'Una persona',
+    }));
+
+    // El enlace, solo donde hace falta verlo: sin hoja de compartir, copiar es
+    // lo único que hay y conviene poder seleccionarlo a mano si falla.
+    let campo = null;
+    if (!navigator.share) {
+      campo = document.createElement('input');
+      campo.type = 'text';
+      campo.readOnly = true;
+      campo.value = mensajePase(url);
+      campo.className = 'pase-url';
+      campo.addEventListener('focus', () => campo.select());
+      cont.appendChild(campo);
+    }
+
+    // UNA acción, la que sirve en este aparato. Copiar te deja el trabajo a
+    // medias —el enlace en el portapapeles y tú buscando dónde pegarlo—;
+    // compartir hace lo que querías: elegir a quién y mandarlo.
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'btn-primario pase-generar';
     if (navigator.share) {
       b.textContent = 'Compartir';
+      // Cerrar la hoja no es un fallo y no se pinta como tal.
       b.addEventListener('click', () => {
-        // Cerrar la hoja no es un fallo y no se pinta como tal.
         navigator.share({ title: 'ViYi', text: mensajePase(url) }).catch(() => {});
       });
     } else {
@@ -6122,13 +6174,10 @@ async function iniciar() {
       b.addEventListener('click', async () => {
         const ok = await copiarTexto(mensajePase(url));
         if (ok) toast('Copiado');
-        else { campo.select(); toast('Selecciona y copia el mensaje.'); }
+        else if (campo) { campo.select(); toast('Selecciona y copia el mensaje.'); }
       });
     }
-    acciones.appendChild(b);
-    cont.appendChild(titulo);
-    cont.appendChild(campo);
-    cont.appendChild(acciones);
+    cont.appendChild(b);
   }
 
   let paseVerTodos = false; // admin: ver todos los pases del condominio vs solo los míos
