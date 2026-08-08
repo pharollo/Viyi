@@ -5989,16 +5989,6 @@ async function iniciar() {
     $('btn-pase-opciones').setAttribute('aria-expanded', String(abrir));
   });
 
-  // El botón dice lo que hay dentro cuando algo se salió de lo normal, para no
-  // tener que abrirlo para saberlo.
-  function resumirOpciones() {
-    const partes = [];
-    if ($('pase-cuando').querySelector('[data-cuando="luego"]').classList.contains('activa')) {
-      partes.push('programado');
-    }
-    $('btn-pase-opciones').textContent = partes.length ? `Opciones · ${partes.join(' · ')}` : 'Opciones';
-  }
-
   $('pase-cuando').addEventListener('click', (e) => {
     const b = e.target.closest('[data-cuando]');
     if (!b) return;
@@ -6014,7 +6004,6 @@ async function iniciar() {
         .toISOString().slice(0, 16);
     }
     decirDesde();
-    resumirOpciones();
   });
 
   async function darAccesoDirecto() {
