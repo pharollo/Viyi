@@ -4800,7 +4800,14 @@ async function iniciar() {
     const porFecha = resto.filter((a) => a.creado).sort((a, b) => b.creado - a.creado);
     // Los de fábrica cierran. No están en la colección, así que no tienen fecha
     // ni usos que comparar: conservan el orden del catálogo entre ellos.
-    const deFabrica = resto.filter((a) => !a.creado);
+    // De los de fábrica, los LISOS cierran la lista: Normal y las cuatro pieles
+    // (Neón, Acero, Cristal, Pop) son color sobre el botón de siempre, mientras
+    // que Hal, Bordado, Argentina, Jet o Pilder son diseños con su propia
+    // imagen. Lo que se viene a mirar es lo segundo; lo primero es a lo que se
+    // vuelve, y para volver no hace falta que esté arriba.
+    const esLiso = (a) => a.id === 'normal' || PIELES.includes(a.id);
+    const deFabrica = resto.filter((a) => !a.creado && !esLiso(a))
+      .concat(resto.filter((a) => !a.creado && esLiso(a)));
     const nuevos = populares;
     const usados = porFecha;
 
