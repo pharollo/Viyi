@@ -344,12 +344,28 @@ async function iniciar() {
     orbita: { id: 'orbita', nombre: 'Orbita', clase: 'skin-orbita' },
     volteo: { id: 'volteo', nombre: 'Voltea', clase: 'skin-voltea' },
     titileo: { id: 'titileo', nombre: 'Titila', clase: 'skin-titila' },
+    compuerta: { id: 'compuerta', nombre: 'Se abre', clase: 'skin-compuerta' },
+    radar: { id: 'radar', nombre: 'Rastrea', clase: 'skin-rastrea' },
+    chispa: { id: 'chispa', nombre: 'Chispea', clase: 'skin-chispea' },
+    acercamiento: { id: 'acercamiento', nombre: 'Se acerca', clase: 'skin-acerca' },
   };
   let skinsGaleria = [];   // [{ id, nombre, imagen, animacion, tipos, autor, publico }]
+  // La animación que tenía un skin antes de empezar a probarle otras, para
+  // reponerla si cancelas. `null` = no hay nada que deshacer.
+  let animacionOriginal = null;
 
   // Mete los skins de la galería en las dos tablas que el resto del código ya
   // sabe leer, para que no haya un camino aparte para ellos.
   function aplicarSkinsGaleria(lista) {
+    // Se rehace el catálogo desde el servidor, así que ya no hay nada que
+    // deshacer: lo que queda escrito ES la verdad.
+    //
+    // Sin esto, guardar un cambio de animación no se aplicaba al botón. El
+    // guardado recarga la galería y repinta; ese repintado cierra el editor, y
+    // al cerrarse reponía la animación de ANTES de empezar a probar — pisando
+    // lo que se acababa de grabar. Se veía bien en la muestra (repintada
+    // durante la prueba) y mal en el botón de verdad, hasta recargar la página.
+    animacionOriginal = null;
     for (const id of Object.keys(ASPECTOS_IMAGEN)) {
       if (ASPECTOS_IMAGEN[id].galeria) delete ASPECTOS_IMAGEN[id];
     }
@@ -4907,7 +4923,7 @@ async function iniciar() {
     }
   }
 
-  let animacionOriginal = null;
+
 
   function msgEditorSkin(texto, error) {
     const el = $('vest-editor-msg');

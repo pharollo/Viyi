@@ -1473,6 +1473,102 @@ button:disabled {
   animation: titilar-skin 2.4s linear infinite;
 }
 
+/* --- Y las que cuentan algo -----------------------------------------------
+   Hasta aquí las animaciones movían el botón o lo iluminaban. Estas usan lo que
+   el botón SIGNIFICA: se abre, rastrea, se acerca. Siguen corriendo solo
+   mientras la puerta está abierta. */
+
+/* Se abre: dos hojas tapan la foto y se retiran, como la puerta que estás
+   abriendo. Va con `forwards` y UNA sola pasada a propósito: abrir y cerrar en
+   bucle diría que la puerta se abre y se cierra sola. Se abren, se quedan
+   abiertas mientras dure, y desaparecen al quitarse la clase. */
+@keyframes abrir-izquierda {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-101%); }
+}
+@keyframes abrir-derecha {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(101%); }
+}
+.boton-circular.skin-compuerta.enviando::before,
+.boton-circular.skin-compuerta.exito::before,
+.boton-circular.skin-compuerta.enviando::after,
+.boton-circular.skin-compuerta.exito::after {
+  content: '';
+  position: absolute;
+  top: -2%;
+  bottom: -2%;
+  width: 50.5%;
+  background: linear-gradient(180deg, #43474d, #24262a);
+  z-index: 2;
+  pointer-events: none;
+}
+.boton-circular.skin-compuerta.enviando::before,
+.boton-circular.skin-compuerta.exito::before {
+  left: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+  animation: abrir-izquierda 0.75s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+}
+.boton-circular.skin-compuerta.enviando::after,
+.boton-circular.skin-compuerta.exito::after {
+  right: 0;
+  border-left: 1px solid rgba(0, 0, 0, 0.45);
+  animation: abrir-derecha 0.75s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+}
+
+/* Rastrea: el brazo de un radar. Es un `conic-gradient` girando —un solo
+   elemento, sin trucos— con la estela por delante para que se vea hacia dónde
+   barre. */
+@keyframes rastrear-skin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.boton-circular.skin-rastrea.enviando::after,
+.boton-circular.skin-rastrea.exito::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg,
+    rgba(165, 255, 46, 0.55) 0deg,
+    rgba(165, 255, 46, 0.16) 42deg,
+    transparent 96deg,
+    transparent 360deg);
+  animation: rastrear-skin 1.9s linear infinite;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Chispea: la interferencia de una señal. Corta, con un silencio largo detrás:
+   un glitch continuo cansa a los diez segundos y este dura lo que dure la
+   puerta abierta. El desdoble rojo/cian es lo que lo hace leer como avería de
+   pantalla y no como parpadeo. */
+@keyframes chispear-skin {
+  0%, 66%, 100% { transform: translate(0); filter: none; }
+  68%  { transform: translate(-3px, 1px); filter: drop-shadow(3px 0 rgba(255, 0, 60, 0.85)) drop-shadow(-3px 0 rgba(0, 225, 255, 0.85)); }
+  71%  { transform: translate(3px, -1px); filter: drop-shadow(-4px 0 rgba(255, 0, 60, 0.85)) drop-shadow(4px 0 rgba(0, 225, 255, 0.85)); }
+  74%  { transform: translate(-2px, -2px); filter: drop-shadow(2px 0 rgba(255, 0, 60, 0.7)) drop-shadow(-2px 0 rgba(0, 225, 255, 0.7)); }
+  77%  { transform: translate(0); filter: none; }
+  84%  { transform: translate(4px, 0); filter: drop-shadow(-3px 0 rgba(255, 0, 60, 0.8)) drop-shadow(3px 0 rgba(0, 225, 255, 0.8)); }
+  87%  { transform: translate(0); filter: none; }
+}
+.boton-circular.skin-chispea.enviando .boton-logo,
+.boton-circular.skin-chispea.exito .boton-logo {
+  animation: chispear-skin 2.6s steps(1, end) infinite;
+}
+
+/* Se acerca: la cámara entra despacio en la foto. Nunca baja de 1 —si
+   encogiera, el círculo dejaría ver el fondo por los bordes— y el
+   desplazamiento es mínimo para que no se salga el motivo. */
+@keyframes acercar-skin {
+  0%   { transform: scale(1) translate(0, 0); }
+  100% { transform: scale(1.16) translate(-1.5%, -1%); }
+}
+.boton-circular.skin-acerca.enviando .boton-logo,
+.boton-circular.skin-acerca.exito .boton-logo {
+  animation: acercar-skin 6s ease-out forwards;
+}
+
 /* Nombre abajo DENTRO del anillo (sobre la franja oscura, no sobre la foto)
    para los botones con imagen (Argentina, Bordado). Una sola línea; el largo
    se limita en el campo de nombre del editor. Se desvanece mientras el botón
