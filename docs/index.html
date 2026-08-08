@@ -20,7 +20,7 @@
 <body>
   <header>
     <div class="izq">
-      <button id="btn-menu" type="button" class="btn-menu oculto" aria-label="Abrir menú">
+      <button id="btn-menu" type="button" class="btn-menu oculto solo-admin" aria-label="Administración">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
       </button>
       <div class="marca" id="ir-inicio" role="button" tabindex="0" aria-label="Ir a controles">
@@ -362,6 +362,9 @@
             <p id="clave-msg" class="mensaje-error oculto"></p>
           </form>
         </div>
+        <div class="tarjeta" id="seccion-salir">
+          <button id="btn-salir" type="button" class="btn-secundario item-salir">Salir</button>
+        </div>
       </div>
     </section>
   </main>
@@ -387,17 +390,22 @@
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2"/></svg>
       <span>Locker</span>
     </button>
+    <button type="button" class="item-barra item-menu" data-tab="tab-perfil">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/></svg>
+      <span>Perfil</span>
+    </button>
   </nav>
 
-  <nav id="menu-lateral" class="menu-lateral" aria-label="Más secciones">
-    <button type="button" class="item-menu solo-admin" data-tab="tab-gestion">Admin</button>
-    <button type="button" class="item-menu solo-admin" data-tab="tab-registro">Actividad</button>
-    <button type="button" class="item-menu" data-tab="tab-perfil">Mi perfil</button>
-    <button id="btn-salir" type="button" class="item-menu item-salir">Salir</button>
+  <!-- Solo lo del ADMIN. Admin y Actividad no son del vecino, así que para él
+       este menú —y su hamburguesa— no existen: su navegación es la barra de
+       abajo y nada más. Salir se fue a Mi perfil, que es donde se busca. -->
+  <nav id="menu-lateral" class="menu-lateral" aria-label="Administración">
+    <button type="button" class="item-menu" data-tab="tab-gestion">Admin</button>
+    <button type="button" class="item-menu" data-tab="tab-registro">Actividad</button>
   </nav>
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=328"></script>
+  <script type="module" src="app.js?v=329"></script>
 </body>
 </html>
