@@ -4383,6 +4383,14 @@ async function iniciar() {
   function mostrarTab(id) {
     id = tabValida(id);
     PANELES_TAB.forEach((t) => $(t).classList.toggle('oculto', t !== id));
+    // Arriba del todo al cambiar de sección.
+    //
+    // Las pestañas no son páginas: son bloques que se muestran y se ocultan
+    // dentro del MISMO documento, así que el scroll no tenía motivo para
+    // moverse y entrabas a la sección nueva por la mitad. Sin animación a
+    // propósito: un desplazamiento suave al cambiar de pestaña se siente como
+    // que la app va lenta.
+    window.scrollTo(0, 0);
     document.querySelectorAll('.item-menu').forEach((p) => {
       p.classList.toggle('activa', p.dataset.tab === id);
     });
