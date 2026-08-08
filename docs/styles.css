@@ -1350,8 +1350,17 @@ button:disabled {
    de 0.9s y arranca en el mismo instante, así que el botón se apagaba justo
    cuando la imagen destellaba y no se veía casi nada. Aquí el destello es la
    señal; no hacen falta dos. */
+/* Las que juegan con la LUZ callan el pulso genérico. `pulso-envio` baja la
+   opacidad del botón al 45%, y un botón que se apaga a la vez que su destello,
+   su barrido o su parpadeo deja un resultado turbio: dos cosas peleando por
+   decir lo mismo. Las que MUEVEN el botón no necesitan esto —ahí el pulso ni se
+   nota— y las que ya animan el botón entero lo sustituyen solas. */
 .boton-circular.skin-destella.enviando,
-.boton-circular.skin-destella.exito {
+.boton-circular.skin-destella.exito,
+.boton-circular.skin-barre.enviando,
+.boton-circular.skin-barre.exito,
+.boton-circular.skin-titila.enviando,
+.boton-circular.skin-titila.exito {
   animation: none;
 }
 
@@ -1365,6 +1374,103 @@ button:disabled {
 .boton-circular.skin-late-fuerte.exito {
   animation: latir-fuerte-skin 0.9s ease-in-out infinite,
              latir-skin 0.9s ease-in-out infinite;
+}
+
+/* --- Animaciones "de verdad" (7 ago 2026) --------------------------------
+   Las primeras cinco movían el botón; estas juegan con la LUZ, que es lo que
+   se ve desde lejos. Siguen corriendo solo durante `enviando` y `exito` —el
+   rato en que la puerta se está abriendo—, así que ninguna es adorno.
+   Todas llevan `.boton-circular` delante: `pulso-envio` pesa lo mismo y está
+   más abajo en el archivo, así que sin eso gana él por orden.
+   La sombra neumórfica se repite dentro de cada keyframe que toca `box-shadow`:
+   animar esa propiedad la reemplaza entera, y sin repetirla el botón pierde el
+   relieve mientras dura la animación. */
+
+/* Reluce: un destello barrido cruza la cara, como metal pulido girando bajo una
+   luz. La banda va inclinada y más alta que el botón para que entre y salga
+   limpia; el `overflow` del recorte circular la mantiene dentro. */
+@keyframes barrer-skin {
+  0%      { transform: translateX(-190%) rotate(20deg); }
+  60%,
+  100%    { transform: translateX(190%) rotate(20deg); }
+}
+.boton-circular.skin-barre.enviando::before,
+.boton-circular.skin-barre.exito::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  bottom: -40%;
+  left: 0;
+  width: 38%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.62), transparent);
+  animation: barrer-skin 1.6s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Irradia: una onda que sale del botón y se pierde. Va en `box-shadow` y no en
+   un elemento, porque el botón recorta en círculo y cualquier hijo se quedaría
+   dentro — la sombra propia no la recorta nada. */
+@keyframes irradiar-skin {
+  0% {
+    box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara),
+                0 0 0 0 rgba(165, 255, 46, 0.55);
+  }
+  100% {
+    box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara),
+                0 0 0 26px rgba(165, 255, 46, 0);
+  }
+}
+.boton-circular.skin-irradia.enviando,
+.boton-circular.skin-irradia.exito {
+  animation: irradiar-skin 1.5s ease-out infinite;
+}
+
+/* Orbita: una luz da vueltas alrededor. Son ocho posiciones de la misma sombra
+   moviéndose en círculo — con cuatro se ve el salto en las diagonales. */
+@keyframes orbitar-skin {
+  0%,
+  100% { box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara), 0 -15px 20px 1px rgba(165, 255, 46, 0.85); }
+  12.5% { box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara), 11px -11px 20px 1px rgba(165, 255, 46, 0.85); }
+  25%  { box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara), 15px 0 20px 1px rgba(165, 255, 46, 0.85); }
+  37.5% { box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara), 11px 11px 20px 1px rgba(165, 255, 46, 0.85); }
+  50%  { box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara), 0 15px 20px 1px rgba(165, 255, 46, 0.85); }
+  62.5% { box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara), -11px 11px 20px 1px rgba(165, 255, 46, 0.85); }
+  75%  { box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara), -15px 0 20px 1px rgba(165, 255, 46, 0.85); }
+  87.5% { box-shadow: 9px 9px 20px var(--sombra-oscura), -9px -9px 20px var(--sombra-clara), -11px -11px 20px 1px rgba(165, 255, 46, 0.85); }
+}
+.boton-circular.skin-orbita.enviando,
+.boton-circular.skin-orbita.exito {
+  animation: orbitar-skin 1.8s linear infinite;
+}
+
+/* Voltea: el botón gira sobre sí mismo como una moneda. La perspectiva va en la
+   propia transformada —el botón no siempre tiene un padre que se la dé— y a
+   mitad de vuelta se ve el dorso, que es la misma foto en espejo: para un
+   motivo centrado no se nota y evita tener que pintar una cara de atrás. */
+@keyframes voltear-skin {
+  0%   { transform: perspective(620px) rotateY(0deg); }
+  100% { transform: perspective(620px) rotateY(360deg); }
+}
+.boton-circular.skin-voltea.enviando,
+.boton-circular.skin-voltea.exito {
+  animation: voltear-skin 2.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+/* Titila: el arranque de un tubo de neón. Los tiempos son IRREGULARES a
+   propósito: un parpadeo regular se lee como un fallo de la pantalla, y uno
+   irregular como algo encendiéndose. Acaba fijo y brillando. */
+@keyframes titilar-skin {
+  0%, 8%    { filter: brightness(0.45); }
+  10%, 13%  { filter: brightness(1.5); }
+  15%, 19%  { filter: brightness(0.45); }
+  21%       { filter: brightness(1.6); }
+  24%, 27%  { filter: brightness(0.6); }
+  30%, 100% { filter: brightness(1.35) drop-shadow(0 0 8px rgba(165, 255, 46, 0.55)); }
+}
+.boton-circular.skin-titila.enviando .boton-logo,
+.boton-circular.skin-titila.exito .boton-logo {
+  animation: titilar-skin 2.4s linear infinite;
 }
 
 /* Nombre abajo DENTRO del anillo (sobre la franja oscura, no sobre la foto)

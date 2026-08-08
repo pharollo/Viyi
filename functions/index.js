@@ -1681,8 +1681,9 @@ exports.adminEliminarDispositivo = onCall(RARA, async (request) => {
 // Una sola función con varias acciones a propósito: cada función desplegada
 // cuenta contra la cuota de CPU de Cloud Run (ver setGlobalOptions arriba), así
 // que tres exports serían tres slots por algo de uso esporádico.
-const ANIMACIONES_SKIN = ['ninguna', 'girar', 'latido',
-  'balanceo', 'rebote', 'vibracion', 'destello', 'latidoFuerte'];
+const ANIMACIONES_SKIN = ['ninguna', 'girar', 'latido', 'latidoFuerte',
+  'balanceo', 'rebote', 'vibracion', 'destello',
+  'barrido', 'onda', 'orbita', 'volteo', 'titileo'];
 const TIPOS_SKIN = ['puerta', 'cortina', 'ascensor', 'luz', 'termostato', 'rele', 'otro'];
 // Un data URI de WebP de 256px ronda los 20 KB. Se topa MUY por debajo del
 // límite de 1 MB del documento para que un skin no pueda inflar la lectura de

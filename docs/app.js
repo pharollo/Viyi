@@ -339,6 +339,11 @@ async function iniciar() {
     rebote: { id: 'rebote', nombre: 'Rebota', clase: 'skin-rebota' },
     vibracion: { id: 'vibracion', nombre: 'Vibra', clase: 'skin-vibra' },
     destello: { id: 'destello', nombre: 'Destella', clase: 'skin-destella' },
+    barrido: { id: 'barrido', nombre: 'Reluce', clase: 'skin-barre' },
+    onda: { id: 'onda', nombre: 'Irradia', clase: 'skin-irradia' },
+    orbita: { id: 'orbita', nombre: 'Orbita', clase: 'skin-orbita' },
+    volteo: { id: 'volteo', nombre: 'Voltea', clase: 'skin-voltea' },
+    titileo: { id: 'titileo', nombre: 'Titila', clase: 'skin-titila' },
   };
   let skinsGaleria = [];   // [{ id, nombre, imagen, animacion, tipos, autor, publico }]
 
