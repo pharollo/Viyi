@@ -4,6 +4,10 @@
 }
 
 :root {
+  /* Alto de la barra de secciones. Lo usan el hueco del final de `main` y el
+     toast: son dos sitios que TIENEN que moverse juntos, y con dos números
+     sueltos uno se queda atrás — pasó, y el aviso salía debajo de la barra. */
+  --alto-barra: 70px;
   --fondo: #1b1c1e;
   --superficie: #212225;
   --texto: #e8eaec;
@@ -562,7 +566,7 @@ button:disabled {
 .item-barra:active { opacity: 0.6; }
 
 /* Sitio para la barra: sin esto lo último de cada pantalla queda debajo. */
-main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom)); }
 
 .menu-lateral {
   position: fixed;
@@ -2629,7 +2633,8 @@ main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 #toast {
   position: fixed;
   left: 50%;
-  bottom: calc(26px + env(safe-area-inset-bottom));
+  bottom: calc(var(--alto-barra) + 18px + env(safe-area-inset-bottom));
+  z-index: 60;   /* por encima de la barra (45) */
   transform: translateX(-50%);
   padding: 13px 22px;
   border-radius: 16px;
