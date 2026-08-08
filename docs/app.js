@@ -4788,9 +4788,12 @@ async function iniciar() {
     const ultimos = ops.filter((a) => a.creado)
       .sort((a, b) => b.creado - a.creado)
       .slice(0, CUANTOS_ULTIMOS);
-    // El resto conserva el orden del catálogo —Normal primero, que es el de
-    // volver atrás— y detrás los skins de galería por popularidad. Ordenar el
-    // bloque entero por usos hundiría a Normal hasta el final.
+    // En "Los demás" van primero los diseños de la galería y AL FINAL los de
+    // fábrica. Lo pidió así el usuario y tiene su lógica: los de la galería son
+    // lo que vienes a mirar —cambian, los hace gente, crecen—; los de fábrica
+    // son el fondo de armario, ahí para cuando los busques.
+    // Los de fábrica no están en la colección, así que no tienen fecha ni usos
+    // que comparar: conservan el orden del catálogo entre ellos.
     const resto = ops.filter((a) => !ultimos.includes(a));
     const deFabrica = resto.filter((a) => !a.creado);
     const usados = resto.filter((a) => a.creado).sort((a, b) => b.usos - a.usos || b.creado - a.creado);
@@ -4821,7 +4824,7 @@ async function iniciar() {
       cont.appendChild(hacer);
       cont.appendChild(titulo('Los demás'));
     }
-    for (const a of deFabrica.concat(usados)) cont.appendChild(marca(a));
+    for (const a of usados.concat(deFabrica)) cont.appendChild(marca(a));
     // Sin grupo de novedades no hay dónde cerrar, así que va al final —que es
     // también el final de la única lista que hay.
     if (!nuevos.length) cont.appendChild(hacer);
