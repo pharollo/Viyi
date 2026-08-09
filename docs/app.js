@@ -3084,6 +3084,33 @@ async function iniciar() {
     lista.classList.toggle('oculto', vacia);
   }
 
+  // El panel de administración, por pestañas.
+  //
+  // Estaban las tres listas apiladas en una sola página: montar un condominio
+  // desde cero era desplazarse arriba y abajo sin saber por dónde se empieza.
+  // El orden de los chips ES el del montaje —inmuebles, aparatos, vecinos—
+  // porque un aparato necesita un inmueble donde vivir y un vecino necesita las
+  // dos cosas para que se le asignen.
+  let subGestion = 'dispositivos';
+  function mostrarSubGestion(cual) {
+    subGestion = cual;
+    document.querySelectorAll('#sub-gestion [data-sub]')
+      .forEach((c) => c.classList.toggle('activa', c.dataset.sub === cual));
+    document.querySelectorAll('.grupo-gestion')
+      .forEach((g) => g.classList.toggle('oculto', g.dataset.grupo !== cual));
+    // El editor se cierra al cambiar: estaba abierto sobre algo de la sección
+    // que acabas de dejar, y quedaría flotando bajo una lista que no es la
+    // suya.
+    const ed = $('editor');
+    if (ed) { ed.classList.add('oculto'); ed.textContent = ''; }
+    // Y el buscador se vacía. Es uno solo para las tres, así que arrastrar el
+    // texto de una a otra enseñaría la nueva ya filtrada por algo que no
+    // escribiste aquí.
+    const b = $('buscar-gestion');
+    if (b && b.value) { b.value = ''; renderGestion(); }
+    window.scrollTo(0, 0);
+  }
+
   // El servicio de Tuya y cuándo vence.
   //
   // Solo para el administrador GENERAL —el que puede renovar en Tuya—, no para
@@ -5815,6 +5842,11 @@ async function iniciar() {
 
   // Buscar vecino: filtra sin volver a leer Firestore (ya está todo en caché).
   $('buscar-gestion').addEventListener('input', renderGestion);
+  mostrarSubGestion('dispositivos');
+  $('sub-gestion').addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-sub]');
+    if (chip && chip.dataset.sub !== subGestion) mostrarSubGestion(chip.dataset.sub);
+  });
   $('btn-vecinos-lote').addEventListener('click', () => abrirEditorVecinosLote());
 
   // Vincular la cuenta Tuya del propio vecino (OAuth). Se abre la página de

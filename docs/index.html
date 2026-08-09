@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=342">
+  <link rel="stylesheet" href="styles.css?v=344">
 </head>
 <body>
   <header>
@@ -204,32 +204,24 @@
         </div>
       </div>
       <div id="tab-gestion" class="panel-tab oculto">
-        <input type="search" id="buscar-gestion" class="buscador" placeholder="Buscar dispositivo, inmueble o vecino" aria-label="Buscar" autocomplete="off">
+        <!-- El orden es el del montaje: primero los inmuebles, que no dependen
+             de nada; después los dispositivos, que necesitan un inmueble; al
+             final los vecinos, a los que se les asignan las dos cosas. -->
+        <div id="sub-gestion" class="pase-scope">
+          <button type="button" class="chip-scope" data-sub="inmuebles">Inmuebles</button>
+          <button type="button" class="chip-scope activa" data-sub="dispositivos">Aparatos</button>
+          <button type="button" class="chip-scope" data-sub="vecinos">Vecinos</button>
+        </div>
+        <input type="search" id="buscar-gestion" class="buscador" placeholder="Buscar" aria-label="Buscar" autocomplete="off">
+        <div class="grupo-gestion" data-grupo="dispositivos">
         <div class="encabezado-admin" data-seccion="dispositivos">
-          <h2>Dispositivos</h2>
+          
           <button id="btn-refrescar-conexion" type="button" class="btn-secundario btn-icono" aria-label="Actualizar estado">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           </button>
           <button id="btn-nuevo-dispositivo" type="button" class="btn-secundario">+ Agregar</button>
         </div>
         <ul id="gestion-dispositivos" class="lista-gestion"></ul>
-        <div class="encabezado-admin" data-seccion="inmuebles">
-          <h2>Inmuebles</h2>
-          <button id="btn-nuevo-inmueble" type="button" class="btn-secundario">+ Agregar</button>
-        </div>
-        <ul id="gestion-inmuebles" class="lista-gestion"></ul>
-        <div class="encabezado-admin" data-seccion="vecinos">
-          <h2>Vecinos</h2>
-          <button id="btn-vecinos-lote" type="button" class="btn-secundario">+ Lote</button>
-          <button id="btn-nuevo-usuario" type="button" class="btn-secundario">+ Agregar</button>
-        </div>
-        <ul id="gestion-usuarios" class="lista-gestion"></ul>
-
-        <!-- El servicio de Tuya vence con fecha, y sin él ningún dispositivo
-             Tuya abre. La fecha se apunta aquí para que ViYi avise tres semanas
-             antes; antes había que editarla en la consola de Firebase, que es
-             un paseo que nadie recuerda seis meses después.
-             Solo para el administrador general: es quien puede renovar. -->
         <div id="seccion-tuya" class="encabezado-admin oculto">
           <h2>Servicio de Tuya</h2>
         </div>
@@ -243,7 +235,28 @@
           <button type="button" id="btn-guardar-tuya" class="btn-primario">Guardar</button>
           <p id="error-tuya" class="mensaje-error oculto"></p>
         </div>
+        </div>
+        <div class="grupo-gestion" data-grupo="inmuebles">
+        <div class="encabezado-admin" data-seccion="inmuebles">
+          
+          <button id="btn-nuevo-inmueble" type="button" class="btn-secundario">+ Agregar</button>
+        </div>
+        <ul id="gestion-inmuebles" class="lista-gestion"></ul>
+        </div>
+        <div class="grupo-gestion" data-grupo="vecinos">
+        <div class="encabezado-admin" data-seccion="vecinos">
+          
+          <button id="btn-vecinos-lote" type="button" class="btn-secundario">+ Lote</button>
+          <button id="btn-nuevo-usuario" type="button" class="btn-secundario">+ Agregar</button>
+        </div>
+        <ul id="gestion-usuarios" class="lista-gestion"></ul>
+        </div>
 
+        <!-- El servicio de Tuya vence con fecha, y sin él ningún dispositivo
+             Tuya abre. La fecha se apunta aquí para que ViYi avise tres semanas
+             antes; antes había que editarla en la consola de Firebase, que es
+             un paseo que nadie recuerda seis meses después.
+             Solo para el administrador general: es quien puede renovar. -->
         <div id="editor" class="tarjeta oculto"></div>
       </div>
       <div id="tab-registro" class="panel-tab oculto">
@@ -472,6 +485,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=370"></script>
+  <script type="module" src="app.js?v=371"></script>
 </body>
 </html>
