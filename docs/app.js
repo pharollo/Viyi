@@ -775,8 +775,10 @@ async function iniciar() {
 
       if (usuario.rol === 'admin') {
         // En este orden: el registro descarta lo de los aparatos sin registro,
-        // y para saber cuáles son necesita la caché de dispositivos.
-        cargarGestion().then(cargarRegistros);
+        // y para saber cuáles son necesita la caché de dispositivos. La
+        // conexión la necesita por lo mismo: el tramo abierto —el que todavía
+        // no está en la colección— sale del estado de cada dispositivo.
+        cargarGestion().then(() => { cargarRegistros(); cargarConexiones(); });
       }
     } catch (err) {
       console.error(err);
@@ -6433,6 +6435,107 @@ async function iniciar() {
     return li;
   }
 
+  // ---- Conexión: cuánto tiempo ha estado caído cada aparato ----
+  //
+  // La colección `conexiones` lleva semanas escribiéndose y no la leía nadie.
+  // Guarda un TRAMO CERRADO por cada cambio de estado, con su duración ya
+  // calculada, porque `dispositivos.conexion` solo tiene el estado de ahora y
+  // se sobrescribe: sin los tramos, el pasado no se puede reconstruir.
+  //
+  // Lo que enseña esta pantalla y no enseñaba el puntito verde: la diferencia
+  // entre un aparato que se cayó DOS veces y estuvo día y medio fuera, y otro
+  // que se cayó SEIS y volvió enseguida. Son dos averías distintas —una del
+  // aparato, otra de la red— y con un punto de color se ven iguales.
+  const VENTANA_CON = 30 * 24 * 60 * 60 * 1000;
+
+  const duracionCorta = (ms) => {
+    const s = ms / 1000;
+    if (s < 60) return `${Math.round(s)} s`;
+    if (s < 3600) return `${Math.round(s / 60)} min`;
+    if (s < 48 * 3600) return `${(s / 3600).toFixed(1)} h`;
+    return `${Math.round(s / 86400)} d`;
+  };
+
+  async function cargarConexiones() {
+    const lista = $('lista-conexiones');
+    lista.textContent = '';
+    const desde = Date.now() - VENTANA_CON;
+    try {
+      const alc = miAlcance();
+      const partes = [collection(db, 'conexiones')];
+      if (alc.length) partes.push(where('inmueble', 'in', alc.slice(0, 30)));
+      partes.push(orderBy('hasta', 'desc'), limit(500));
+      const res = await getDocs(query(...partes));
+
+      // Un tramo cuenta por la parte que cae DENTRO de la ventana. Una caída
+      // que empezó hace 40 días y terminó ayer no son 40 días de avería este
+      // mes: son los que pasaron desde que empieza la ventana.
+      const por = new Map();
+      const dame = (id, nombre) => {
+        if (!por.has(id)) por.set(id, { nombre, caidas: 0, caido: 0, visto: 0 });
+        return por.get(id);
+      };
+      for (const doc of res.docs) {
+        const t = doc.data();
+        const ini = t.desde && t.desde.toMillis ? t.desde.toMillis() : 0;
+        const fin = t.hasta && t.hasta.toMillis ? t.hasta.toMillis() : 0;
+        const dentro = Math.max(0, Math.min(fin, Date.now()) - Math.max(ini, desde));
+        if (!dentro) continue;
+        const e = dame(t.dispositivoId, t.nombre || t.dispositivoId);
+        e.visto += dentro;
+        if (t.online === false) { e.caidas += 1; e.caido += dentro; }
+      }
+
+      // El tramo de AHORA todavía no está en la colección —se guarda al
+      // cerrarse—, así que sin esto un aparato que lleva una semana caído
+      // aparecería con cero. El estado actual sí lo tiene cada dispositivo.
+      for (const d of conexionGuardada()) {
+        if (d.online === null || !d.desde) continue;
+        const disp = cacheDispositivos.find((x) => x.id === d.id);
+        const abierto = Date.now() - Math.max(d.desde, desde);
+        if (abierto <= 0) continue;
+        const e = dame(d.id, (disp && disp.nombre) || d.id);
+        e.visto += abierto;
+        if (d.online === false) { e.caidas += 1; e.caido += abierto; }
+      }
+
+      // Peor primero: a esta pantalla se entra a ver qué está fallando, no a
+      // repasar lo que funciona.
+      const filas = [...por.entries()]
+        .map(([id, e]) => ({ id, ...e, pct: e.visto ? 100 * (1 - e.caido / e.visto) : null }))
+        .sort((a, b) => b.caido - a.caido);
+
+      if (!filas.length) {
+        const item = document.createElement('li');
+        item.textContent = 'Sin historial de conexión todavía.';
+        lista.appendChild(item);
+        return;
+      }
+      for (const f of filas) {
+        const li = document.createElement('li');
+        // El estado va en la FILA y no solo en el número: así el porcentaje y
+        // la barra dicen lo mismo. Con la barra siempre verde, un 89 % se leía
+        // como "todo bien" a la velocidad a la que se mira una lista.
+        li.className = 'fila-con' + (f.pct !== null && f.pct < 99 ? ' con-flojo' : '');
+        const pct = f.pct === null ? '—' : `${f.pct.toFixed(1)} %`;
+        // Sin caídas no se escribe "0 caídas · 0 s": el 100 % ya lo dice, y una
+        // línea que solo dice ceros es ruido en una lista que se lee de un vistazo.
+        const detalle = f.caidas
+          ? `${f.caidas} ${f.caidas === 1 ? 'caída' : 'caídas'} · ${duracionCorta(f.caido)} fuera`
+          : 'Sin caídas';
+        li.innerHTML = `<span class="con-nombre">${escapar(f.nombre)}</span>`
+          + `<span class="con-pct">${pct}</span>`
+          + `<span class="con-detalle">${detalle}</span>`
+          + `<span class="con-barra"><i style="width:${f.pct === null ? 0 : f.pct.toFixed(1)}%"></i></span>`;
+        lista.appendChild(li);
+      }
+    } catch (err) {
+      const item = document.createElement('li');
+      item.textContent = 'No se pudo cargar la conexión.';
+      lista.appendChild(item);
+    }
+  }
+
   // Dónde se quedó la última página. Es el doc CRUDO, sin filtrar: el cursor de
   // Firestore tiene que apuntar a algo que la consulta haya devuelto de verdad.
   let cursorRegistros = null;
@@ -6535,5 +6638,6 @@ async function iniciar() {
   }
 
   $('btn-refrescar').addEventListener('click', () => cargarRegistros());
+  $('btn-refrescar-conexiones').addEventListener('click', cargarConexiones);
   $('btn-mas-registros').addEventListener('click', () => cargarRegistros({ mas: true }));
 }
