@@ -14,6 +14,10 @@
   --texto-suave: #8d9297;
   --primario: #a5ff2e;
   --error: #f09595;
+  /* Ámbar de aviso. Se usa en un solo sitio: el número de caídas de un aparato
+     que se cae seguido. No es un fallo —vuelve solo— pero hay que mirarlo, y
+     el rojo ya está diciendo otra cosa en la misma ficha. */
+  --aviso: #f0c674;
   --fuego: #ff8c3a;
   --logo: #a5ff2e;
   --sombra-oscura: rgba(0, 0, 0, 0.55);
@@ -4212,3 +4216,7 @@ input:checked ~ .pase-tgl::before {
   color: var(--texto-suave);
   font-size: 13px;
 }
+
+/* El aparato que se cae seguido: muchas caídas cortas. El porcentaje puede
+   verse bien —vuelve enseguida— y aun así ser el más inestable de todos. */
+.con-seguido { color: var(--aviso); font-weight: 600; }

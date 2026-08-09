@@ -6454,6 +6454,9 @@ async function iniciar() {
   // se entra a ver qué está fallando: los estables son la mayoría y empujarían
   // hacia abajo a los que importan.
   let filtroConexiones = 'caidas';
+  // Cuántas caídas por semana ya son "se cae seguido". Con una al mes nadie se
+  // entera; con más de una por semana, el vecino sí.
+  const CAIDAS_SEGUIDO = 1;
 
   const duracionCorta = (ms) => {
     const s = ms / 1000;
@@ -6551,8 +6554,20 @@ async function iniciar() {
         const pct = f.pct === null ? '—' : `${f.pct.toFixed(1)} %`;
         // Sin caídas no se escribe "0 caídas · 0 s": el 100 % ya lo dice, y una
         // línea que solo dice ceros es ruido en una lista que se lee de un vistazo.
+        // "Se cae seguido" es otra avería que "estuvo mucho tiempo fuera", y el
+        // orden por tiempo fuera la esconde: Lobby vuelve solo enseguida —1,8 h
+        // en total— pero se cae el doble de veces que nadie, y eso huele a wifi,
+        // no a aparato roto. Se marca el número para cazarla sin reordenar.
+        //
+        // Se mide por SEMANA y no en bruto: un aparato vigilado tres días no se
+        // puede comparar con uno de treinta. Y por eso mismo no se juzga a
+        // ninguno con menos de una semana a cuestas, o una caída en dos días
+        // saldría como siete por semana.
+        const semanas = f.visto / (7 * 24 * 3600 * 1000);
+        const seguido = semanas >= 1 && f.caidas / semanas >= CAIDAS_SEGUIDO;
+        const cuenta = `${f.caidas} ${f.caidas === 1 ? 'caída' : 'caídas'}`;
         const detalle = f.caidas
-          ? `${f.caidas} ${f.caidas === 1 ? 'caída' : 'caídas'} · ${duracionCorta(f.caido)} fuera`
+          ? `${seguido ? `<b class="con-seguido" title="Se cae seguido">${cuenta}</b>` : cuenta} · ${duracionCorta(f.caido)} fuera`
           : 'Sin caídas';
         // El orden de la ficha es el de la lectura: qué aparato, cómo va, por
         // qué, y la barra al final como resumen visual de lo mismo.
