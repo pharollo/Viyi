@@ -49,7 +49,7 @@ async function iniciar() {
     GoogleAuthProvider, signInWithPopup,
   } = authMod;
   const {
-    getFirestore, doc, getDoc, collection, query, where, orderBy, limit, getDocs,
+    getFirestore, doc, getDoc, collection, query, where, orderBy, limit, startAfter, getDocs,
   } = fsMod;
   const { getFunctions, httpsCallable } = fnMod;
 
@@ -2186,7 +2186,15 @@ async function iniciar() {
       }
       // Puerta: sube ya —el chasquido es la respuesta al toque— y el de bajar
       // se programa para cuando la palanca vuelve, que es al cerrarse.
-      if (boton.classList.contains('enviando') || boton.classList.contains('exito')) return;
+      // Se puede volver a empujar en cuanto la palanca esté abajo.
+      //
+      // El freno era `enviando || exito`, y `exito` dura lo que dure la puerta
+      // abierta: con un portón de 15 segundos la palanca volvía a su sitio a
+      // los 1,2 y el botón seguía sordo los otros 13,8. Un control que se ve en
+      // reposo y no responde se lee como que la app se colgó. Lo que hay que
+      // evitar es mandar dos comandos encima del mismo viaje, y eso lo dicen
+      // `enviando` (el viaje) y `alzada` (la palanca todavía arriba).
+      if (boton.classList.contains('enviando') || boton.classList.contains('alzada')) return;
       sonar('subir');
       boton.classList.add('alzada');
       // La palanca es MOMENTÁNEA: se empuja y vuelve sola. Antes se quedaba
@@ -6425,41 +6433,76 @@ async function iniciar() {
     return li;
   }
 
-  async function cargarRegistros() {
+  // Dónde se quedó la última página. Es el doc CRUDO, sin filtrar: el cursor de
+  // Firestore tiene que apuntar a algo que la consulta haya devuelto de verdad.
+  let cursorRegistros = null;
+  let quedanRegistros = true;
+  const POR_PAGINA = 30;
+  const LOTE = 120;   // se piden más de las que se enseñan: los aparatos con el registro apagado se caen por el camino
+
+  async function cargarRegistros({ mas = false } = {}) {
     const lista = $('lista-registros');
-    lista.textContent = '';
+    const btnMas = $('btn-mas-registros');
+    if (!mas) {
+      lista.textContent = '';
+      cursorRegistros = null;
+      quedanRegistros = true;
+    }
+    if (btnMas) btnMas.classList.add('oculto');
     try {
       // El admin de un edificio pide solo el historial de su torre (la regla se
       // evalúa por documento, así que tiene que venir filtrado). El dueño pide
       // todo, como siempre.
       const alc = miAlcance();
-      // Se piden más de las que se enseñan: al descartar el ruido de los
-      // aparatos sin registro, con 30 se quedaba corto.
-      const resultado = alc.length
-        ? await getDocs(query(collection(db, 'registros'),
-            where('inmueble', 'in', alc.slice(0, 30)), orderBy('fecha', 'desc'), limit(120)))
-        : await getDocs(query(collection(db, 'registros'), orderBy('fecha', 'desc'), limit(120)));
-      if (resultado.empty) {
-        const item = document.createElement('li');
-        item.textContent = 'Sin actividad todavía.';
-        lista.appendChild(item);
+      // El historial de lo que hoy NO se registra tampoco se enseña: si el
+      // admin apagó el registro de un aire, no quiere ver el ruido de antes.
+      const mudos = new Set(cacheDispositivos.filter((d) => !seRegistra(d)).map((d) => d.id));
+
+      // Se pide por lotes hasta juntar una página.
+      //
+      // Filtrar los mudos aquí y no en la consulta hace que un lote de 120
+      // pueda dar dos registros visibles, así que una página necesita a veces
+      // varios viajes. El tope de cinco es un freno: sin él, un edificio entero
+      // silenciado dejaría el bucle recorriendo la colección hasta el final.
+      const docs = [];
+      let viajes = 0;
+      while (docs.length < POR_PAGINA && quedanRegistros && viajes < 5) {
+        viajes += 1;
+        const partes = [collection(db, 'registros')];
+        if (alc.length) partes.push(where('inmueble', 'in', alc.slice(0, 30)));
+        partes.push(orderBy('fecha', 'desc'));
+        if (cursorRegistros) partes.push(startAfter(cursorRegistros));
+        partes.push(limit(LOTE));
+        const resultado = await getDocs(query(...partes));
+        if (resultado.size < LOTE) quedanRegistros = false;
+        if (resultado.empty) break;
+        cursorRegistros = resultado.docs[resultado.docs.length - 1];
+        for (const d of resultado.docs) {
+          if (!mudos.has(d.data().dispositivoId)) docs.push(d);
+          if (docs.length >= POR_PAGINA) break;
+        }
+        // Si la página se llenó a media tanda, el cursor tiene que quedarse en
+        // el ÚLTIMO QUE SE ENSEÑÓ y no al final del lote, o "Ver más" se
+        // saltaría todo lo que quedaba sin pintar.
+        if (docs.length >= POR_PAGINA) {
+          cursorRegistros = docs[docs.length - 1];
+          quedanRegistros = true;
+        }
+      }
+
+      if (!docs.length) {
+        if (!mas) {
+          const item = document.createElement('li');
+          item.textContent = 'Sin actividad todavía.';
+          lista.appendChild(item);
+        }
         return;
       }
       // Quién fue vive en `privado/quien` y solo el dueño puede leerlo. Se
       // piden en paralelo; el admin de edificio ni lo intenta y verá la
       // actividad sin identificar a nadie, que es justo la intención.
-      // El historial de lo que hoy NO se registra tampoco se enseña: si el
-      // admin apagó el registro de un aire, no quiere ver el ruido de antes.
-      const mudos = new Set(cacheDispositivos.filter((d) => !seRegistra(d)).map((d) => d.id));
-      const docs = resultado.docs.filter((d) => !mudos.has(d.data().dispositivoId)).slice(0, 30);
-      if (!docs.length) {
-        const item = document.createElement('li');
-        item.textContent = 'Sin actividad todavía.';
-        lista.appendChild(item);
-        return;
-      }
       const quienes = new Map();
-      if (!miAlcance().length) {
+      if (!alc.length) {
         const lecturas = await Promise.all(docs.map((d) =>
           getDoc(doc(db, 'registros', d.id, 'privado', 'quien')).catch(() => null)));
         lecturas.forEach((snap, i) => {
@@ -6481,6 +6524,9 @@ async function iniciar() {
         item.textContent = `${fecha} · ${quienTxt}${r.dispositivoNombre} · ${r.accion} ${r.exito ? '✓' : '✗'}${motivo}`;
         lista.appendChild(item);
       }
+      // El botón solo aparece si puede haber más. Enseñarlo siempre y que no
+      // traiga nada es peor que no enseñarlo.
+      if (btnMas) btnMas.classList.toggle('oculto', !quedanRegistros);
     } catch (err) {
       const item = document.createElement('li');
       item.textContent = 'No se pudo cargar el registro.';
@@ -6488,5 +6534,6 @@ async function iniciar() {
     }
   }
 
-  $('btn-refrescar').addEventListener('click', cargarRegistros);
+  $('btn-refrescar').addEventListener('click', () => cargarRegistros());
+  $('btn-mas-registros').addEventListener('click', () => cargarRegistros({ mas: true }));
 }
