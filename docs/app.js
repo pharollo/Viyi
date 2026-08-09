@@ -4131,8 +4131,35 @@ async function iniciar() {
     const inm = existente || {};
     const sTipo = selector(Object.entries(TIPO_INMUEBLE_TXT), inm.tipo || 'edificio');
     const iNombre = entrada(inm.nombre, 'ej: Torre A, Casa 12');
-    const iCiudad = entrada(inm.ciudad);
+    // La ciudad se ELIGE, igual que la zona.
+    //
+    // Era un `<input list>` con las 145 ciudades, y en el iPhone la lista
+    // simplemente no se abre: el `<datalist>` allí sale como una barrita sobre
+    // el teclado, cuando sale. Pero además hay una razón de fondo para no
+    // dejarla escrita: el filtro de zonas compara esta ciudad con la de cada
+    // zona, así que un espacio de más o una tilde distinta te deja sin zonas y
+    // sin entender por qué.
+    //
+    // Con "Otra…" al final, porque la tabla de 145 no lo tiene todo.
+    const sCiudad = document.createElement('select');
+    const iCiudad = entrada(inm.ciudad, 'Nombre de la ciudad');
     const iEstado = entrada(inm.estado);
+    const opcionC = (v, t) => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = t;
+      return o;
+    };
+    sCiudad.appendChild(opcionC('', 'Sin ciudad'));
+    for (const c of Object.keys(CIUDADES_VE).sort((a, b) => a.localeCompare(b, 'es'))) {
+      sCiudad.appendChild(opcionC(c, c));
+    }
+    sCiudad.appendChild(opcionC('__otra', 'Otra…'));
+    const conocida = Object.keys(CIUDADES_VE).some((c) => c === inm.ciudad);
+    sCiudad.value = conocida ? inm.ciudad : (inm.ciudad ? '__otra' : '');
+    iCiudad.classList.toggle('oculto', sCiudad.value !== '__otra');
+    // La ciudad que vale: la elegida, o la escrita si es una que no está.
+    const ciudadElegida = () => (sCiudad.value === '__otra' ? iCiudad.value.trim()
+      : sCiudad.value);
     // La zona se ELIGE, no se escribe.
     //
     // Escrita a mano, "Sebucan" y "Sebucán" son dos zonas distintas y el mapa
@@ -4160,7 +4187,7 @@ async function iniciar() {
     // queda "Otra…", que es exactamente lo que hay que hacer: crear la primera.
     const llenarZonas = () => {
       const antes = sZona.value;
-      const c = sinTildes(iCiudad.value.trim());
+      const c = sinTildes(ciudadElegida());
       filaZona.classList.toggle('oculto', !c);
       iZona.classList.toggle('oculto', !c || sZona.value !== '__nueva');
       if (!c) { sZona.value = ''; return; }
@@ -4178,12 +4205,7 @@ async function iniciar() {
       if (nueva) iZona.focus();
     });
     [iNombre, iCiudad, iEstado, iZona].forEach((i) => i.setAttribute('autocapitalize', 'words'));
-    iCiudad.setAttribute('list', listaSugerencias('ciudades-ve', Object.keys(CIUDADES_VE).sort((a, b) => a.localeCompare(b))));
     iEstado.setAttribute('list', listaSugerencias('estados-ve', ESTADOS_VE));
-    // Fuera el autocompletado del navegador: estos campos ya tienen su lista de
-    // sugerencias, y el del navegador se le monta encima con direcciones
-    // guardadas — que en un teléfono tapa la lista buena y hace difícil
-    // cambiar lo que ya escribiste.
     [iCiudad, iEstado].forEach((i) => i.setAttribute('autocomplete', 'off'));
     // El estado se deduce de la ciudad: es un dato fijo y no tiene sentido
     // teclearlo en cada inmueble. Se sigue pudiendo escribir a mano.
@@ -4196,11 +4218,17 @@ async function iniciar() {
     // cuando hace falta escribirlo.
     let estadoAMano = false;
     iEstado.addEventListener('input', () => { estadoAMano = true; });
-    iCiudad.addEventListener('input', () => {
-      const est = ESTADO_POR_CIUDAD.get(sinTildes(iCiudad.value));
+    const alCambiarCiudad = () => {
+      iCiudad.classList.toggle('oculto', sCiudad.value !== '__otra');
+      const est = ESTADO_POR_CIUDAD.get(sinTildes(ciudadElegida()));
       if (est && !estadoAMano) iEstado.value = est;
       llenarZonas();   // cambiar de ciudad cambia las zonas que tienen sentido
+    };
+    sCiudad.addEventListener('change', () => {
+      alCambiarCiudad();
+      if (sCiudad.value === '__otra') iCiudad.focus();
     });
+    iCiudad.addEventListener('input', alCambiarCiudad);
     llenarZonas();
     // Cuál sale elegida. Con `zonaId` es directo; sin él —los inmuebles
     // guardados antes de que la zona se eligiera de una lista— se reconstruye
@@ -4261,7 +4289,8 @@ async function iniciar() {
       campo('Tipo', sTipo),
       campo('Nombre', iNombre),
       campo('Dentro de (el conjunto o edificio que lo contiene)', sPadre),
-      campo('Ciudad', iCiudad),
+      campo('Ciudad', sCiudad),
+      iCiudad,
       campo('Estado', iEstado),
       filaZona,
       iZona,
@@ -4368,7 +4397,7 @@ async function iniciar() {
         const datos = {
           tipo: sTipo.value,
           nombre: iNombre.value.trim(),
-          ciudad: iCiudad.value.trim(),
+          ciudad: ciudadElegida(),
           estado: iEstado.value.trim(),
           // Una de las dos, nunca las dos: el id si se eligió de la lista, el
           // nombre si es nueva y hay que crearla.
