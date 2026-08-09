@@ -1788,6 +1788,10 @@ exports.adminListarAccesoriosHomebridge = onCall(
     try {
       accesorios = await homebridge().listarAccesorios();
     } catch (err) {
+      // Se apunta antes de lanzarlo: el error viaja a la pantalla, pero en los
+      // registros solo quedaba un 503 pelado, y con eso no se diagnostica nada
+      // —costó una vuelta entera averiguar por qué no salían los accesorios—.
+      console.error('Homebridge no contestó:', err.message);
       throw new HttpsError('unavailable', `No pude conectar con Homebridge: ${err.message}`);
     }
     return {
