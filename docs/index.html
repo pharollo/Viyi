@@ -43,7 +43,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="landing.css?v=1">
+  <link rel="stylesheet" href="landing.css?v=5">
 </head>
 <body>
   <header class="barra">
@@ -53,51 +53,56 @@
 
   <main>
     <section class="portada">
-      <h1>Ábrele a quien llegue,<br>estés donde estés.</h1>
-      <p class="lema">Tu puerta, tu portón y tu ascensor desde el teléfono. Y cuando esperas a alguien, le mandas un acceso que vence solo.</p>
-      <div class="acciones">
-        <a class="btn-primario" href="#contacto">Quiero ViYi</a>
-        <a class="btn-secundario" id="wa" href="#" rel="noopener">WhatsApp</a>
+      <div class="portada-texto">
+        <h1>Ábrele a quien llegue,<br>estés donde estés.</h1>
+        <p class="lema">Tu puerta desde el teléfono. Y un acceso que vence solo para quien esperas.</p>
+        <div class="acciones">
+          <a class="btn-primario" href="#contacto">Quiero ViYi</a>
+          <a class="btn-secundario" id="wa" href="#" rel="noopener">WhatsApp</a>
+        </div>
       </div>
-      <p class="detalle">Sin llaves que copiar. Sin controles que se pierden.</p>
+      <!-- El render del control, no una foto de banco: esto ES el producto, y
+           un botón así se entiende sin leer nada. -->
+      <img class="portada-foto" src="app/jet-armado.webp" alt="Control de acceso de ViYi" width="286" height="520" fetchpriority="high">
     </section>
 
-    <section class="puntos">
-      <article>
-        <h2>Abres tú</h2>
-        <p>Desde la oficina, desde el tráfico, desde otro país. La puerta no depende de que estés en casa.</p>
-      </article>
-      <article>
-        <h2>Abre tu invitado</h2>
-        <p>Le mandas un enlace con la hora a la que empieza y cuándo vence. Se abre solo esa vez, o las que digas.</p>
-      </article>
-      <article>
-        <h2>Queda escrito</h2>
-        <p>Cada apertura deja registro. La junta ve qué pasó en su edificio sin saber qué vecino fue.</p>
-      </article>
+    <!-- Casi sin palabras a propósito: tres imágenes y dos palabras cada una
+         dicen lo que hacían tres párrafos. -->
+    <section class="galeria">
+      <figure>
+        <img src="app/pilder-on.webp" alt="Portón" width="336" height="530" loading="lazy">
+        <figcaption>Tu portón</figcaption>
+      </figure>
+      <figure>
+        <img src="app/sabiem.webp" alt="Ascensor" width="300" height="590" loading="lazy">
+        <figcaption>Tu ascensor</figcaption>
+      </figure>
+      <figure>
+        <img src="app/lobby.webp" alt="Puerta del lobby" width="300" height="530" loading="lazy">
+        <figcaption>Tu lobby</figcaption>
+      </figure>
     </section>
 
     <section class="casos">
-      <h2 class="titulo-seccion">A quién le sirve</h2>
       <div class="rejilla">
         <article>
           <h3>Tu casa</h3>
-          <p>El delivery, la señora que ayuda, tu hermano que llegó antes que tú. Le abres sin bajar y sin dejar la llave debajo de la mata.</p>
+          <p>Le abres al delivery sin bajar.</p>
         </article>
         <article>
           <h3>Tu residencia</h3>
-          <p>Se acaban los controles que hay que reponer y las llaves del portón que nadie sabe dónde están. Cada quien abre desde su teléfono, y quien se muda deja de abrir el mismo día.</p>
+          <p>Nadie repone controles. Quien se muda deja de abrir el mismo día.</p>
         </article>
         <article>
           <h3>Tu local</h3>
-          <p>Le abres al proveedor a las seis de la mañana sin ir. Y al técnico le das un acceso que vence cuando termina.</p>
+          <p>El proveedor entra a las seis sin que vayas.</p>
         </article>
       </div>
     </section>
 
     <section class="contacto" id="contacto">
       <h2 class="titulo-seccion">Hablemos</h2>
-      <p class="lema-corto">Dinos dónde quieres ViYi y te contactamos.</p>
+      <p class="lema-corto">Dinos dónde lo quieres y te contactamos.</p>
       <form id="form">
         <input type="text" id="nombre" placeholder="Tu nombre" autocomplete="name" required maxlength="80">
         <input type="text" id="contacto-dato" placeholder="Teléfono o correo" autocomplete="tel" required maxlength="120">
