@@ -1151,9 +1151,22 @@ async function resolverZona({ zonaId, zonaNueva, ciudad }) {
   return { id, nombre };
 }
 
+// El par de coordenadas, o nada. `null` explícito borra la que hubiera: es como
+// el editor dice "quítale el pin".
+function ubicacionValida(lat, lng) {
+  if (lat === null || lng === null) return { lat: null, lng: null };
+  const a = Number(lat); const b = Number(lng);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return {};
+  if (a < -90 || a > 90 || b < -180 || b > 180) return {};
+  // Justo el (0,0) es el golfo de Guinea, y ahí no hay ningún condominio: es
+  // el aspecto que tiene una coordenada perdida por el camino.
+  if (a === 0 && b === 0) return {};
+  return { lat: a, lng: b };
+}
+
 exports.adminGuardarInmueble = onCall(RARA, async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
-  const { id, tipo, nombre, ciudad, estado, zona, zonaId, padre } = request.data || {};
+  const { id, tipo, nombre, ciudad, estado, zona, zonaId, padre, lat, lng } = request.data || {};
   if (!TIPOS_INMUEBLE.includes(tipo)) {
     throw new HttpsError('invalid-argument', 'Tipo de inmueble no válido.');
   }
@@ -1199,6 +1212,14 @@ exports.adminGuardarInmueble = onCall(RARA, async (request) => {
     zona: zonaRef.nombre,
     zonaId: zonaRef.id,
     padre: padreFinal,
+    // Dónde está EXACTAMENTE, si lo pusieron. El punto de la zona sirve para
+    // agrupar, no para ubicar: un edificio en el borde de una zona grande sale
+    // dibujado en su centro, y dos de la misma zona salen encima uno del otro.
+    //
+    // Se acepta el par o nada: media coordenada no ubica a nadie. Y se
+    // comprueba el rango, que un cero por error mandaría el pin al golfo de
+    // Guinea, que es donde acaban las coordenadas mal puestas.
+    ...ubicacionValida(lat, lng),
   };
   let inmuebleId = id;
   if (id && typeof id === 'string') {

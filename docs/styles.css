@@ -4305,3 +4305,24 @@ input:checked ~ .pase-tgl::before {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 .leaflet-popup-content { font-size: 13px; line-height: 1.5; }
+
+/* El mapita del editor: donde se suelta el pin del inmueble. Más bajo que el
+   mapa de zonas —es un campo de un formulario, no una pantalla— y con el mismo
+   hundido que el resto de los campos. */
+.mapa-pin {
+  height: 200px;
+  border-radius: 12px;
+  background: var(--fondo);
+  box-shadow: inset 3px 3px 7px var(--sombra-oscura), inset -3px -3px 7px var(--sombra-clara);
+  z-index: 0;
+}
+.mapa-pin-pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 6px 4px 14px;
+  font-size: 12px;
+  color: var(--texto-suave);
+  font-variant-numeric: tabular-nums;
+}

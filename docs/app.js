@@ -4126,6 +4126,69 @@ async function iniciar() {
     return n;
   }
 
+  // El pin del inmueble: un mapa pequeño donde lo sueltas.
+  //
+  // A mano y no geocodificando la dirección: en Venezuela una dirección escrita
+  // rara vez cae donde debe, y quien está creando el inmueble sabe exactamente
+  // dónde está. Un toque en el mapa lo pone; el botón lo quita.
+  //
+  // Arranca donde tenga sentido: en el propio inmueble si ya lo tiene, en su
+  // zona si no. Enseñar el mundo entero para que busques tu edificio es
+  // empezar por el peor sitio posible.
+  function campoUbicacion(inm, dondeEmpezar) {
+    let punto = (typeof inm.lat === 'number' && typeof inm.lng === 'number')
+      ? { lat: inm.lat, lng: inm.lng } : null;
+
+    const caja = document.createElement('div');
+    caja.className = 'mapa-pin';
+    const pie = document.createElement('div');
+    pie.className = 'mapa-pin-pie';
+    const texto = document.createElement('span');
+    const quitar = document.createElement('button');
+    quitar.type = 'button';
+    quitar.className = 'btn-secundario';
+    quitar.textContent = 'Quitar';
+    pie.append(texto, quitar);
+
+    const refrescar = () => {
+      texto.textContent = punto
+        ? `${punto.lat.toFixed(5)}, ${punto.lng.toFixed(5)}`
+        : 'Toca el mapa para ubicarlo';
+      quitar.classList.toggle('oculto', !punto);
+    };
+    refrescar();
+
+    let mapita = null; let marca = null;
+    const montar = async () => {
+      if (mapita || !(await cargarLeaflet())) return;
+      const centro = punto || dondeEmpezar() || { lat: 10.5, lng: -66.85 };
+      mapita = L.map(caja, { attributionControl: false, zoomControl: true })
+        .setView([centro.lat, centro.lng], punto ? 17 : 14);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(mapita);
+      const poner = (p) => {
+        punto = p;
+        if (marca) marca.remove();
+        marca = p ? L.marker([p.lat, p.lng], {
+          icon: L.divIcon({ html: '<i class="punto-zona"></i>', className: 'pin-envoltura', iconSize: null }),
+        }).addTo(mapita) : null;
+        refrescar();
+      };
+      if (punto) poner(punto);
+      mapita.on('click', (e) => poner({ lat: e.latlng.lat, lng: e.latlng.lng }));
+      quitar.addEventListener('click', () => poner(null));
+      // Nace dentro de una tarjeta que puede estar recién insertada: sin esto
+      // se dibuja a medias hasta que alguien cambia el tamaño de la ventana.
+      setTimeout(() => mapita.invalidateSize(), 80);
+    };
+
+    return {
+      caja, pie, montar,
+      // `null` explícito y no `undefined`: es lo que le dice al backend que
+      // borre la que hubiera, en vez de dejarla como estaba.
+      valor: () => (punto ? { lat: punto.lat, lng: punto.lng } : { lat: null, lng: null }),
+    };
+  }
+
   function abrirEditorInmueble(existente) {
     const esNuevo = !existente;
     const inm = existente || {};
@@ -4241,6 +4304,13 @@ async function iniciar() {
     const suZona = inm.zonaId
       || (inm.zona ? `${llaveZona(inm.ciudad)}-${llaveZona(inm.zona)}` : '');
     if (suZona && [...sZona.options].some((o) => o.value === suZona)) sZona.value = suZona;
+
+    // El mapita arranca centrado en la zona elegida, que es lo más cerca que se
+    // puede estar sin saber la dirección.
+    const ubic = campoUbicacion(inm, () => {
+      const z = cacheZonas.find((x) => x.id === sZona.value);
+      return z && typeof z.lat === 'number' ? { lat: z.lat, lng: z.lng } : null;
+    });
     // Padre: arma la jerarquía conjunto -> edificio -> apartamento. Quien tenga
     // asignado el apartamento alcanza también lo común del edificio y del
     // conjunto; al revés no.
@@ -4294,6 +4364,8 @@ async function iniciar() {
       campo('Estado', iEstado),
       filaZona,
       iZona,
+      campo('Dónde está', ubic.caja),
+      ubic.pie,
       campoCompone,
       campoTorres,
       campoNombres,
@@ -4403,6 +4475,7 @@ async function iniciar() {
           // nombre si es nueva y hay que crearla.
           zonaId: sZona.value === '__nueva' ? '' : sZona.value,
           zona: sZona.value === '__nueva' ? iZona.value.trim() : '',
+          ...ubic.valor(),
           padre: sPadre.value,
         };
         const hijos = arbolLote();
@@ -4458,6 +4531,9 @@ async function iniciar() {
       }));
     }
     abrirEditor(esNuevo ? 'Nuevo inmueble' : `Editar: ${inm.nombre}`, filas, acciones);
+    // DESPUÉS de insertar el editor: Leaflet mide el contenedor al crearse, y
+    // uno que todavía no está en la página mide cero y se dibuja gris.
+    ubic.montar();
   }
 
 
@@ -6717,9 +6793,26 @@ async function iniciar() {
     const { porId, zonaDe } = recorridoDeZonas();
     const estado = new Map(conexionGuardada().map((d) => [d.id, d.online]));
     const porInmueble = new Map();
+    const deInmueble = llave.startsWith('inm:') ? llave.slice(4) : null;
+    const conPin = (inmuebleId) => {
+      let x = porId.get(inmuebleId);
+      for (let n = 0; n < 6 && x; n++) {
+        if (typeof x.lat === 'number' && typeof x.lng === 'number') return x;
+        x = porId.get(x.padre);
+      }
+      return null;
+    };
     for (const d of cacheDispositivos) {
-      const z = zonaDe(d.inmueble);
-      if (!z || z.llave !== llave) continue;
+      if (deInmueble) {
+        const p = conPin(d.inmueble);
+        if (!p || p.id !== deInmueble) continue;
+      } else {
+        // Los que ya tienen pin propio no cuentan en el punto de la zona: si
+        // no, saldrían dos veces.
+        if (conPin(d.inmueble)) continue;
+        const z = zonaDe(d.inmueble);
+        if (!z || z.llave !== llave) continue;
+      }
       const inm = porId.get(d.inmueble);
       const nombre = inm ? (rutaInmueble(inm.id) || inm.nombre) : 'Sin inmueble';
       if (!porInmueble.has(nombre)) porInmueble.set(nombre, []);
@@ -6762,20 +6855,43 @@ async function iniciar() {
     // Qué zona le toca a cada aparato: la suya, o la del inmueble del que
     // cuelga. Un apartamento hereda la zona de su edificio, así que se sube por
     // `padre` hasta encontrarla.
-    const { zonaDe } = recorridoDeZonas();
+    const { porId, zonaDe } = recorridoDeZonas();
 
     const estado = new Map(conexionGuardada().map((d) => [d.id, d.online]));
+
+    // Cada aparato cuenta en el punto MÁS PRECISO que tenga: el de su inmueble
+    // si alguien le puso el pin, y si no el de su zona.
+    //
+    // El punto de zona sirve para agrupar, no para ubicar: va en el centro del
+    // barrio, así que un edificio en el borde de una zona grande sale dibujado
+    // a kilómetros, y dos de la misma zona salen encima uno del otro. Lo notó
+    // el usuario —"hay zonas grandes"— y por eso se puede ubicar a mano.
+    //
+    // Los dos tipos conviven a propósito: poner los pines es trabajo, y esto
+    // deja hacerlo poco a poco sin que el mapa se quede a medias mientras.
+    const conPin = (inmuebleId) => {
+      let x = porId.get(inmuebleId);
+      for (let n = 0; n < 6 && x; n++) {
+        if (typeof x.lat === 'number' && typeof x.lng === 'number') return x;
+        x = porId.get(x.padre);   // un apartamento hereda el pin de su edificio
+      }
+      return null;
+    };
+
     const cuentas = new Map();
-    for (const d of cacheDispositivos) {
-      const z = zonaDe(d.inmueble);
-      if (!z) continue;
-      const k = z.llave;
-      if (!cuentas.has(k)) cuentas.set(k, { nombre: z.nombre, total: 0, caidos: 0, sinSaber: 0 });
+    const anotar = (k, nombre, punto, d) => {
+      if (!cuentas.has(k)) cuentas.set(k, { nombre, punto, total: 0, caidos: 0, sinSaber: 0 });
       const c = cuentas.get(k);
       c.total += 1;
       const on = estado.get(d.id);
       if (on === false) c.caidos += 1;
       else if (on !== true) c.sinSaber += 1;
+    };
+    for (const d of cacheDispositivos) {
+      const inm = conPin(d.inmueble);
+      if (inm) { anotar(`inm:${inm.id}`, inm.nombre, { lat: inm.lat, lng: inm.lng }, d); continue; }
+      const z = zonaDe(d.inmueble);
+      if (z) anotar(z.llave, z.nombre, null, d);
     }
 
     let zonas = [];
@@ -6811,7 +6927,8 @@ async function iniciar() {
     const puntos = [];
     const sinCoordenadas = [];
     for (const [k, c] of cuentas) {
-      const z = coords.get(k);
+      // El punto propio si lo tiene; si no, el de su zona.
+      const z = c.punto || coords.get(k);
       if (!z || typeof z.lat !== 'number') { sinCoordenadas.push(c.nombre); continue; }
       const mal = c.caidos > 0;
       const icono = L.divIcon({
