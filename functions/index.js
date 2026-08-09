@@ -1529,7 +1529,17 @@ exports.adminGuardarDispositivo = onCall(RARA, async (request) => {
   // ...y no puede tocar uno que hoy está en otro edificio (sería robárselo).
   if (alcance) {
     const antes = await db.doc(`dispositivos/${id}`).get();
-    if (antes.exists) exigirInmueble(alcance, antes.data().inmueble || '', 'Ese dispositivo');
+    if (antes.exists) {
+      exigirInmueble(alcance, antes.data().inmueble || '', 'Ese dispositivo');
+      // Lo privado de un vecino no lo toca el admin del edificio, aunque el
+      // apartamento cuelgue de lo que administra. Es la misma frontera que la
+      // regla de Firestore; aquí también, porque las Functions escriben con el
+      // Admin SDK y las reglas no las miran.
+      const duenoAntes = antes.data().dueno || '';
+      if (duenoAntes && duenoAntes !== request.auth.uid) {
+        throw new HttpsError('permission-denied', 'Ese aparato es de un vecino.');
+      }
+    }
     if (duenoFinal) {
       const d = await db.doc(`usuarios/${duenoFinal}`).get();
       if (!vecinoEnAlcance(alcance, d.data() || {})) {

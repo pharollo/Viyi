@@ -65,15 +65,29 @@ service cloud.firestore {
     // Un vecino solo puede leer los dispositivos que tiene asignados, los del
     // inmueble que le corresponde, o los compartidos por un pase vigente.
     match /dispositivos/{id} {
+      // ⚠️ El admin de un edificio NO alcanza lo privado de sus vecinos.
+      // Administrar un edificio es mandar en sus puertas y sus luces comunes,
+      // no en la lámpara del salón de alguien. `dueno` vacío = del condominio;
+      // con dueño = de un vecino, y entonces solo lo ve él (por `tieneAcceso`)
+      // y el dueño global. Es el mismo criterio de `seRegistra()`, que tampoco
+      // anota lo de un vecino en el registro del condominio.
+      //
+      // `dueno` DIRECTO y no `get('dueno', '')`: para que una consulta con
+      // `where('dueno','==','')` sea demostrablemente segura, la regla tiene que
+      // mirar el campo. Por eso el 8 de agosto de 2026 se rellenó con cadena
+      // vacía en los 11 dispositivos que no lo traían — un campo ausente no
+      // coincide con una igualdad, y sin eso desaparecían de la lista.
       allow get: if autenticado() && (esAdminGlobal() || tieneAcceso(id)
-        || (esAdmin() && resource.data.get('inmueble', '') in alcanceAdmin()));
+        || (esAdmin() && resource.data.get('inmueble', '') in alcanceAdmin()
+            && resource.data.get('dueno', '') == ''));
       // El vecino necesita LISTAR para traerse de una los de su inmueble (antes
       // solo podía pedirlos de uno en uno, porque los tenía enumerados). La
       // regla se evalúa contra cada documento devuelto, así que la consulta
       // tiene que venir filtrada por inmueble: si trae uno de otro edificio,
       // falla entera.
       allow list: if esAdminGlobal()
-        || (esAdmin() && resource.data.get('inmueble', '') in alcanceAdmin())
+        || (esAdmin() && resource.data.inmueble in alcanceAdmin()
+            && resource.data.dueno == '')
         || (autenticado() && resource.data.get('inmueble', '') != ''
             && resource.data.inmueble in misInmuebles());
       allow write: if false;
@@ -83,7 +97,8 @@ service cloud.firestore {
       match /privado/{doc} {
         allow read: if esAdminGlobal()
           || (esAdmin()
-              && get(/databases/$(database)/documents/dispositivos/$(id)).data.get('inmueble', '') in alcanceAdmin());
+              && get(/databases/$(database)/documents/dispositivos/$(id)).data.get('inmueble', '') in alcanceAdmin()
+              && get(/databases/$(database)/documents/dispositivos/$(id)).data.get('dueno', '') == '');
         allow write: if false;
       }
     }
