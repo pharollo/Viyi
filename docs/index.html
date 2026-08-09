@@ -15,10 +15,6 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <!-- Leaflet vive EN el repo, no en un CDN: la app es instalable y no debe
-       depender de que unpkg conteste. Las teselas sí son de fuera —eso no hay
-       manera de evitarlo en un mapa— pero el resto no. -->
-  <link rel="stylesheet" href="vendor/leaflet.css?v=1">
   <link rel="stylesheet" href="styles.css?v=347">
 </head>
 <body>
@@ -502,7 +498,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script src="vendor/leaflet.js?v=1"></script>
-  <script type="module" src="app.js?v=377"></script>
+  <script type="module" src="app.js?v=379"></script>
 </body>
 </html>

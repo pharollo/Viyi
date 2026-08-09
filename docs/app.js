@@ -4148,24 +4148,30 @@ async function iniciar() {
       o.value = valor; o.textContent = texto;
       return o;
     };
-    // Filtradas por ciudad: son 79 solo de Caracas, y un edificio en Maracaibo
-    // no tiene por qué recorrerlas. Si la ciudad escrita no tiene ninguna
-    // —recién puesta, o escrita distinto— se enseñan todas antes que dejar el
-    // desplegable vacío, que parecería roto.
+    const iZona = entrada('', 'Nombre de la zona');
+    iZona.classList.add('oculto');
+    const filaZona = campo('Zona', sZona);
+    // La zona SALE DESPUÉS DE LA CIUDAD, y solo con las de esa ciudad.
+    //
+    // Sin ciudad no hay zona que ofrecer: el campo ni aparece. Y la primera
+    // versión de esto enseñaba todas las zonas cuando la ciudad no tenía
+    // ninguna, que era peor que un desplegable vacío — le ofrecía Altamira y
+    // Chacao a un edificio de Maracaibo. Si la ciudad no tiene zonas todavía,
+    // queda "Otra…", que es exactamente lo que hay que hacer: crear la primera.
     const llenarZonas = () => {
       const antes = sZona.value;
       const c = sinTildes(iCiudad.value.trim());
+      filaZona.classList.toggle('oculto', !c);
+      iZona.classList.toggle('oculto', !c || sZona.value !== '__nueva');
+      if (!c) { sZona.value = ''; return; }
       const suyas = cacheZonas.filter((z) => sinTildes(z.ciudad || '') === c);
-      const lista = suyas.length ? suyas : cacheZonas;
       sZona.textContent = '';
       sZona.appendChild(opcion('', 'Sin zona'));
-      for (const z of lista) sZona.appendChild(opcion(z.id, z.nombre));
+      for (const z of suyas) sZona.appendChild(opcion(z.id, z.nombre));
       sZona.appendChild(opcion('__nueva', 'Otra…'));
       sZona.value = [...sZona.options].some((o) => o.value === antes) ? antes : '';
     };
 
-    const iZona = entrada('', 'Nombre de la zona');
-    iZona.classList.add('oculto');
     sZona.addEventListener('change', () => {
       const nueva = sZona.value === '__nueva';
       iZona.classList.toggle('oculto', !nueva);
@@ -4233,7 +4239,7 @@ async function iniciar() {
       campo('Dentro de (el conjunto o edificio que lo contiene)', sPadre),
       campo('Ciudad', iCiudad),
       campo('Estado', iEstado),
-      campo('Zona', sZona),
+      filaZona,
       iZona,
       campoCompone,
       campoTorres,
@@ -6593,6 +6599,33 @@ async function iniciar() {
   let mapa = null;
   let capaPines = null;
 
+  // Leaflet se carga CUANDO HACE FALTA, no en cada arranque.
+  //
+  // Son 147 KB para una pantalla que solo ve el administrador general: cargarlo
+  // siempre era cobrárselo a cada vecino en cada apertura. Vive en el repo y no
+  // en un CDN —la app es instalable y no debe depender de que unpkg conteste—;
+  // lo que se aplaza es cuándo se pide.
+  //
+  // (De paso se queda fuera un error suyo de detección al cargar, que no rompe
+  // nada —el mapa funciona igual— pero ensuciaba la consola de todo el mundo.)
+  let cargandoLeaflet = null;
+  function cargarLeaflet() {
+    if (typeof L !== 'undefined') return Promise.resolve(true);
+    if (cargandoLeaflet) return cargandoLeaflet;
+    cargandoLeaflet = new Promise((listo) => {
+      const css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'vendor/leaflet.css?v=1';
+      document.head.appendChild(css);
+      const js = document.createElement('script');
+      js.src = 'vendor/leaflet.js?v=1';
+      js.onload = () => listo(true);
+      js.onerror = () => listo(false);
+      document.head.appendChild(js);
+    });
+    return cargandoLeaflet;
+  }
+
   // De "Sebucán" a "sebucan": es la llave con la que se busca la zona, así que
   // una tilde o una mayúscula de más no puede partir un pin en dos.
   const llaveZona = (t) => sinTildes(String(t || '').trim().toLowerCase()).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -6663,7 +6696,11 @@ async function iniciar() {
     const caja = $('seccion-mapa');
     const soyElGeneral = usuarioActual && usuarioActual.rol === 'admin' && !miAlcance().length;
     caja.classList.toggle('oculto', !soyElGeneral);
-    if (!soyElGeneral || typeof L === 'undefined') return;
+    if (!soyElGeneral) return;
+    if (!(await cargarLeaflet())) {
+      $('mapa-nota').textContent = 'No se pudo cargar el mapa.';
+      return;
+    }
 
     // Qué zona le toca a cada aparato: la suya, o la del inmueble del que
     // cuelga. Un apartamento hereda la zona de su edificio, así que se sube por
