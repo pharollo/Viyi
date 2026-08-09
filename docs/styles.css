@@ -4239,3 +4239,69 @@ input:checked ~ .pase-tgl::before {
 /* El aparato que se cae seguido: muchas caídas cortas. El porcentaje puede
    verse bien —vuelve enseguida— y aun así ser el más inestable de todos. */
 .con-seguido { color: var(--aviso); font-weight: 600; }
+
+/* ---- El mapa de zonas ----
+   Teselas oscuras de CARTO, no el mapa claro de siempre: un rectángulo blanco
+   en medio de una app oscura se lee como un error de carga. */
+#mapa-zonas {
+  height: 320px;
+  border-radius: 16px;
+  margin-bottom: 10px;
+  background: var(--fondo);
+  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
+  z-index: 0;   /* Leaflet crea capas con z-index alto; sin esto se sube encima de la barra de abajo */
+}
+.leaflet-container { background: var(--fondo); font-family: inherit; }
+.leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.5) !important;
+  color: var(--texto-suave) !important;
+  font-size: 10px;
+}
+.leaflet-control-attribution a { color: var(--texto-suave); }
+/* Los controles de zoom, en el lenguaje de la app y no en el de Leaflet. */
+.leaflet-bar a {
+  background: var(--superficie);
+  color: var(--texto);
+  border-bottom-color: var(--fondo);
+}
+.leaflet-bar a:hover { background: var(--superficie); color: var(--primario); }
+
+/* Un PUNTO por zona. Se probó con una píldora que llevaba el nombre y la
+   cuenta, como el precio en el mapa de una app de alquiler, y en Caracas no
+   cabe: las zonas del este están a menos de un kilómetro y en un teléfono
+   siete nombres se pisan. El punto no se estorba a ningún zoom; el detalle se
+   cuenta al tocarlo. */
+.pin-envoltura { background: none; border: none; }
+.punto-zona {
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;   /* centrado en su coordenada */
+  border-radius: 50%;
+  background: var(--primario);
+  /* El halo oscuro lo despega del mapa: sin él, un punto verde sobre una calle
+     clara se pierde. */
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+}
+.punto-zona.punto-mal { background: var(--error); }
+
+/* El globo: por inmueble, con sus aparatos. */
+.globo-zona { max-height: 220px; overflow-y: auto; }
+.globo-zona > strong { display: block; margin-bottom: 6px; font-size: 14px; }
+.globo-inmueble {
+  margin: 8px 0 3px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+.globo-disp { display: flex; align-items: center; gap: 7px; padding: 1px 0; }
+.punto-con.con-nada { background: var(--texto-suave); }
+
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background: var(--superficie);
+  color: var(--texto);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+.leaflet-popup-content { font-size: 13px; line-height: 1.5; }

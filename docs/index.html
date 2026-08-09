@@ -15,7 +15,11 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=345">
+  <!-- Leaflet vive EN el repo, no en un CDN: la app es instalable y no debe
+       depender de que unpkg conteste. Las teselas sí son de fuera —eso no hay
+       manera de evitarlo en un mapa— pero el resto no. -->
+  <link rel="stylesheet" href="vendor/leaflet.css?v=1">
+  <link rel="stylesheet" href="styles.css?v=347">
 </head>
 <body>
   <header>
@@ -260,6 +264,19 @@
         <div id="editor" class="tarjeta oculto"></div>
       </div>
       <div id="tab-registro" class="panel-tab oculto">
+        <!-- El mapa: solo para el administrador general. Saber qué edificios
+             usan ViYi y cuáles tienen la puerta caída no es asunto del admin de
+             un edificio, y menos de un vecino. -->
+        <div id="seccion-mapa" class="oculto">
+          <div class="encabezado-admin">
+            <h2>Zonas</h2>
+            <button id="btn-refrescar-mapa" type="button" class="btn-secundario btn-icono" aria-label="Actualizar">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </button>
+          </div>
+          <div id="mapa-zonas"></div>
+          <p id="mapa-nota" class="campo-ayuda"></p>
+        </div>
         <div class="encabezado-admin">
           <h2>Conexión</h2>
           <button id="btn-refrescar-conexiones" type="button" class="btn-secundario btn-icono" aria-label="Actualizar">
@@ -485,6 +502,7 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=373"></script>
+  <script src="vendor/leaflet.js?v=1"></script>
+  <script type="module" src="app.js?v=375"></script>
 </body>
 </html>

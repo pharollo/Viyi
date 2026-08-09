@@ -778,7 +778,7 @@ async function iniciar() {
         // y para saber cuáles son necesita la caché de dispositivos. La
         // conexión la necesita por lo mismo: el tramo abierto —el que todavía
         // no está en la colección— sale del estado de cada dispositivo.
-        cargarGestion().then(() => { cargarRegistros(); cargarConexiones(); });
+        cargarGestion().then(() => { cargarRegistros(); cargarConexiones(); pintarMapaZonas(); });
       }
     } catch (err) {
       console.error(err);
@@ -6526,6 +6526,161 @@ async function iniciar() {
     return li;
   }
 
+  // ---- El mapa de zonas ----
+  //
+  // Un pin por ZONA, no por edificio. Dos razones y las dos pesan: la zona no
+  // dice dónde vive nadie —un mapa con la puerta de cada casa y si está caída
+  // es otra cosa— y además no hay coordenadas por inmueble, solo el nombre de
+  // la zona, que ya se guardaba.
+  //
+  // Las coordenadas viven en la colección `zonas`, una por barrio. La misma
+  // que llenará el desplegable del editor, para que "Sebucan" y "Sebucán" no
+  // acaben siendo dos pines.
+  let mapa = null;
+  let capaPines = null;
+
+  // De "Sebucán" a "sebucan": es la llave con la que se busca la zona, así que
+  // una tilde o una mayúscula de más no puede partir un pin en dos.
+  const llaveZona = (t) => sinTildes(String(t || '').trim().toLowerCase()).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  // Lo que se abre al tocar un punto: dónde es y qué hay dentro.
+  //
+  // Agrupado por inmueble y no en una lista suelta de aparatos: "Lobby" y
+  // "Portón" no dicen nada sin saber de qué edificio son, y con dos edificios
+  // en la misma zona se confunden.
+  function detalleDeZona(llave, cuenta) {
+    const porId = new Map(cacheInmuebles.map((x) => [x.id, x]));
+    const zonaDe = (inmuebleId) => {
+      let x = porId.get(inmuebleId);
+      for (let n = 0; n < 6 && x; n++) {
+        if (x.zona) return x.zona;
+        x = porId.get(x.padre);
+      }
+      return '';
+    };
+    const estado = new Map(conexionGuardada().map((d) => [d.id, d.online]));
+    const porInmueble = new Map();
+    for (const d of cacheDispositivos) {
+      if (llaveZona(zonaDe(d.inmueble)) !== llave) continue;
+      const inm = porId.get(d.inmueble);
+      const nombre = inm ? (rutaInmueble(inm.id) || inm.nombre) : 'Sin inmueble';
+      if (!porInmueble.has(nombre)) porInmueble.set(nombre, []);
+      porInmueble.get(nombre).push(d);
+    }
+    const caja = document.createElement('div');
+    caja.className = 'globo-zona';
+    const h = document.createElement('strong');
+    h.textContent = cuenta.nombre;
+    caja.appendChild(h);
+    for (const [inmueble, lista] of [...porInmueble].sort((a, b) => a[0].localeCompare(b[0], 'es'))) {
+      const t = document.createElement('div');
+      t.className = 'globo-inmueble';
+      t.textContent = inmueble;
+      caja.appendChild(t);
+      for (const d of lista.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'))) {
+        const on = estado.get(d.id);
+        const fila = document.createElement('div');
+        fila.className = 'globo-disp';
+        // `null` no es lo mismo que caído: es que no se ha podido preguntar, y
+        // pintarlo de rojo sería inventarse una avería.
+        fila.innerHTML = `<i class="punto-con ${on === true ? 'con-ok' : on === false ? 'con-mal' : 'con-nada'}"></i>`
+          + `<span>${escapar(d.nombre || d.id)}</span>`;
+        caja.appendChild(fila);
+      }
+    }
+    return caja;
+  }
+
+  async function pintarMapaZonas() {
+    const caja = $('seccion-mapa');
+    const soyElGeneral = usuarioActual && usuarioActual.rol === 'admin' && !miAlcance().length;
+    caja.classList.toggle('oculto', !soyElGeneral);
+    if (!soyElGeneral || typeof L === 'undefined') return;
+
+    // Qué zona le toca a cada aparato: la suya, o la del inmueble del que
+    // cuelga. Un apartamento hereda la zona de su edificio, así que se sube por
+    // `padre` hasta encontrarla.
+    const porId = new Map(cacheInmuebles.map((x) => [x.id, x]));
+    const zonaDe = (inmuebleId) => {
+      let x = porId.get(inmuebleId);
+      for (let n = 0; n < 6 && x; n++) {
+        if (x.zona) return x.zona;
+        x = porId.get(x.padre);
+      }
+      return '';
+    };
+
+    const estado = new Map(conexionGuardada().map((d) => [d.id, d.online]));
+    const cuentas = new Map();
+    for (const d of cacheDispositivos) {
+      const z = zonaDe(d.inmueble);
+      if (!z) continue;
+      const k = llaveZona(z);
+      if (!cuentas.has(k)) cuentas.set(k, { nombre: z, total: 0, caidos: 0, sinSaber: 0 });
+      const c = cuentas.get(k);
+      c.total += 1;
+      const on = estado.get(d.id);
+      if (on === false) c.caidos += 1;
+      else if (on !== true) c.sinSaber += 1;
+    }
+
+    let zonas = [];
+    try {
+      const snap = await getDocs(collection(db, 'zonas'));
+      zonas = snap.docs.map((x) => ({ id: x.id, ...x.data() }));
+    } catch (e) {
+      $('mapa-nota').textContent = 'No se pudieron cargar las zonas.';
+      return;
+    }
+    const coords = new Map(zonas.map((z) => [z.id, z]));
+
+    // El mapa se crea UNA vez: rehacerlo en cada repintado pierde el zoom y el
+    // sitio donde lo dejaste, que es justo lo que uno acaba de ajustar a mano.
+    if (!mapa) {
+      mapa = L.map('mapa-zonas', { attributionControl: true, scrollWheelZoom: false });
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap © CARTO',
+        maxZoom: 19,
+      }).addTo(mapa);
+      capaPines = L.layerGroup().addTo(mapa);
+    }
+    capaPines.clearLayers();
+
+    // Un PUNTO por zona, no una píldora con el nombre.
+    //
+    // Se probó con la píldora, como el precio en el mapa de una app de
+    // alquiler, y en Caracas no cabe: las zonas del este están a menos de un
+    // kilómetro y en un teléfono siete nombres se pisan unos a otros. El punto
+    // no se estorba a ningún zoom, y lo que hay dentro se cuenta al tocarlo,
+    // que además es donde de verdad hace falta el detalle: qué inmueble y qué
+    // aparato, no solo cuántos.
+    const puntos = [];
+    const sinCoordenadas = [];
+    for (const [k, c] of cuentas) {
+      const z = coords.get(k);
+      if (!z || typeof z.lat !== 'number') { sinCoordenadas.push(c.nombre); continue; }
+      const mal = c.caidos > 0;
+      const icono = L.divIcon({
+        html: `<i class="punto-zona${mal ? ' punto-mal' : ''}"></i>`,
+        className: 'pin-envoltura',
+        iconSize: null,
+      });
+      const m = L.marker([z.lat, z.lng], { icon: icono, title: c.nombre }).addTo(capaPines);
+      m.bindPopup(() => detalleDeZona(k, c), { maxWidth: 260 });
+      puntos.push([z.lat, z.lng]);
+    }
+
+    if (puntos.length) mapa.fitBounds(puntos, { padding: [40, 40], maxZoom: 14 });
+    else mapa.setView([10.5, -66.85], 12);   // Caracas, por no dejarlo en el Atlántico
+    // El mapa nace con el tamaño del contenedor, y aquí nace oculto: sin esto
+    // se dibuja medio gris hasta que alguien cambia el tamaño de la ventana.
+    setTimeout(() => mapa.invalidateSize(), 60);
+
+    $('mapa-nota').textContent = sinCoordenadas.length
+      ? `Sin ubicar: ${[...new Set(sinCoordenadas)].join(', ')}.`
+      : '';
+  }
+
   // ---- Conexión: cuánto tiempo ha estado caído cada aparato ----
   //
   // La colección `conexiones` lleva semanas escribiéndose y no la leía nadie.
@@ -6803,6 +6958,7 @@ async function iniciar() {
 
   $('btn-refrescar').addEventListener('click', () => cargarRegistros());
   $('btn-refrescar-conexiones').addEventListener('click', cargarConexiones);
+  $('btn-refrescar-mapa').addEventListener('click', pintarMapaZonas);
   $('filtro-conexiones').addEventListener('click', (e) => {
     const chip = e.target.closest('[data-filtro]');
     if (!chip || chip.dataset.filtro === filtroConexiones) return;

@@ -148,6 +148,15 @@ service cloud.firestore {
     // ⚠️ Regla POR DOCUMENTO: la app no puede pedir la colección entera. Pide
     // por `documentId() in [...]` con los ids que le tocan; un `getDocs` sin
     // `where` vuelve a fallar entero, igual que en `skins`.
+    // Las zonas: nombre y coordenadas de un barrio, para el mapa del panel y
+    // para el desplegable del editor. No dicen nada de nadie —son barrios, no
+    // direcciones— pero tampoco tienen por qué verlas un vecino: solo se usan
+    // administrando. Las escriben las Functions, que son las que geocodifican.
+    match /zonas/{id} {
+      allow read: if esAdmin();
+      allow write: if false;
+    }
+
     match /inmuebles/{id} {
       allow read: if esAdminGlobal()
         || (autenticado() && id in miUsuario().get('inmueblesIds', []))
