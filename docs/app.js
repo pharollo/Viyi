@@ -6447,6 +6447,10 @@ async function iniciar() {
   // que se cayó SEIS y volvió enseguida. Son dos averías distintas —una del
   // aparato, otra de la red— y con un punto de color se ven iguales.
   const VENTANA_CON = 30 * 24 * 60 * 60 * 1000;
+  // `todos` | `caidas` | `estables`. Arranca en `caidas` porque a esta pantalla
+  // se entra a ver qué está fallando: los estables son la mayoría y empujarían
+  // hacia abajo a los que importan.
+  let filtroConexiones = 'caidas';
 
   const duracionCorta = (ms) => {
     const s = ms / 1000;
@@ -6501,13 +6505,33 @@ async function iniciar() {
 
       // Peor primero: a esta pantalla se entra a ver qué está fallando, no a
       // repasar lo que funciona.
-      const filas = [...por.entries()]
+      const todas = [...por.entries()]
         .map(([id, e]) => ({ id, ...e, pct: e.visto ? 100 * (1 - e.caido / e.visto) : null }))
         .sort((a, b) => b.caido - a.caido);
 
+      // El corte es "ha estado caído aunque sea un segundo", no "sale 100,0 %":
+      // un parpadeo de dos segundos redondea a 100 y sí es una caída.
+      const seCayo = (f) => f.caido > 0;
+      const filas = filtroConexiones === 'todos' ? todas
+        : todas.filter((f) => (filtroConexiones === 'caidas' ? seCayo(f) : !seCayo(f)));
+
+      // Con el filtro en "Caídas" los estables no se ven por ninguna parte, así
+      // que se cuentan en una línea: es toda la información que dan —"y los
+      // demás, bien"— sin gastar una ficha cada uno. Con los otros filtros la
+      // línea sobra, porque están a la vista o se ven en su propio chip.
+      const limpios = todas.filter((f) => !seCayo(f)).length;
+      const nota = $('con-limpios');
+      const ponerNota = filtroConexiones === 'caidas' && limpios > 0;
+      nota.classList.toggle('oculto', !ponerNota);
+      nota.textContent = ponerNota ? `${limpios} sin caídas` : '';
+
       if (!filas.length) {
         const item = document.createElement('li');
-        item.textContent = 'Sin historial de conexión todavía.';
+        item.className = 'con-vacio';
+        // Decir "sin historial" cuando lo que pasa es que el filtro no deja ver
+        // nada manda a buscar una avería donde solo hay un chip puesto.
+        item.textContent = !todas.length ? 'Sin historial de conexión todavía.'
+          : (filtroConexiones === 'caidas' ? 'Ninguno se ha caído.' : 'Ninguno está estable.');
         lista.appendChild(item);
         return;
       }
@@ -6523,6 +6547,8 @@ async function iniciar() {
         const detalle = f.caidas
           ? `${f.caidas} ${f.caidas === 1 ? 'caída' : 'caídas'} · ${duracionCorta(f.caido)} fuera`
           : 'Sin caídas';
+        // El orden de la ficha es el de la lectura: qué aparato, cómo va, por
+        // qué, y la barra al final como resumen visual de lo mismo.
         li.innerHTML = `<span class="con-nombre">${escapar(f.nombre)}</span>`
           + `<span class="con-pct">${pct}</span>`
           + `<span class="con-detalle">${detalle}</span>`
@@ -6531,6 +6557,7 @@ async function iniciar() {
       }
     } catch (err) {
       const item = document.createElement('li');
+      item.className = 'con-vacio';
       item.textContent = 'No se pudo cargar la conexión.';
       lista.appendChild(item);
     }
@@ -6653,6 +6680,14 @@ async function iniciar() {
 
   $('btn-refrescar').addEventListener('click', () => cargarRegistros());
   $('btn-refrescar-conexiones').addEventListener('click', cargarConexiones);
+  $('filtro-conexiones').addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-filtro]');
+    if (!chip || chip.dataset.filtro === filtroConexiones) return;
+    filtroConexiones = chip.dataset.filtro;
+    $('filtro-conexiones').querySelectorAll('[data-filtro]')
+      .forEach((c) => c.classList.toggle('activa', c === chip));
+    cargarConexiones();
+  });
   $('btn-mas-registros').addEventListener('click', () => cargarRegistros({ mas: true }));
   $('filtro-registros').addEventListener('click', (e) => {
     const chip = e.target.closest('[data-filtro]');
