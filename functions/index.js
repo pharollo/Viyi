@@ -2636,6 +2636,23 @@ const AJUSTES_TUYA = 'ajustes/tuya';
 
 const enDias = (ms) => Math.ceil(ms / 86400000);
 
+// El correo de alguien, aunque su ficha no lo traiga.
+//
+// Hay DOS sitios con el correo de un usuario: Firebase Auth —con el que entra,
+// y el que enseña Mi perfil— y `usuarios/{uid}.email`, que es de donde leen los
+// avisos. Las cuentas creadas antes de que ese campo se guardara solo lo tienen
+// en el primero, y el síntoma es de los peores: el aviso no sale y nada lo
+// dice. Pasó con la cuenta del dueño y el formulario de la página.
+//
+// De paso se REMIENDA la ficha: así el agujero se cierra solo con el uso, en
+// vez de quedarse esperando a que alguien lo note en otro sitio.
+async function correoDe(uid) {
+  const u = await admin.auth().getUser(uid).catch(() => null);
+  if (!u || !u.email) return '';
+  await db.doc(`usuarios/${uid}`).set({ email: u.email }, { merge: true }).catch(() => {});
+  return u.email;
+}
+
 async function avisarAlDueno({ asunto, titulo, cuerpo, textoBoton, enlace, apiKey }) {
   // A los administradores globales: son los que pueden hacer algo al respecto.
   const snap = await db.collection('usuarios').where('rol', '==', 'admin').get();
@@ -2646,19 +2663,7 @@ async function avisarAlDueno({ asunto, titulo, cuerpo, textoBoton, enlace, apiKe
   // contacto de gente que no es su vecino.
   const globales = snap.docs.filter((d) => !((d.data().administra || []).length));
 
-  // El correo, y si la ficha no lo trae se busca en Auth.
-  //
-  // Las cuentas viejas se crearon antes de que el campo `email` se guardara en
-  // el documento, así que su ficha no lo tiene y este aviso no llegaba a nadie
-  // — mientras la pantalla de Mi perfil SÍ lo enseñaba, porque lo saca de
-  // `auth.currentUser`. Buscar los que falten deja de depender de cuándo se
-  // creó la cuenta.
-  const correos = (await Promise.all(globales.map(async (d) => {
-    const suyo = d.data().email;
-    if (suyo) return suyo;
-    const u = await admin.auth().getUser(d.id).catch(() => null);
-    return u && u.email;
-  }))).filter(Boolean);
+  const correos = (await Promise.all(globales.map(async (d) => d.data().email || correoDe(d.id)))).filter(Boolean);
   if (!correos.length) {
     console.error('Nadie a quien avisar:', asunto);
     return 0;
@@ -2896,7 +2901,11 @@ exports.darAcceso = onCall({ ...OCASIONAL, secrets: [RESEND_API_KEY] }, async (r
     dados += 1;
 
     // El correo es el aviso; si falla, el acceso ya quedó dado y no se deshace.
-    const email = destinoSnap.data().email;
+    //
+    // Con el mismo respaldo que los avisos al dueño: las fichas creadas antes
+    // de que se guardara el campo no lo traen, y sin él este aviso no salía
+    // —el acceso se daba igual, pero la persona no se enteraba—.
+    const email = destinoSnap.data().email || await correoDe(destinoUid);
     if (!email) continue;
     try {
       const { asunto, html, texto } = plantillaAccesoDado({
