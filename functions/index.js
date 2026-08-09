@@ -1043,10 +1043,20 @@ exports.contacto = onRequest(
       atendido: false,
     });
 
-    // El correo se manda DESPUÉS de guardar y sin tumbar la respuesta si falla:
-    // que Resend tenga un mal día no puede costar un cliente. Va a los mismos
-    // administradores globales que el resto de los avisos —`avisarAlDueno` ya
-    // sabe quiénes son— en vez de a una dirección escrita a mano aquí.
+    // ⚠️ Se contesta AQUÍ, con el dato ya guardado, y el correo se manda
+    // después. Quien acaba de pulsar Enviar no tiene por qué esperar a que
+    // busquemos a los administradores y Resend conteste: se notó al probarlo
+    // desde el teléfono —"tardó un poco en mandarse"— y lo que tardaba era
+    // trabajo que a él no le importa.
+    //
+    // Sigue dentro del manejador a propósito: en Cloud Run la CPU está
+    // asignada hasta que el manejador vuelve, así que el correo se termina de
+    // mandar igual. Y si aun así fallara, el contacto YA está en Firestore.
+    res.json({ ok: true });
+
+    // El correo, a los mismos administradores globales que el resto de los
+    // avisos —`avisarAlDueno` ya sabe quiénes son— en vez de a una dirección
+    // escrita a mano aquí.
     try {
       const filas = [['Nombre', nombre], ['Contacto', contacto], ['Dónde', lugar], ['Mensaje', mensaje]]
         .filter(([, v]) => v)
@@ -1062,8 +1072,6 @@ exports.contacto = onRequest(
     } catch (e) {
       console.error('contacto: no se pudo avisar por correo', e.message, doc.id);
     }
-
-    res.json({ ok: true });
   },
 );
 

@@ -36,7 +36,12 @@ body {
   margin: 0 auto;
   padding: 18px 22px;
 }
-.marca { display: block; border-radius: 9px; }
+/* La marca, con presencia: a 34 px parecía un favicon perdido en la esquina.
+   En el teléfono baja un poco, que ahí la barra es más estrecha. */
+.marca { display: block; width: 48px; height: 48px; border-radius: 12px; }
+@media (max-width: 720px) {
+  .marca { width: 42px; height: 42px; border-radius: 11px; }
+}
 .entrar {
   color: var(--texto-suave);
   text-decoration: none;
