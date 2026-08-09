@@ -49,7 +49,7 @@ async function iniciar() {
     GoogleAuthProvider, signInWithPopup,
   } = authMod;
   const {
-    getFirestore, doc, getDoc, collection, query, where, orderBy, limit, startAfter, getDocs,
+    getFirestore, doc, getDoc, collection, query, where, orderBy, limit, startAfter, getDocs, documentId,
   } = fsMod;
   const { getFunctions, httpsCallable } = fnMod;
 
@@ -2934,8 +2934,23 @@ async function iniciar() {
         ? Promise.all(enTrozos(alc).map((t) => getDocs(query(
             collection(db, 'usuarios'), where('inmueblesIds', 'array-contains-any', t))))).then(unirDocs)
         : getDocs(collection(db, 'usuarios')).then((r) => r.docs);
-      const [dispDocs, usuDocs, inmSnap] = await Promise.all([
-        pedirDisp, pedirUsu, getDocs(collection(db, 'inmuebles')),
+      // Los inmuebles TAMBIÉN acotados. Era la única de las tres consultas que
+      // pedía la colección entera, y de ahí salía todo lo demás: el admin de un
+      // edificio veía el catálogo de inmuebles de todos los condominios, y las
+      // casillas para asignarle una casa a un vecino se construyen de esta misma
+      // caché, así que podía marcarle cualquiera —el backend lo rechazaba, pero
+      // la pantalla le ofrecía algo que no podía hacer—.
+      //
+      // Se piden los de su alcance MÁS los suyos: los segundos traen los
+      // ancestros, y sin ellos la ruta que se enseña ("Tulipanes IV › 1D") se
+      // queda coja.
+      const idsInm = [...new Set([...alc, ...míos])];
+      const pedirInm = alc.length
+        ? Promise.all(enTrozos(idsInm).map((t) => getDocs(query(
+            collection(db, 'inmuebles'), where(documentId(), 'in', t))))).then(unirDocs)
+        : getDocs(collection(db, 'inmuebles')).then((r) => r.docs);
+      const [dispDocs, usuDocs, inmDocs] = await Promise.all([
+        pedirDisp, pedirUsu, pedirInm,
       ]);
       cacheDispositivos = dispDocs
         .map((s) => normalizar({ id: s.id, ...s.data() }))
@@ -2943,7 +2958,7 @@ async function iniciar() {
       cacheUsuarios = usuDocs
         .map((s) => ({ uid: s.id, ...s.data() }))
         .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
-      cacheInmuebles = inmSnap.docs
+      cacheInmuebles = inmDocs
         .map((s) => ({ id: s.id, ...s.data() }))
         .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
       // Los datos de conexión vienen en los propios dispositivos, así que se
