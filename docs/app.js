@@ -3091,23 +3091,40 @@ async function iniciar() {
   // El orden de los chips ES el del montaje —inmuebles, aparatos, vecinos—
   // porque un aparato necesita un inmueble donde vivir y un vecino necesita las
   // dos cosas para que se le asignen.
+  // ⚠️ `.bloque-gestion` y NO `.grupo-gestion`: esa segunda ya existía, y es la
+  // de los encabezados DENTRO de la lista de vecinos (Residentes · Sin
+  // apartamento · Visitantes). Al reusar el nombre, este código les ponía
+  // `oculto` a los tres —no tienen `data-grupo`— y la lista quedaba con todo el
+  // mundo revuelto sin separación. Se vio en cuanto hubo datos de verdad.
   let subGestion = 'dispositivos';
+  // Qué bloques se ven: el de la pestaña, o TODOS mientras hay búsqueda.
+  //
+  // El buscador es uno solo y busca en las tres, así que mientras escribes las
+  // pestañas se apartan: encontrar el vecino que buscabas y que no aparezca
+  // porque estabas en Aparatos sería un buscador que miente. Al vaciarlo se
+  // vuelve a la pestaña donde estabas.
+  function aplicarVistaGestion() {
+    const buscando = Boolean(filtroGestion());
+    $('tab-gestion').classList.toggle('buscando', buscando);
+    document.querySelectorAll('.bloque-gestion')
+      .forEach((g) => g.classList.toggle('oculto', !buscando && g.dataset.grupo !== subGestion));
+  }
+
   function mostrarSubGestion(cual) {
     subGestion = cual;
     document.querySelectorAll('#sub-gestion [data-sub]')
       .forEach((c) => c.classList.toggle('activa', c.dataset.sub === cual));
-    document.querySelectorAll('.grupo-gestion')
-      .forEach((g) => g.classList.toggle('oculto', g.dataset.grupo !== cual));
     // El editor se cierra al cambiar: estaba abierto sobre algo de la sección
     // que acabas de dejar, y quedaría flotando bajo una lista que no es la
     // suya.
     const ed = $('editor');
     if (ed) { ed.classList.add('oculto'); ed.textContent = ''; }
-    // Y el buscador se vacía. Es uno solo para las tres, así que arrastrar el
-    // texto de una a otra enseñaría la nueva ya filtrada por algo que no
-    // escribiste aquí.
+    // Y el buscador se vacía: elegir una pestaña es dejar de buscar, y si no,
+    // la pestaña recién elegida saldría filtrada por algo que no escribiste
+    // para ella.
     const b = $('buscar-gestion');
     if (b && b.value) { b.value = ''; renderGestion(); }
+    aplicarVistaGestion();
     window.scrollTo(0, 0);
   }
 
@@ -5841,7 +5858,7 @@ async function iniciar() {
   }
 
   // Buscar vecino: filtra sin volver a leer Firestore (ya está todo en caché).
-  $('buscar-gestion').addEventListener('input', renderGestion);
+  $('buscar-gestion').addEventListener('input', () => { renderGestion(); aplicarVistaGestion(); });
   mostrarSubGestion('dispositivos');
   $('sub-gestion').addEventListener('click', (e) => {
     const chip = e.target.closest('[data-sub]');

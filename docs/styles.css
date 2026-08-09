@@ -2724,6 +2724,14 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
   gap: 8px;
   margin: 14px 4px;
 }
+/* Los títulos de las tres secciones solo salen MIENTRAS BUSCAS. Con una
+   pestaña a la vista el chip de arriba ya dice cuál es y repetirlo debajo
+   sobra; pero el buscador enseña las tres a la vez, y ahí sin título no se
+   sabe si "Lobby" es un aparato o un inmueble. */
+#tab-gestion .encabezado-admin > h2 { display: none; }
+#tab-gestion.buscando .encabezado-admin > h2 { display: block; }
+#tab-gestion.buscando .encabezado-admin { justify-content: space-between; }
+#seccion-tuya > h2 { display: block !important; }
 .encabezado-admin:has(h2) { justify-content: space-between; }
 /* El único encabezado que conserva título es el del servicio de Tuya, y ese sí
    necesita separarse: no es otra sección de la pestaña, es un bloque distinto
