@@ -4180,15 +4180,39 @@ async function iniciar() {
     [iNombre, iCiudad, iEstado, iZona].forEach((i) => i.setAttribute('autocapitalize', 'words'));
     iCiudad.setAttribute('list', listaSugerencias('ciudades-ve', Object.keys(CIUDADES_VE).sort((a, b) => a.localeCompare(b))));
     iEstado.setAttribute('list', listaSugerencias('estados-ve', ESTADOS_VE));
+    // Fuera el autocompletado del navegador: estos campos ya tienen su lista de
+    // sugerencias, y el del navegador se le monta encima con direcciones
+    // guardadas — que en un teléfono tapa la lista buena y hace difícil
+    // cambiar lo que ya escribiste.
+    [iCiudad, iEstado].forEach((i) => i.setAttribute('autocomplete', 'off'));
     // El estado se deduce de la ciudad: es un dato fijo y no tiene sentido
     // teclearlo en cada inmueble. Se sigue pudiendo escribir a mano.
+    // El estado se deduce de la ciudad, pero DEJA DE HACERLO en cuanto lo
+    // escribes tú.
+    //
+    // Antes se rellenaba en cada pulsación, así que corregirlo a mano era
+    // imposible: volvías a tocar la ciudad y se borraba lo tuyo. Se nota
+    // sobre todo con una ciudad que la tabla no tiene bien, que es justo
+    // cuando hace falta escribirlo.
+    let estadoAMano = false;
+    iEstado.addEventListener('input', () => { estadoAMano = true; });
     iCiudad.addEventListener('input', () => {
       const est = ESTADO_POR_CIUDAD.get(sinTildes(iCiudad.value));
-      if (est) iEstado.value = est;
+      if (est && !estadoAMano) iEstado.value = est;
       llenarZonas();   // cambiar de ciudad cambia las zonas que tienen sentido
     });
     llenarZonas();
-    if (cacheZonas.some((z) => z.id === inm.zonaId)) sZona.value = inm.zonaId;
+    // Cuál sale elegida. Con `zonaId` es directo; sin él —los inmuebles
+    // guardados antes de que la zona se eligiera de una lista— se reconstruye
+    // la llave igual que hacen el mapa y el backend: ciudad y zona.
+    //
+    // Faltaba justo esto: al editar Tulipanes IV, que solo tenía el texto "Los
+    // Palos Grandes", el desplegable salía en blanco y había que volver a
+    // elegirla a mano. Se lo puse al mapa y me olvidé del editor, que es donde
+    // se nota.
+    const suZona = inm.zonaId
+      || (inm.zona ? `${llaveZona(inm.ciudad)}-${llaveZona(inm.zona)}` : '');
+    if (suZona && [...sZona.options].some((o) => o.value === suZona)) sZona.value = suZona;
     // Padre: arma la jerarquía conjunto -> edificio -> apartamento. Quien tenga
     // asignado el apartamento alcanza también lo común del edificio y del
     // conjunto; al revés no.
