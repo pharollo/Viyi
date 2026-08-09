@@ -1134,7 +1134,9 @@ async function resolverZona({ zonaId, zonaNueva, ciudad }) {
   const nombre = String(zonaNueva || '').trim().slice(0, 60);
   if (!nombre) return { id: '', nombre: '' };   // sin zona: se permite, no todo inmueble la tiene
 
-  const id = llaveZona(nombre);
+  // El id lleva la CIUDAD delante: "El Centro" existe en media Venezuela, y sin
+  // el prefijo el primero que lo creara se quedaría con el nombre para todos.
+  const id = `${llaveZona(ciudad)}-${llaveZona(nombre)}`;
   const ya = await db.doc(`zonas/${id}`).get();
   if (ya.exists) return { id, nombre: ya.data().nombre || nombre };
 

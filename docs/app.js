@@ -6643,7 +6643,11 @@ async function iniciar() {
       let x = porId.get(inmuebleId);
       for (let n = 0; n < 6 && x; n++) {
         if (x.zonaId) return { llave: x.zonaId, nombre: x.zona || x.zonaId };
-        if (x.zona) return { llave: llaveZona(x.zona), nombre: x.zona };
+        // Sin `zonaId` se reconstruye igual que lo hace el backend: ciudad y
+        // zona. Es el caso de los inmuebles guardados antes de que la zona se
+        // eligiera de una lista; ganan su `zonaId` la próxima vez que se
+        // guarden, y mientras tanto caen en el mismo punto.
+        if (x.zona) return { llave: `${llaveZona(x.ciudad)}-${llaveZona(x.zona)}`, nombre: x.zona };
         x = porId.get(x.padre);
       }
       return null;
