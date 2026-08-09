@@ -6286,7 +6286,9 @@ async function iniciar() {
     const lista = $('lista-pases');
     if (!usuarioActual || !auth.currentUser) return;
     const todos = paseVerTodos && usuarioActual.rol === 'admin';
-    lista.textContent = '';
+    // Se arma aparte y se cambia de una vez: vaciar la lista antes de tener la
+    // nueva encoge la página y el scroll se va detrás, para volver al repintar.
+    const nuevo = document.createDocumentFragment();
     try {
       const consulta = todos
         ? query(collection(db, 'pases'))
@@ -6296,17 +6298,18 @@ async function iniciar() {
         const li = document.createElement('li');
         li.className = 'vacio';
         li.textContent = todos ? 'No hay pases todavía.' : 'Aún no has generado pases.';
-        lista.appendChild(li);
+        lista.replaceChildren(li);
         return;
       }
       const nombrePorId = Object.fromEntries(misDispositivos.map((d) => [d.id, d.nombre]));
       const items = res.docs.map((d) => ({ token: d.id, ...d.data() }))
         .sort((a, b) => msExpira(b.creado) - msExpira(a.creado));
-      for (const p of items) lista.appendChild(filaPase(p, nombrePorId, todos));
+      for (const p of items) nuevo.appendChild(filaPase(p, nombrePorId, todos));
+      lista.replaceChildren(nuevo);
     } catch (err) {
       const li = document.createElement('li');
       li.textContent = 'No se pudieron cargar los pases.';
-      lista.appendChild(li);
+      lista.replaceChildren(li);
     }
   }
 
@@ -6462,7 +6465,10 @@ async function iniciar() {
 
   async function cargarConexiones() {
     const lista = $('lista-conexiones');
-    lista.textContent = '';
+    // Igual que la lista de abajo: se arma aparte y se cambia de una vez.
+    // Vaciarla primero encoge la página y el scroll se va detrás.
+    const nuevo = document.createDocumentFragment();
+    const volcar = () => lista.replaceChildren(nuevo);
     const desde = Date.now() - VENTANA_CON;
     try {
       const alc = miAlcance();
@@ -6532,7 +6538,8 @@ async function iniciar() {
         // nada manda a buscar una avería donde solo hay un chip puesto.
         item.textContent = !todas.length ? 'Sin historial de conexión todavía.'
           : (filtroConexiones === 'caidas' ? 'Ninguno se ha caído.' : 'Ninguno está estable.');
-        lista.appendChild(item);
+        nuevo.appendChild(item);
+        volcar();
         return;
       }
       for (const f of filas) {
@@ -6553,13 +6560,14 @@ async function iniciar() {
           + `<span class="con-pct">${pct}</span>`
           + `<span class="con-detalle">${detalle}</span>`
           + `<span class="con-barra"><i style="width:${f.pct === null ? 0 : f.pct.toFixed(1)}%"></i></span>`;
-        lista.appendChild(li);
+        nuevo.appendChild(li);
       }
+      volcar();
     } catch (err) {
       const item = document.createElement('li');
       item.className = 'con-vacio';
       item.textContent = 'No se pudo cargar la conexión.';
-      lista.appendChild(item);
+      lista.replaceChildren(item);
     }
   }
 
@@ -6580,11 +6588,19 @@ async function iniciar() {
     const lista = $('lista-registros');
     const btnMas = $('btn-mas-registros');
     if (!mas) {
-      lista.textContent = '';
       cursorRegistros = null;
       quedanRegistros = true;
     }
-    if (btnMas) btnMas.classList.add('oculto');
+    // La lista NO se vacía todavía.
+    //
+    // Vaciarla antes de pedir la nueva encogía la página de golpe, el navegador
+    // bajaba el scroll para no quedarse en el vacío, y al repintar volvía a
+    // subir: eso es el "algo se baja y se vuelve a subir" al filtrar. Se arma
+    // aparte y se cambia de una vez, cuando ya hay con qué. Lo mismo con el
+    // botón de "Más", que escondido y vuelto a enseñar aporta su propio salto.
+    const nuevo = document.createDocumentFragment();
+    const poner = (li) => (mas ? lista.appendChild(li) : nuevo.appendChild(li));
+    const volcar = () => { if (!mas) lista.replaceChildren(nuevo); };
     try {
       // El admin de un edificio pide solo el historial de su torre (la regla se
       // evalúa por documento, así que tiene que venir filtrado). El dueño pide
@@ -6638,8 +6654,10 @@ async function iniciar() {
           item.textContent = filtroRegistros === 'todos'
             ? 'Sin actividad todavía.'
             : (filtroRegistros === 'fallo' ? 'Ningún fallo.' : 'Ningún acierto.');
-          lista.appendChild(item);
+          poner(item);
         }
+        volcar();
+        if (btnMas) btnMas.classList.add('oculto');
         return;
       }
       // Quién fue vive en `privado/quien` y solo el dueño puede leerlo. Se
@@ -6666,15 +6684,17 @@ async function iniciar() {
         const quienTxt = quien.usuarioNombre
           ? `${quien.usuarioNombre}${quien.unidad ? ` (${quien.unidad})` : ''} · ` : '';
         item.textContent = `${fecha} · ${quienTxt}${r.dispositivoNombre} · ${r.accion} ${r.exito ? '✓' : '✗'}${motivo}`;
-        lista.appendChild(item);
+        poner(item);
       }
+      volcar();
       // El botón solo aparece si puede haber más. Enseñarlo siempre y que no
       // traiga nada es peor que no enseñarlo.
       if (btnMas) btnMas.classList.toggle('oculto', !quedanRegistros);
     } catch (err) {
       const item = document.createElement('li');
       item.textContent = 'No se pudo cargar el registro.';
-      lista.appendChild(item);
+      if (mas) lista.appendChild(item); else lista.replaceChildren(item);
+      if (btnMas) btnMas.classList.add('oculto');
     }
   }
 
