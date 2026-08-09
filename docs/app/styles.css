@@ -4326,3 +4326,45 @@ input:checked ~ .pase-tgl::before {
   color: var(--texto-suave);
   font-variant-numeric: tabular-nums;
 }
+
+/* ---- Sensor: informa, no obedece ----
+   Sin relieve de botón ni nada que invite al dedo. Es una lámpara con una
+   frase: quien la mire tiene que entender en un segundo que esto no se pulsa. */
+.control-sensor { cursor: default; }
+.sensor-ficha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 22px;
+  border-radius: 18px;
+  background: var(--superficie);
+  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
+}
+.sensor-luz {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--texto-suave);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+.sensor-dice { font-size: 15px; font-weight: 600; color: var(--texto-suave); }
+
+/* Con movimiento se enciende y late: es lo único de esta ficha que pide que la
+   mires, y solo cuando hay motivo. */
+.sensor-ficha.activo .sensor-luz {
+  background: var(--primario);
+  box-shadow: 0 0 10px var(--primario);
+  animation: late-sensor 1.6s ease-in-out infinite;
+}
+.sensor-ficha.activo .sensor-dice { color: var(--texto); }
+@keyframes late-sensor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+/* Mientras no se sabe, apagada del todo: un sensor que no contesta no puede
+   parecer que dice "no hay nadie". */
+.sensor-ficha.sin-saber .sensor-luz { background: var(--linea, #2a2a30); box-shadow: none; }
+@media (prefers-reduced-motion: reduce) {
+  .sensor-ficha.activo .sensor-luz { animation: none; }
+}

@@ -3191,6 +3191,29 @@ exports.consultarEstado = onCall(
           }
           return { posicion };
         }
+        // Sensor: no se toca, solo dice sí o no.
+        //
+        // Una cámara de Homebridge publica varios accesorios y NINGUNO es la
+        // imagen —el vídeo va por una negociación cifrada, no por un valor—,
+        // pero sí publica su detector de movimiento. Eso es lo que se lee aquí,
+        // y es justo la señal que le faltaba a ViYi: saber que hay alguien en
+        // la puerta antes de que toque.
+        //
+        // Sirve para cualquier sensor, no solo el de una cámara: contacto de
+        // puerta, presencia, humo. Por eso la característica se elige al dar de
+        // alta el aparato en vez de estar fija.
+        if (dispositivo.modo === 'sensor') {
+          const cual = config.caracteristica || 'MotionDetected';
+          const bruto = vals[cual];
+          const activo = typeof bruto === 'boolean' ? bruto
+            : (typeof bruto === 'number' ? bruto !== 0 : null);
+          return {
+            activo,
+            // El valor crudo también: un sensor de contacto dice 0/1 y uno de
+            // batería un porcentaje, y quien lo lea sabrá qué hacer con él.
+            valor: bruto === undefined ? null : bruto,
+          };
+        }
         // On puede venir como boolean o como número (0/1); si falta, se infiere
         // del brillo (>0 = encendido).
         let enc = null;

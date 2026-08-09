@@ -2257,6 +2257,58 @@ async function iniciar() {
     return control;
   }
 
+  // Un SENSOR no se pulsa: solo dice sí o no.
+  //
+  // Nace de la cámara del lobby: Homebridge publica sus accesorios y ninguno es
+  // la imagen —el vídeo va por una negociación cifrada, no por un valor que se
+  // pueda leer— pero sí publica su detector de movimiento. Y esa es la señal
+  // que le faltaba a ViYi: saber que hay alguien en la puerta ANTES de que
+  // toque. Sirve igual para un contacto de puerta o un detector de humo.
+  //
+  // Se ve distinto a propósito: nada que invite al dedo. Quien lo mire tiene
+  // que entender en un segundo que esto informa, no obedece.
+  function controlSensor(dispositivo, demo) {
+    const control = document.createElement('div');
+    control.className = 'control control-sensor';
+
+    const ficha = document.createElement('div');
+    ficha.className = 'sensor-ficha';
+    ficha.innerHTML = `<span class="sensor-luz"></span><span class="sensor-dice">—</span>`;
+    control.appendChild(ficha);
+
+    const titulo = document.createElement('span');
+    titulo.className = 'etiqueta-control';
+    titulo.textContent = dispositivo.nombre;
+    control.append(titulo);
+
+    const pintar = (activo) => {
+      ficha.classList.toggle('activo', activo === true);
+      ficha.classList.toggle('sin-saber', activo === null || activo === undefined);
+      ficha.querySelector('.sensor-dice').textContent = activo === true ? 'Hay alguien'
+        : activo === false ? 'Sin movimiento' : '—';
+    };
+    pintar(demo ? true : null);
+
+    if (!demo) {
+      const leer = async () => {
+        try {
+          const r = await consultarEstado({ dispositivoId: dispositivo.id });
+          pintar(r.data && r.data.activo);
+        } catch (e) { pintar(null); }
+      };
+      leer();
+      // Se relee mientras la pestaña está a la vista. Un sensor que solo se
+      // mira al abrir la app no avisa de nada; y seguir preguntando con el
+      // teléfono en el bolsillo es gastar batería para nadie.
+      let reloj = null;
+      const arrancar = () => { if (!reloj) reloj = setInterval(leer, 15000); };
+      const parar = () => { clearInterval(reloj); reloj = null; };
+      document.addEventListener('visibilitychange', () => (document.hidden ? parar() : (leer(), arrancar())));
+      if (!document.hidden) arrancar();
+    }
+    return control;
+  }
+
   function construirTarjeta(dispositivo, demo, aspectoForzado) {
     // El aspecto sale del vestuario del vecino (o del que puso el admin).
     const aspecto = aspectoForzado || aspectoDe(dispositivo);
@@ -2266,6 +2318,8 @@ async function iniciar() {
     // el vestido de evento, que es cosa del panel real.
     const evento = aspectoForzado ? '' : eventoDe(dispositivo);
     // Puerta de pulso con aspecto Jet: interruptor con tapa de seguridad.
+    // El sensor va primero: no tiene aspecto que elegir, porque no es un botón.
+    if (dispositivo.modo === 'sensor') return controlSensor(dispositivo, demo);
     if (dispositivo.modo === 'pulso' && aspecto === 'jet') {
       return vestirDeEvento(controlJet(dispositivo, demo), evento);
     }
@@ -3206,7 +3260,7 @@ async function iniciar() {
   function renderGestion() {
     const ld = $('gestion-dispositivos');
     ld.textContent = '';
-    const MODOS = { pulso: 'pulso', interruptor: 'interruptor', cortina: 'cortina', dimmer: 'dimmer', termostato: 'termostato' };
+    const MODOS = { pulso: 'pulso', interruptor: 'interruptor', cortina: 'cortina', dimmer: 'dimmer', termostato: 'termostato', sensor: 'sensor' };
     const nombreDueno = (uid) => {
       const u = cacheUsuarios.find((x) => x.uid === uid);
       return u ? nombreCompleto(u) : 'un vecino';
@@ -3683,7 +3737,7 @@ async function iniciar() {
     sTipo.addEventListener('change', actualizarSub);
     // (sModo aún no existe aquí; el cambio de modo y la llamada inicial van más
     // abajo, cuando sModo ya está definido.)
-    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (perilla de apertura)'], ['dimmer', 'Dimmer (perilla de brillo)'], ['termostato', 'Termostato (temperatura)']], d.modo || 'pulso');
+    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (perilla de apertura)'], ['dimmer', 'Dimmer (perilla de brillo)'], ['termostato', 'Termostato (temperatura)'], ['sensor', 'Sensor (solo informa)']], d.modo || 'pulso');
     const campoModo = campo('Modo', sModo);
     // Un termostato solo tiene el modo termostato: al elegir ese tipo se
     // auto-selecciona el modo y se oculta el campo; al salir, se restablece.
