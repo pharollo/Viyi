@@ -2639,7 +2639,13 @@ const enDias = (ms) => Math.ceil(ms / 86400000);
 async function avisarAlDueno({ asunto, titulo, cuerpo, textoBoton, enlace, apiKey }) {
   // A los administradores globales: son los que pueden hacer algo al respecto.
   const snap = await db.collection('usuarios').where('rol', '==', 'admin').get();
-  const correos = snap.docs.map((d) => d.data().email).filter(Boolean);
+  // GLOBALES de verdad: `administra` vacío. El filtro decía "a los
+  // administradores globales" pero preguntaba solo por el rol, así que desde
+  // que existen admins de edificio también les llegaba a ellos — avisos que no
+  // son asunto suyo y, en el caso del formulario de la página, datos de
+  // contacto de gente que no es su vecino.
+  const globales = snap.docs.filter((d) => !((d.data().administra || []).length));
+  const correos = globales.map((d) => d.data().email).filter(Boolean);
   if (!correos.length) {
     console.error('Nadie a quien avisar:', asunto);
     return 0;
