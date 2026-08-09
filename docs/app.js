@@ -2886,6 +2886,10 @@ async function iniciar() {
   let cacheDispositivos = [];
   let cacheUsuarios = [];
   let cacheInmuebles = [];
+  // Las zonas: llenan el desplegable del editor y ponen los pines del mapa. Una
+  // sola fuente para las dos cosas, que es lo que garantiza que lo que eliges
+  // sea exactamente lo que se agrupa.
+  let cacheZonas = [];
 
   // Alcance del admin que está mirando: vacío = el dueño, que ve todo.
   const miAlcance = () => (usuarioActual && usuarioActual.administraIds) || [];
@@ -2949,8 +2953,11 @@ async function iniciar() {
         ? Promise.all(enTrozos(idsInm).map((t) => getDocs(query(
             collection(db, 'inmuebles'), where(documentId(), 'in', t))))).then(unirDocs)
         : getDocs(collection(db, 'inmuebles')).then((r) => r.docs);
-      const [dispDocs, usuDocs, inmDocs] = await Promise.all([
+      const [dispDocs, usuDocs, inmDocs, zonDocs] = await Promise.all([
         pedirDisp, pedirUsu, pedirInm,
+        // Sin romper el panel si fallan: el editor se queda sin lista de zonas,
+        // que es molesto, no fatal.
+        getDocs(collection(db, 'zonas')).then((r) => r.docs).catch(() => []),
       ]);
       cacheDispositivos = dispDocs
         .map((s) => normalizar({ id: s.id, ...s.data() }))
@@ -2961,6 +2968,9 @@ async function iniciar() {
       cacheInmuebles = inmDocs
         .map((s) => ({ id: s.id, ...s.data() }))
         .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+      cacheZonas = zonDocs
+        .map((s) => ({ id: s.id, ...s.data() }))
+        .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'));
       // Los datos de conexión vienen en los propios dispositivos, así que se
       // recalculan al recargar en vez de quedarse con lo pintado antes.
       cacheConexion = null;
@@ -4123,7 +4133,33 @@ async function iniciar() {
     const iNombre = entrada(inm.nombre, 'ej: Torre A, Casa 12');
     const iCiudad = entrada(inm.ciudad);
     const iEstado = entrada(inm.estado);
-    const iZona = entrada(inm.zona);
+    // La zona se ELIGE, no se escribe.
+    //
+    // Escrita a mano, "Sebucan" y "Sebucán" son dos zonas distintas y el mapa
+    // las pinta como dos puntos en el mismo sitio. La lista sale de la misma
+    // colección que alimenta los pines, así que lo que se elige aquí es
+    // exactamente lo que se agrupa allá.
+    //
+    // Con "Otra…" al final, porque una lista cerrada de barrios sería una lista
+    // que hay que mantener a mano: el backend geocodifica la nueva y la añade.
+    const sZona = document.createElement('select');
+    const opcion = (valor, texto) => {
+      const o = document.createElement('option');
+      o.value = valor; o.textContent = texto;
+      return o;
+    };
+    sZona.appendChild(opcion('', 'Sin zona'));
+    for (const z of cacheZonas) sZona.appendChild(opcion(z.id, z.nombre));
+    sZona.appendChild(opcion('__nueva', 'Otra…'));
+    sZona.value = cacheZonas.some((z) => z.id === inm.zonaId) ? inm.zonaId : '';
+
+    const iZona = entrada('', 'Nombre de la zona');
+    iZona.classList.add('oculto');
+    sZona.addEventListener('change', () => {
+      const nueva = sZona.value === '__nueva';
+      iZona.classList.toggle('oculto', !nueva);
+      if (nueva) iZona.focus();
+    });
     [iNombre, iCiudad, iEstado, iZona].forEach((i) => i.setAttribute('autocapitalize', 'words'));
     iCiudad.setAttribute('list', listaSugerencias('ciudades-ve', Object.keys(CIUDADES_VE).sort((a, b) => a.localeCompare(b))));
     iEstado.setAttribute('list', listaSugerencias('estados-ve', ESTADOS_VE));
@@ -4183,7 +4219,8 @@ async function iniciar() {
       campo('Dentro de (el conjunto o edificio que lo contiene)', sPadre),
       campo('Ciudad', iCiudad),
       campo('Estado', iEstado),
-      campo('Zona', iZona),
+      campo('Zona', sZona),
+      iZona,
       campoCompone,
       campoTorres,
       campoNombres,
@@ -4289,7 +4326,10 @@ async function iniciar() {
           nombre: iNombre.value.trim(),
           ciudad: iCiudad.value.trim(),
           estado: iEstado.value.trim(),
-          zona: iZona.value.trim(),
+          // Una de las dos, nunca las dos: el id si se eligió de la lista, el
+          // nombre si es nueva y hay que crearla.
+          zonaId: sZona.value === '__nueva' ? '' : sZona.value,
+          zona: sZona.value === '__nueva' ? iZona.value.trim() : '',
           padre: sPadre.value,
         };
         const hijos = arbolLote();
@@ -6543,25 +6583,39 @@ async function iniciar() {
   // una tilde o una mayúscula de más no puede partir un pin en dos.
   const llaveZona = (t) => sinTildes(String(t || '').trim().toLowerCase()).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+  // La zona de un inmueble, subiendo por `padre` hasta encontrarla: un
+  // apartamento hereda la del edificio del que cuelga.
+  //
+  // Devuelve la LLAVE y el nombre. Se prefiere `zonaId` —que es la referencia
+  // de verdad desde que la zona se elige de una lista— y se cae al texto para
+  // los inmuebles guardados antes, que solo tienen el nombre escrito. Los dos
+  // caminos dan la misma llave, así que no parten un punto en dos.
+  function recorridoDeZonas() {
+    const porId = new Map(cacheInmuebles.map((x) => [x.id, x]));
+    const zonaDe = (inmuebleId) => {
+      let x = porId.get(inmuebleId);
+      for (let n = 0; n < 6 && x; n++) {
+        if (x.zonaId) return { llave: x.zonaId, nombre: x.zona || x.zonaId };
+        if (x.zona) return { llave: llaveZona(x.zona), nombre: x.zona };
+        x = porId.get(x.padre);
+      }
+      return null;
+    };
+    return { porId, zonaDe };
+  }
+
   // Lo que se abre al tocar un punto: dónde es y qué hay dentro.
   //
   // Agrupado por inmueble y no en una lista suelta de aparatos: "Lobby" y
   // "Portón" no dicen nada sin saber de qué edificio son, y con dos edificios
   // en la misma zona se confunden.
   function detalleDeZona(llave, cuenta) {
-    const porId = new Map(cacheInmuebles.map((x) => [x.id, x]));
-    const zonaDe = (inmuebleId) => {
-      let x = porId.get(inmuebleId);
-      for (let n = 0; n < 6 && x; n++) {
-        if (x.zona) return x.zona;
-        x = porId.get(x.padre);
-      }
-      return '';
-    };
+    const { porId, zonaDe } = recorridoDeZonas();
     const estado = new Map(conexionGuardada().map((d) => [d.id, d.online]));
     const porInmueble = new Map();
     for (const d of cacheDispositivos) {
-      if (llaveZona(zonaDe(d.inmueble)) !== llave) continue;
+      const z = zonaDe(d.inmueble);
+      if (!z || z.llave !== llave) continue;
       const inm = porId.get(d.inmueble);
       const nombre = inm ? (rutaInmueble(inm.id) || inm.nombre) : 'Sin inmueble';
       if (!porInmueble.has(nombre)) porInmueble.set(nombre, []);
@@ -6600,23 +6654,15 @@ async function iniciar() {
     // Qué zona le toca a cada aparato: la suya, o la del inmueble del que
     // cuelga. Un apartamento hereda la zona de su edificio, así que se sube por
     // `padre` hasta encontrarla.
-    const porId = new Map(cacheInmuebles.map((x) => [x.id, x]));
-    const zonaDe = (inmuebleId) => {
-      let x = porId.get(inmuebleId);
-      for (let n = 0; n < 6 && x; n++) {
-        if (x.zona) return x.zona;
-        x = porId.get(x.padre);
-      }
-      return '';
-    };
+    const { zonaDe } = recorridoDeZonas();
 
     const estado = new Map(conexionGuardada().map((d) => [d.id, d.online]));
     const cuentas = new Map();
     for (const d of cacheDispositivos) {
       const z = zonaDe(d.inmueble);
       if (!z) continue;
-      const k = llaveZona(z);
-      if (!cuentas.has(k)) cuentas.set(k, { nombre: z, total: 0, caidos: 0, sinSaber: 0 });
+      const k = z.llave;
+      if (!cuentas.has(k)) cuentas.set(k, { nombre: z.nombre, total: 0, caidos: 0, sinSaber: 0 });
       const c = cuentas.get(k);
       c.total += 1;
       const on = estado.get(d.id);

@@ -1088,9 +1088,70 @@ exports.adminListarDispositivosTuya = onCall(
 );
 
 // Crea o actualiza un inmueble del catálogo (solo admin).
+// De "Sebucán" a "sebucan": la llave con la que se guarda y se agrupa una zona.
+const llaveZona = (t) => String(t || '').trim().toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+// Dónde cae un barrio, preguntado UNA vez y guardado.
+//
+// Se usa Nominatim (OpenStreetMap): es gratis y no pide clave, a cambio de un
+// `User-Agent` que diga quién llama y de no machacarlo. Aquí se llama solo al
+// crear una zona nueva, o sea casi nunca.
+//
+// Si falla no se rompe nada: la zona se crea sin coordenadas y el mapa la
+// lista aparte como "sin ubicar". Es mejor que negarse a guardar el inmueble
+// porque un servicio de mapas no contestó.
+async function ubicarZona(nombre, ciudad) {
+  const q = new URLSearchParams({
+    q: [nombre, ciudad, 'Venezuela'].filter(Boolean).join(', '),
+    format: 'json',
+    limit: '1',
+  });
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?${q}`, {
+      headers: { 'User-Agent': 'ViYi (https://www.viyi.ai)' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) return null;
+    const lista = await r.json();
+    if (!Array.isArray(lista) || !lista.length) return null;
+    return { lat: Number(lista[0].lat), lng: Number(lista[0].lon) };
+  } catch (e) {
+    return null;
+  }
+}
+
+// La zona que toca: la elegida de la lista, o una nueva que se crea al vuelo.
+async function resolverZona({ zonaId, zonaNueva, ciudad }) {
+  const elegida = typeof zonaId === 'string' ? zonaId.trim() : '';
+  if (elegida) {
+    const snap = await db.doc(`zonas/${elegida}`).get();
+    if (!snap.exists) throw new HttpsError('invalid-argument', 'Esa zona no existe.');
+    return { id: snap.id, nombre: snap.data().nombre || '' };
+  }
+
+  const nombre = String(zonaNueva || '').trim().slice(0, 60);
+  if (!nombre) return { id: '', nombre: '' };   // sin zona: se permite, no todo inmueble la tiene
+
+  const id = llaveZona(nombre);
+  const ya = await db.doc(`zonas/${id}`).get();
+  if (ya.exists) return { id, nombre: ya.data().nombre || nombre };
+
+  const punto = await ubicarZona(nombre, ciudad);
+  await db.doc(`zonas/${id}`).set({
+    nombre,
+    ciudad: String(ciudad || '').trim(),
+    ...(punto ? { lat: punto.lat, lng: punto.lng } : {}),
+    origen: punto ? 'nominatim' : 'sin-ubicar',
+    creado: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+  return { id, nombre };
+}
+
 exports.adminGuardarInmueble = onCall(RARA, async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
-  const { id, tipo, nombre, ciudad, estado, zona, padre } = request.data || {};
+  const { id, tipo, nombre, ciudad, estado, zona, zonaId, padre } = request.data || {};
   if (!TIPOS_INMUEBLE.includes(tipo)) {
     throw new HttpsError('invalid-argument', 'Tipo de inmueble no válido.');
   }
@@ -1120,12 +1181,21 @@ exports.adminGuardarInmueble = onCall(RARA, async (request) => {
     if (id) exigirInmueble(alcance, id, 'Ese inmueble');
     else exigirInmueble(alcance, padreFinal, 'Ese inmueble padre');
   }
+  // La zona deja de ser texto libre: se elige de la lista, o se crea.
+  //
+  // Escrita a mano, "Sebucan" y "Sebucán" son dos zonas distintas, y el mapa
+  // las pinta como dos puntos en el mismo sitio. Se guardan las dos cosas: el
+  // `zonaId` para agrupar sin ambigüedad y el `zona` para leerlo sin tener que
+  // ir a buscar el nombre a otra colección.
+  const zonaRef = await resolverZona({ zonaId, zonaNueva: zona, ciudad });
+
   const datos = {
     tipo,
     nombre: nombre.trim().slice(0, 60),
     ciudad: texto(ciudad),
     estado: texto(estado),
-    zona: texto(zona),
+    zona: zonaRef.nombre,
+    zonaId: zonaRef.id,
     padre: padreFinal,
   };
   let inmuebleId = id;
