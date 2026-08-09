@@ -1466,8 +1466,8 @@ async function iniciar() {
   // todavía no tiene los metadatos cargados, así que el salto fallaba y con él
   // la reproducción. Partido en dos, se reproduce igual que el Jet, que es el
   // camino que ya sabemos que funciona en ese teléfono.
-  const pilderSube = new Audio('pilder-sube.wav?v=1'); pilderSube.preload = 'auto';
-  const pilderBaja = new Audio('pilder-baja.wav?v=1'); pilderBaja.preload = 'auto';
+  const pilderSube = new Audio('pilder-sube.wav?v=2'); pilderSube.preload = 'auto';
+  const pilderBaja = new Audio('pilder-baja.wav?v=2'); pilderBaja.preload = 'auto';
   const pilderSonar = (cual) => jetSonar(cual === 'bajar' ? pilderBaja : pilderSube);
 
   const jetSonar = (a) => { try { a.muted = false; a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } };
@@ -1483,7 +1483,12 @@ async function iniciar() {
     [jetTapa, jetToggle, pilderSube, pilderBaja].forEach((a) => {
       try {
         a.muted = true; const p = a.play();
-        if (p && p.then) p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
+        // El `pause` solo si SIGUE mudo. `play()` devuelve una promesa que
+        // resuelve tarde, y entre el pointerdown y el click hay tiempo de
+        // sobra para que el sonido de verdad haya arrancado: entonces este
+        // `pause` lo mataba justo después de empezar. `jetSonar` quita el mudo
+        // al reproducir de verdad, así que eso mismo sirve de señal.
+        if (p && p.then) p.then(() => { if (a.muted) { a.pause(); a.currentTime = 0; a.muted = false; } }).catch(() => { a.muted = false; });
         else { a.pause(); a.muted = false; }
       } catch (e) { /* ignore */ }
     });
