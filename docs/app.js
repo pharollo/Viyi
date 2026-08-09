@@ -1454,44 +1454,101 @@ async function iniciar() {
     if (navigator.audioSession) navigator.audioSession.type = 'transient';
   } catch (e) { /* el navegador no lo soporta: nada que hacer */ }
 
-  // Audios del Jet Switch, compartidos por todos sus controles. Dos elementos
-  // separados: la tapa en MP3, el toggle en WAV (su MP3 no sonaba en iPhone).
-  const jetTapa = new Audio('click-tapa.mp3?v=3'); jetTapa.preload = 'auto';
-  const jetToggle = new Audio('click-toggle.wav?v=2'); jetToggle.preload = 'auto';
-  // El sonido del Pilder: DOS archivos, uno por clic.
+  // Los chasquidos de los controles, por Web Audio y no por <audio>.
   //
-  // Venían los dos en un mismo wav y se reproducía por tramos, saltando con
-  // `currentTime`. En el iPhone no sonaba —el Jet sí, porque reproduce archivos
-  // enteros desde el principio—: iOS no deja buscar dentro de un audio que
-  // todavía no tiene los metadatos cargados, así que el salto fallaba y con él
-  // la reproducción. Partido en dos, se reproduce igual que el Jet, que es el
-  // camino que ya sabemos que funciona en ese teléfono.
-  const pilderSube = new Audio('pilder-sube.wav?v=2'); pilderSube.preload = 'auto';
-  const pilderBaja = new Audio('pilder-baja.wav?v=2'); pilderBaja.preload = 'auto';
-  const pilderSonar = (cual) => jetSonar(cual === 'bajar' ? pilderBaja : pilderSube);
+  // El problema que resuelve: "todavía siento que la palanca va más rápido que
+  // el sonido". Un `<audio>.play()` en iOS tarda decenas de milisegundos en
+  // empezar a sonar de verdad —arranca una tubería de reproducción cada vez—
+  // mientras que la palanca cambia en el mismo instante del clic. Recortarle el
+  // aire a los archivos ayudó (eran 50 ms), pero la latencia que quedaba es del
+  // reproductor, no del archivo. Un `AudioBufferSourceNode` sobre un búfer ya
+  // decodificado arranca casi en el momento: eso es lo que se oye pegado al
+  // dedo.
+  //
+  // Se decodifica UNA vez y se guarda; cada clic es un nodo nuevo y desechable,
+  // que además permite que dos chasquidos se solapen sin cortarse — con un solo
+  // `<audio>` el segundo mataba al primero.
+  const SONIDOS = {
+    tapa: 'click-tapa.mp3?v=3',
+    toggle: 'click-toggle.wav?v=2',
+    // El Pilder son DOS archivos, uno por clic. Venían los dos en un mismo wav
+    // y se reproducía por tramos saltando con `currentTime`; en el iPhone eso
+    // no sonaba, porque iOS no deja buscar dentro de un audio que todavía no
+    // tiene los metadatos cargados. Partidos en dos, no hay nada que buscar.
+    subir: 'pilder-sube.wav?v=2',
+    bajar: 'pilder-baja.wav?v=2',
+  };
 
-  const jetSonar = (a) => { try { a.muted = false; a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } };
-  // Desbloqueo de iOS al primer toque (pointerdown): reproduce ambos audios en
-  // silencio y los pausa, para que suenen aunque la acción salte en el
-  // movimiento del dedo (que iOS a veces no cuenta como gesto válido).
-  let jetDesbloqueado = false;
-  const jetDesbloquear = () => {
-    if (jetDesbloqueado) return; jetDesbloqueado = true;
-    // El del Pilder entra en el MISMO desbloqueo: iOS lo concede por gesto del
-    // usuario, no por audio, y montar un segundo mecanismo significaría que el
-    // primer toque de una palanca fuera mudo según por dónde hubieras entrado.
-    [jetTapa, jetToggle, pilderSube, pilderBaja].forEach((a) => {
+  // La red de seguridad: los mismos sonidos como <audio>, para el navegador que
+  // no tenga Web Audio y para el rato en que los búferes aún se decodifican. No
+  // se borra el camino viejo, se le deja de segundo.
+  const respaldo = {};
+  for (const [nombre, url] of Object.entries(SONIDOS)) {
+    respaldo[nombre] = new Audio(url);
+    respaldo[nombre].preload = 'auto';
+  }
+
+  let ctx = null;
+  const bufer = {};
+
+  const sonar = (nombre) => {
+    const b = bufer[nombre];
+    if (ctx && ctx.state === 'running' && b) {
+      try {
+        const fuente = ctx.createBufferSource();
+        fuente.buffer = b;
+        fuente.connect(ctx.destination);
+        fuente.start();
+        return;
+      } catch (e) { /* si falla, se cae al <audio> de abajo */ }
+    }
+    const a = respaldo[nombre];
+    if (!a) return;
+    try { a.muted = false; a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ }
+  };
+
+  // Despertar el audio en el primer toque (pointerdown).
+  //
+  // iOS concede el permiso por GESTO del usuario, no por sonido, así que los
+  // cuatro entran en el mismo despertar: montar uno por control significaría
+  // que el primer toque de una palanca fuera mudo según por dónde hubieras
+  // entrado a la app.
+  let despierto = false;
+  const despertarAudio = () => {
+    if (despierto) return; despierto = true;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) {
+        ctx = new AC();
+        // Crear el contexto dentro del gesto no basta en iOS: nace suspendido.
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+        for (const [nombre, url] of Object.entries(SONIDOS)) {
+          fetch(url)
+            .then((r) => r.arrayBuffer())
+            .then((bytes) => new Promise((ok, mal) => {
+              // Con callbacks y no con la promesa: Safari viejo solo tiene esta
+              // forma de `decodeAudioData`, y es justo el navegador que importa.
+              const r = ctx.decodeAudioData(bytes, ok, mal);
+              if (r && r.then) r.then(ok, mal);
+            }))
+            .then((b) => { bufer[nombre] = b; })
+            .catch(() => { /* se queda con el <audio> de respaldo */ });
+        }
+      }
+    } catch (e) { /* sin Web Audio: el respaldo hace el trabajo */ }
+    // El respaldo también necesita su permiso, y hay que pedirlo AHORA, en el
+    // gesto: si Web Audio falla más tarde no habrá otro momento válido.
+    for (const a of Object.values(respaldo)) {
       try {
         a.muted = true; const p = a.play();
-        // El `pause` solo si SIGUE mudo. `play()` devuelve una promesa que
-        // resuelve tarde, y entre el pointerdown y el click hay tiempo de
-        // sobra para que el sonido de verdad haya arrancado: entonces este
-        // `pause` lo mataba justo después de empezar. `jetSonar` quita el mudo
-        // al reproducir de verdad, así que eso mismo sirve de señal.
+        // El `pause` solo si SIGUE mudo. `play()` resuelve tarde, y entre el
+        // pointerdown y el click hay tiempo de sobra para que el sonido de
+        // verdad haya arrancado: entonces este `pause` lo mataba justo después
+        // de empezar. `sonar` quita el mudo al reproducir, y eso hace de señal.
         if (p && p.then) p.then(() => { if (a.muted) { a.pause(); a.currentTime = 0; a.muted = false; } }).catch(() => { a.muted = false; });
         else { a.pause(); a.muted = false; }
       } catch (e) { /* ignore */ }
-    });
+    }
   };
 
   // Control tipo "Jet Switch": tapa de seguridad roja + palanca. Se desliza la
@@ -1531,8 +1588,8 @@ async function iniciar() {
 
     const ir = (nuevo) => {
       const prev = idx; idx = nuevo;
-      if ((prev === 0 && nuevo === 1) || (prev === 1 && nuevo === 0)) jetSonar(jetTapa); // tapa
-      else if (prev === 1 && nuevo === 2) jetSonar(jetToggle);                            // toggle (pulso)
+      if ((prev === 0 && nuevo === 1) || (prev === 1 && nuevo === 0)) sonar('tapa'); // tapa
+      else if (prev === 1 && nuevo === 2) sonar('toggle');                            // toggle (pulso)
       pintar();
     };
 
@@ -1560,7 +1617,7 @@ async function iniciar() {
 
     // Gesto de deslizar; la acción salta al cruzar el umbral en el movimiento.
     let y0 = null, actuado = false;
-    sw.addEventListener('pointerdown', (e) => { y0 = e.clientY; actuado = false; jetDesbloquear(); if (sw.setPointerCapture) sw.setPointerCapture(e.pointerId); });
+    sw.addEventListener('pointerdown', (e) => { y0 = e.clientY; actuado = false; despertarAudio(); if (sw.setPointerCapture) sw.setPointerCapture(e.pointerId); });
     sw.addEventListener('pointermove', (e) => {
       if (y0 === null || actuado) return;
       const dy = e.clientY - y0;
@@ -2000,9 +2057,9 @@ async function iniciar() {
     // hundido va con su propia clase y no con las de `pulsar`, que duran lo que
     // dura la apertura.
     let volver = null;
-    boton.addEventListener('pointerdown', jetDesbloquear);   // iOS: desbloquea el audio en el gesto
+    boton.addEventListener('pointerdown', despertarAudio);   // iOS: desbloquea el audio en el gesto
     boton.addEventListener('click', () => {
-      jetSonar(jetTapa);                                     // el clic del plástico
+      sonar('tapa');                                     // el clic del plástico
       boton.classList.add('pulsado');
       clearTimeout(volver);
       volver = setTimeout(() => boton.classList.remove('pulsado'), 1100);
@@ -2085,6 +2142,10 @@ async function iniciar() {
   // un interruptor se queda arriba mientras está encendido, y en una puerta sube
   // al abrir y baja sola cuando pasan los segundos de apertura — o sea que dice
   // "está abierta AHORA", que es justo lo que el botón redondo no sabe decir.
+  // Cuánto se queda arriba la palanca como mucho. Es el gesto de empujarla, no
+  // el tiempo que la puerta esté abierta.
+  const TOPE_PALANCA = 1200;
+
   function controlPilder(dispositivo, demo) {
     const control = document.createElement('div');
     control.className = 'control control-pilder';
@@ -2103,7 +2164,7 @@ async function iniciar() {
     // El sonido va con la PALANCA, no con el toque: suena cuando la palanca se
     // mueve de verdad. En un interruptor eso es al saberse el nuevo estado; en
     // una puerta, al subir (al tocar) y al bajar (cuando se cierra).
-    boton.addEventListener('pointerdown', jetDesbloquear, { passive: true });
+    boton.addEventListener('pointerdown', despertarAudio, { passive: true });
     boton.addEventListener('click', () => {
       if (dispositivo.modo === 'interruptor') {
         // El clic suena YA, en la dirección hacia la que la empujas. La palanca
@@ -2118,7 +2179,7 @@ async function iniciar() {
         // clic y la palanca no se movió — que es exactamente lo que pasa al
         // accionar un interruptor que no engancha.
         const antes = boton.classList.contains('activo');
-        pilderSonar(antes ? 'bajar' : 'subir');
+        sonar(antes ? 'bajar' : 'subir');
         if (demo) { pintarEstado(boton, !antes); return; }
         alternar(boton, dispositivo);
         return;
@@ -2126,8 +2187,25 @@ async function iniciar() {
       // Puerta: sube ya —el chasquido es la respuesta al toque— y el de bajar
       // se programa para cuando la palanca vuelve, que es al cerrarse.
       if (boton.classList.contains('enviando') || boton.classList.contains('exito')) return;
-      pilderSonar('subir');
-      const alBajar = () => pilderSonar('bajar');
+      sonar('subir');
+      boton.classList.add('alzada');
+      // La palanca es MOMENTÁNEA: se empuja y vuelve sola. Antes se quedaba
+      // arriba todo lo que durara la puerta abierta, y con un portón puesto en
+      // 15 segundos eso eran 15 segundos con la palanca en alto. Que la puerta
+      // siga abierta ya lo dice el botón; la palanca dice otra cosa —que la
+      // empujaste— y esa acción se acaba enseguida.
+      let bajada = false;
+      const bajar = () => {
+        if (bajada) return; bajada = true;
+        boton.classList.remove('alzada');
+        sonar('bajar');
+      };
+      // Lo que dure la puerta, pero nunca más de TOPE: una puerta de 1 s lleva
+      // la palanca consigo, y una de 15 no la arrastra.
+      const reloj = setTimeout(bajar, Math.min(duracionAbierto(dispositivo), TOPE_PALANCA));
+      // Si el aparato no contesta, la palanca cae YA en vez de esperar su turno:
+      // el gesto no llegó a ninguna parte y quedarse arriba diría lo contrario.
+      const alBajar = () => { clearTimeout(reloj); bajar(); };
       if (demo) pulsarDemo(boton, dispositivo, alBajar); else pulsar(boton, dispositivo, alBajar);
     });
     if (!demo) vestirAlMantenerPulsado(control, boton, dispositivo);

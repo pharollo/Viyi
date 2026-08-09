@@ -1053,9 +1053,13 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
    mantenía la palanca arriba hasta que el aparato contestaba, así que el
    chasquido sonaba y la palanca bajaba un segundo después. Solo se notaba al
    bajar, porque al subir las dos clases dicen lo mismo. */
+/* ⚠️ En modo pulso la palanca la manda `alzada`, NO `exito`.
+   `exito` dura lo que dure la puerta abierta, y con un portón puesto en 15
+   segundos la palanca se quedaba arriba los 15 — una palanca es momentánea:
+   la empujas y vuelve sola. Que la puerta siga abierta lo dice el botón, no
+   la palanca. `alzada` la baja al chasquido, sin esperar a la puerta. */
 .pilder.activo .pilder-on,
-.pilder-pulso.enviando .pilder-on,
-.pilder-pulso.exito .pilder-on { opacity: 1; }
+.pilder-pulso.alzada .pilder-on { opacity: 1; }
 
 /* Sin encoger al pulsar. Lo tenía y era el otro candidato a "vibra": un
    `transform` sin transición que iOS enciende y apaga con los micromovimientos
