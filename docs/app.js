@@ -1009,9 +1009,18 @@ async function iniciar() {
         // Admin de edificio: solo los de su alcance (mismo motivo que en Gestión).
         const partes = [];
         for (let i = 0; i < alc.length; i += 30) partes.push(alc.slice(i, i + 30));
-        const res = await Promise.all(partes.map((t) => getDocs(query(
-          collection(db, 'dispositivos'), where('inmueble', 'in', t),
-        )).catch((err) => { console.warn('alcance', err); return null; })));
+        // Sin lo privado de los vecinos, igual que en Gestión: es lo que la
+        // regla le deja leer como administrador. Lo suyo entra por la otra
+        // consulta, la de sus propios inmuebles.
+        const casa = (usuario.inmueblesIds || []);
+        const partesCasa = [];
+        for (let i = 0; i < casa.length; i += 30) partesCasa.push(casa.slice(i, i + 30));
+        const res = await Promise.all([
+          ...partes.map((t) => getDocs(query(collection(db, 'dispositivos'),
+            where('dueno', '==', ''), where('inmueble', 'in', t)))),
+          ...partesCasa.map((t) => getDocs(query(collection(db, 'dispositivos'),
+            where('inmueble', 'in', t)))),
+        ].map((p) => p.catch((err) => { console.warn('alcance', err); return null; })));
         const vistos = new Map();
         for (const r of res) if (r) for (const d of r.docs) vistos.set(d.id, d);
         documentos = [...vistos.values()].filter((s) => s.data().activo !== false);
@@ -2902,9 +2911,24 @@ async function iniciar() {
       // se evalúa por documento, así que una consulta sin filtrar le fallaría
       // entera en cuanto cayera algo de otro edificio.
       const alc = miAlcance();
+      // Y sin lo PRIVADO de los vecinos: administrar un edificio es mandar en
+      // sus puertas y sus luces comunes, no en la lámpara del salón de alguien.
+      // El `dueno` ya marcaba esa diferencia en el tablero de controles; aquí
+      // se aplica también, y la regla de Firestore lo respalda —así que el
+      // filtro no es cosmético: sin él la consulta fallaría entera en cuanto
+      // cayera un aparato con dueño.
+      //
+      // Lo suyo sí, en una consulta aparte: vive ahí, y la regla se lo permite
+      // por vecino y no por administrador. Sin esto, un admin de edificio
+      // perdería de vista los aparatos de su propia casa.
+      const míos = (usuarioActual && usuarioActual.inmueblesIds) || [];
       const pedirDisp = alc.length
-        ? Promise.all(enTrozos(alc).map((t) => getDocs(query(
-            collection(db, 'dispositivos'), where('inmueble', 'in', t))))).then(unirDocs)
+        ? Promise.all([
+            ...enTrozos(alc).map((t) => getDocs(query(collection(db, 'dispositivos'),
+              where('dueno', '==', ''), where('inmueble', 'in', t)))),
+            ...enTrozos(míos).map((t) => getDocs(query(collection(db, 'dispositivos'),
+              where('inmueble', 'in', t)))),
+          ]).then(unirDocs)
         : getDocs(collection(db, 'dispositivos')).then((r) => r.docs);
       const pedirUsu = alc.length
         ? Promise.all(enTrozos(alc).map((t) => getDocs(query(

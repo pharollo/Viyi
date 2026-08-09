@@ -55,6 +55,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "dispositivos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "dueno",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "inmueble",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
