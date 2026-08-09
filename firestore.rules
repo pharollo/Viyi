@@ -134,8 +134,24 @@ service cloud.firestore {
     // Catálogo de inmuebles del condominio. Lo crean, editan y asignan las
     // Functions (solo admin). Cualquier autenticado puede leerlo (lo usará el
     // selector de "Mi perfil" cuando se habilite la autoasignación).
+    // Los inmuebles NO son públicos entre condominios.
+    //
+    // Decía `if autenticado()`, así que cualquiera con cuenta se traía el
+    // catálogo de todos: los edificios de gente que no conoce, con sus nombres
+    // y su ciudad. Se vio probando con un admin de edificio, que además tenía
+    // esos inmuebles a mano para asignárselos a un vecino.
+    //
+    // Se lee lo propio (la cadena `inmueblesIds` ya trae los ancestros, que es
+    // lo que permite pintar la ruta completa) y lo que se administra. El dueño
+    // global, todo.
+    //
+    // ⚠️ Regla POR DOCUMENTO: la app no puede pedir la colección entera. Pide
+    // por `documentId() in [...]` con los ids que le tocan; un `getDocs` sin
+    // `where` vuelve a fallar entero, igual que en `skins`.
     match /inmuebles/{id} {
-      allow read: if autenticado();
+      allow read: if esAdminGlobal()
+        || (autenticado() && id in miUsuario().get('inmueblesIds', []))
+        || (esAdmin() && id in alcanceAdmin());
       allow write: if false;
     }
 
