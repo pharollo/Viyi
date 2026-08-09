@@ -4148,10 +4148,21 @@ async function iniciar() {
       o.value = valor; o.textContent = texto;
       return o;
     };
-    sZona.appendChild(opcion('', 'Sin zona'));
-    for (const z of cacheZonas) sZona.appendChild(opcion(z.id, z.nombre));
-    sZona.appendChild(opcion('__nueva', 'Otra…'));
-    sZona.value = cacheZonas.some((z) => z.id === inm.zonaId) ? inm.zonaId : '';
+    // Filtradas por ciudad: son 79 solo de Caracas, y un edificio en Maracaibo
+    // no tiene por qué recorrerlas. Si la ciudad escrita no tiene ninguna
+    // —recién puesta, o escrita distinto— se enseñan todas antes que dejar el
+    // desplegable vacío, que parecería roto.
+    const llenarZonas = () => {
+      const antes = sZona.value;
+      const c = sinTildes(iCiudad.value.trim());
+      const suyas = cacheZonas.filter((z) => sinTildes(z.ciudad || '') === c);
+      const lista = suyas.length ? suyas : cacheZonas;
+      sZona.textContent = '';
+      sZona.appendChild(opcion('', 'Sin zona'));
+      for (const z of lista) sZona.appendChild(opcion(z.id, z.nombre));
+      sZona.appendChild(opcion('__nueva', 'Otra…'));
+      sZona.value = [...sZona.options].some((o) => o.value === antes) ? antes : '';
+    };
 
     const iZona = entrada('', 'Nombre de la zona');
     iZona.classList.add('oculto');
@@ -4168,7 +4179,10 @@ async function iniciar() {
     iCiudad.addEventListener('input', () => {
       const est = ESTADO_POR_CIUDAD.get(sinTildes(iCiudad.value));
       if (est) iEstado.value = est;
+      llenarZonas();   // cambiar de ciudad cambia las zonas que tienen sentido
     });
+    llenarZonas();
+    if (cacheZonas.some((z) => z.id === inm.zonaId)) sZona.value = inm.zonaId;
     // Padre: arma la jerarquía conjunto -> edificio -> apartamento. Quien tenga
     // asignado el apartamento alcanza también lo común del edificio y del
     // conjunto; al revés no.
