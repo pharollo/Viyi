@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=338">
+  <link rel="stylesheet" href="styles.css?v=339">
 </head>
 <body>
   <header>
@@ -260,6 +260,11 @@
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           </button>
         </div>
+        <div id="filtro-registros" class="pase-scope">
+          <button type="button" class="chip-scope activa" data-filtro="todos">Todos</button>
+          <button type="button" class="chip-scope" data-filtro="ok">Aciertos</button>
+          <button type="button" class="chip-scope" data-filtro="fallo">Fallos</button>
+        </div>
         <ul id="lista-registros"></ul>
         <button id="btn-mas-registros" type="button" class="btn-secundario oculto">Más</button>
       </div>
@@ -461,6 +466,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=364"></script>
+  <script type="module" src="app.js?v=365"></script>
 </body>
 </html>

@@ -6540,6 +6540,12 @@ async function iniciar() {
   // Firestore tiene que apuntar a algo que la consulta haya devuelto de verdad.
   let cursorRegistros = null;
   let quedanRegistros = true;
+  // `todos` | `ok` | `fallo`. Se filtra AQUÍ y no en la consulta a propósito:
+  // un `where('exito', …)` pediría dos índices más (uno para el dueño y otro
+  // para el admin de edificio, que ya consulta filtrado por inmueble) y el
+  // bucle por lotes que hay abajo ya sabe pedir de más cuando se le cae gente
+  // por el camino. Con miles de registros, no con millones, sale a cuenta.
+  let filtroRegistros = 'todos';
   const POR_PAGINA = 30;
   const LOTE = 120;   // se piden más de las que se enseñan: los aparatos con el registro apagado se caen por el camino
 
@@ -6581,7 +6587,11 @@ async function iniciar() {
         if (resultado.empty) break;
         cursorRegistros = resultado.docs[resultado.docs.length - 1];
         for (const d of resultado.docs) {
-          if (!mudos.has(d.data().dispositivoId)) docs.push(d);
+          const r = d.data();
+          const pasa = !mudos.has(r.dispositivoId)
+            && (filtroRegistros === 'todos'
+              || (filtroRegistros === 'ok' ? r.exito !== false : r.exito === false));
+          if (pasa) docs.push(d);
           if (docs.length >= POR_PAGINA) break;
         }
         // Si la página se llenó a media tanda, el cursor tiene que quedarse en
@@ -6596,7 +6606,11 @@ async function iniciar() {
       if (!docs.length) {
         if (!mas) {
           const item = document.createElement('li');
-          item.textContent = 'Sin actividad todavía.';
+          // Decir "sin actividad" cuando lo que pasa es que el filtro no deja
+          // ver nada manda a buscar una avería donde solo hay un botón puesto.
+          item.textContent = filtroRegistros === 'todos'
+            ? 'Sin actividad todavía.'
+            : (filtroRegistros === 'fallo' ? 'Ningún fallo.' : 'Ningún acierto.');
           lista.appendChild(item);
         }
         return;
@@ -6640,4 +6654,14 @@ async function iniciar() {
   $('btn-refrescar').addEventListener('click', () => cargarRegistros());
   $('btn-refrescar-conexiones').addEventListener('click', cargarConexiones);
   $('btn-mas-registros').addEventListener('click', () => cargarRegistros({ mas: true }));
+  $('filtro-registros').addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-filtro]');
+    if (!chip || chip.dataset.filtro === filtroRegistros) return;
+    filtroRegistros = chip.dataset.filtro;
+    $('filtro-registros').querySelectorAll('[data-filtro]')
+      .forEach((c) => c.classList.toggle('activa', c === chip));
+    // Sin `mas`: cambiar el filtro empieza la lista de cero. Seguir con el
+    // cursor donde estaba enseñaría la segunda página de otra lista.
+    cargarRegistros();
+  });
 }
