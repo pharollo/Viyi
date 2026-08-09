@@ -43,7 +43,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="landing.css?v=5">
+  <link rel="stylesheet" href="landing.css?v=7">
 </head>
 <body>
   <header class="barra">
@@ -69,16 +69,28 @@
     <!-- Casi sin palabras a propósito: tres imágenes y dos palabras cada una
          dicen lo que hacían tres párrafos. -->
     <section class="galeria">
+      <!-- Botones de verdad, no adornos: se pulsan, suenan y responden. Es lo
+           que la página promete, así que dejarlo mirar sin tocar sería raro. -->
       <figure>
-        <img src="app/pilder-on.webp" alt="Portón" width="336" height="530" loading="lazy">
+        <button type="button" class="boton-demo" data-sonido="porton" aria-label="Probar el portón">
+          <img src="app/pilder-on.webp" alt="" width="336" height="530" loading="lazy">
+        </button>
         <figcaption>Tu portón</figcaption>
       </figure>
       <figure>
-        <img src="app/sabiem.webp" alt="Ascensor" width="300" height="590" loading="lazy">
+        <!-- El Sabiem lleva su animación de verdad: una capa con "LLEGANDO" que
+             se enciende sobre el panel, igual que en la app. Por eso este va
+             con dos imágenes y no con una. -->
+        <button type="button" class="boton-demo capas" data-sonido="ascensor" aria-label="Probar el ascensor">
+          <img src="app/sabiem.webp" alt="" width="300" height="590" loading="lazy">
+          <img class="capa" src="app/sabiem-llegando.png" alt="" width="300" height="590" loading="lazy" aria-hidden="true">
+        </button>
         <figcaption>Tu ascensor</figcaption>
       </figure>
       <figure>
-        <img src="app/lobby.webp" alt="Puerta del lobby" width="300" height="530" loading="lazy">
+        <button type="button" class="boton-demo redondo" data-sonido="lobby" aria-label="Probar el lobby">
+          <img src="app/lobby.webp" alt="" width="420" height="420" loading="lazy">
+        </button>
         <figcaption>Tu lobby</figcaption>
       </figure>
     </section>
@@ -123,6 +135,6 @@
     <a href="terminos.html">Términos</a>
   </footer>
 
-  <script src="landing.js?v=1"></script>
+  <script src="landing.js?v=3"></script>
 </body>
 </html>

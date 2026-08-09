@@ -28,6 +28,79 @@ const $ = (id) => document.getElementById(id);
   for (const a of enlaces) { a.href = url; a.target = '_blank'; }
 })();
 
+// ---- Los botones de la galería: suenan y responden ----
+//
+// Web Audio y no `<audio>`: en el iPhone un `<audio>.play()` tarda decenas de
+// milisegundos en arrancar y el clic se oye DESPUÉS de que el botón se hunde.
+// Es la misma lección que costó tres vueltas en la app.
+//
+// Los archivos son los de la app —son los mismos controles— así que se piden de
+// `app/`. Y solo se descargan al primer toque: quien viene a leer la página no
+// tiene por qué bajarse tres sonidos que a lo mejor no usa.
+const SONIDOS = {
+  porton: 'app/pilder-sube.wav?v=2',
+  ascensor: 'app/tic-rueda.wav',
+  lobby: 'app/click-tapa.mp3?v=3',
+};
+
+let ctxAudio = null;
+const bufers = {};
+
+function despertarAudio() {
+  if (ctxAudio) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  ctxAudio = new AC();
+  // En iOS nace suspendido aunque se cree dentro del gesto.
+  if (ctxAudio.state === 'suspended') ctxAudio.resume().catch(() => {});
+  for (const [nombre, url] of Object.entries(SONIDOS)) {
+    fetch(url)
+      .then((r) => r.arrayBuffer())
+      .then((bytes) => new Promise((ok, mal) => {
+        // Con callbacks además de la promesa: Safari viejo solo tiene esa forma.
+        const p = ctxAudio.decodeAudioData(bytes, ok, mal);
+        if (p && p.then) p.then(ok, mal);
+      }))
+      .then((b) => { bufers[nombre] = b; })
+      .catch(() => { /* sin sonido, pero el botón sigue respondiendo */ });
+  }
+}
+
+function sonar(nombre) {
+  const b = bufers[nombre];
+  if (!ctxAudio || ctxAudio.state !== 'running' || !b) return;
+  try {
+    const f = ctxAudio.createBufferSource();
+    f.buffer = b;
+    f.connect(ctxAudio.destination);
+    f.start();
+  } catch (e) { /* ignore */ }
+}
+
+for (const boton of document.querySelectorAll('.boton-demo')) {
+  // El audio se desbloquea en el `pointerdown`, que es el gesto que iOS acepta;
+  // el sonido sale en el `click`, con la animación.
+  boton.addEventListener('pointerdown', despertarAudio, { passive: true });
+  boton.addEventListener('click', () => {
+    sonar(boton.dataset.sonido);
+    // Se quita y se vuelve a poner para que pulsar dos veces seguidas repita la
+    // animación: si no, la segunda vez no pasa nada porque la clase ya estaba.
+    boton.classList.remove('pulsado');
+    void boton.offsetWidth;   // fuerza el reflow que reinicia la animación
+    boton.classList.add('pulsado');
+
+    // El que tiene capa enciende su "LLEGANDO" y lo apaga solo. Va por su
+    // cuenta y no con `pulsado`, que dura cuatro décimas: un ascensor que
+    // llega no llega en cuatro décimas.
+    if (boton.classList.contains('capas')) {
+      clearTimeout(boton._reloj);
+      boton.classList.add('llegando');
+      boton._reloj = setTimeout(() => boton.classList.remove('llegando'), 1600);
+    }
+  });
+  boton.addEventListener('animationend', () => boton.classList.remove('pulsado'));
+}
+
 $('form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const boton = $('enviar');

@@ -156,13 +156,64 @@ main { max-width: var(--ancho); margin: 0 auto; padding: 0 22px; }
   border: 1px solid var(--linea);
   text-align: center;
 }
+/* El botón: sin caja propia, que la caja ya la pone la ficha. */
+.boton-demo {
+  display: block;
+  margin: 0 auto;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 14px;
+  transition: transform 0.12s ease;
+}
+.boton-demo:active { transform: scale(0.965); }
+/* Al pulsar: se hunde y se enciende un halo verde que se apaga solo. Es la
+   misma idea que en la app —el control responde al dedo— traída aquí sin la
+   maquinaria de relieve de la app. */
+.boton-demo.pulsado { animation: pulso-demo 0.42s ease-out; }
+@keyframes pulso-demo {
+  0%   { transform: scale(0.94); filter: brightness(1.35) drop-shadow(0 0 0 rgba(165, 255, 46, 0.9)); }
+  55%  { transform: scale(1.015); filter: brightness(1.12) drop-shadow(0 0 18px rgba(165, 255, 46, 0.55)); }
+  100% { transform: scale(1); filter: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boton-demo, .boton-demo.pulsado { animation: none; transition: none; }
+}
+
 .galeria img {
+  display: block;
   width: auto;
   height: 190px;
   max-width: 100%;
   object-fit: contain;
   filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.6));
 }
+/* Redondos: el archivo es cuadrado con el botón centrado, así que recortarlo
+   en círculo deja el botón y se lleva las esquinas oscuras. `cover` y no
+   `contain` para que llene el círculo sin bordes. */
+.boton-demo.redondo img {
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* El Sabiem: panel de base y encima la capa que enciende "LLEGANDO". La capa
+   es un PNG transparente con solo la palabra, así que basta con superponerla.
+   Dura más que el hundido del botón —1,6 s— porque un ascensor que llega no
+   llega en cuatro décimas. */
+.boton-demo.capas { position: relative; }
+.boton-demo.capas .capa {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  filter: none;
+}
+.boton-demo.capas.llegando .capa { opacity: 1; }
 .galeria figcaption {
   margin-top: 14px;
   font-family: 'Fredoka', sans-serif;
@@ -173,6 +224,7 @@ main { max-width: var(--ancho); margin: 0 auto; padding: 0 22px; }
   .galeria { gap: 10px; }
   .galeria figure { padding: 14px 8px 12px; }
   .galeria img { height: 118px; }
+  .boton-demo.redondo img { width: 118px; height: 118px; }
   .galeria figcaption { margin-top: 10px; font-size: 13px; }
 }
 
