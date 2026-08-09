@@ -152,6 +152,14 @@ service cloud.firestore {
     // para el desplegable del editor. No dicen nada de nadie —son barrios, no
     // direcciones— pero tampoco tienen por qué verlas un vecino: solo se usan
     // administrando. Las escriben las Functions, que son las que geocodifican.
+    // Quien escribe desde la página pública. Lo escribe una Function con el
+    // Admin SDK; desde el cliente NADIE, ni leer ni escribir: son datos de
+    // contacto de gente que todavía no es usuaria.
+    match /contactos/{id} {
+      allow read: if esAdminGlobal();
+      allow write: if false;
+    }
+
     match /zonas/{id} {
       allow read: if esAdmin();
       allow write: if false;

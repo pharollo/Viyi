@@ -4,500 +4,120 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0a0a0b">
-  <title>ViYi</title>
+  <title>ViYi · Ábrele a quien llegue, estés donde estés</title>
+  <meta name="description" content="ViYi abre la puerta, el portón o el ascensor de tu edificio desde el teléfono, y te deja compartir un acceso que vence solo. Para residencias, casas y locales.">
+  <meta name="application-name" content="ViYi">
+  <meta property="og:site_name" content="ViYi">
+  <meta property="og:title" content="ViYi · Ábrele a quien llegue, estés donde estés">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.viyi.ai/">
+  <meta property="og:description" content="Abre tu puerta desde el teléfono y comparte accesos que vencen solos. Para residencias, casas y locales.">
+  <meta property="og:image" content="https://www.viyi.ai/logo-viyi.png">
+  <meta property="og:locale" content="es_VE">
   <link rel="icon" type="image/png" href="icono-192.png?v=5">
   <link rel="apple-touch-icon" href="icono-180.png?v=5">
-  <link rel="manifest" href="manifest.webmanifest">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "ViYi",
+    "applicationCategory": "https://schema.org/UtilitiesApplication",
+    "operatingSystem": "Web",
+    "url": "https://www.viyi.ai/",
+    "logo": "https://www.viyi.ai/logo-viyi.png",
+    "image": "https://www.viyi.ai/logo-viyi.png",
+    "description": "ViYi controla los accesos de un edificio desde el teléfono: abrir puertas, portones y ascensores, y compartir accesos temporales con invitados.",
+    "publisher": { "@type": "Organization", "name": "ViYi", "logo": "https://www.viyi.ai/logo-viyi.png" }
+  }
+  </script>
+  <!-- Un enlace de pase apunta a la raíz (viyi.ai/?p=TOKEN) y ahí ahora vive
+       esta página. Se reenvía a la app ANTES de pintar nada: quien recibe un
+       pase quiere abrir una puerta, no leer de qué va el producto.
+       `replace` y no `href` para que el botón de atrás no lo devuelva aquí. -->
+  <script>
+    (function () {
+      var p = new URLSearchParams(location.search);
+      if (p.get('p') || p.get('pase')) location.replace('/app/' + location.search + location.hash);
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- La fuente NO bloquea el dibujo: se carga como "print" (que el navegador
-       no espera) y al llegar se aplica con onload. La app aparece de una con la
-       fuente del sistema y la propia entra cuando baja. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=348">
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="landing.css?v=1">
 </head>
 <body>
-  <header>
-    <div class="izq">
-      <button id="btn-menu" type="button" class="btn-menu oculto" hidden aria-label="Administración">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
-      </button>
-      <div class="marca" id="ir-inicio" role="button" tabindex="0" aria-label="Ir a controles">
-        <h1>ViYi</h1>
-      </div>
-    </div>
-    <div id="info-usuario" class="oculto" role="button" tabindex="0" aria-label="Mi perfil">
-      <span id="nombre-usuario"></span>
-    </div>
+  <header class="barra">
+    <img class="marca" src="logo-viyi.png" alt="ViYi" width="34" height="34">
+    <a class="entrar" href="/app/">Entrar</a>
   </header>
 
   <main>
-    <section id="vista-cargando">
-      <p class="centrado">Cargando…</p>
+    <section class="portada">
+      <h1>Ábrele a quien llegue,<br>estés donde estés.</h1>
+      <p class="lema">Tu puerta, tu portón y tu ascensor desde el teléfono. Y cuando esperas a alguien, le mandas un acceso que vence solo.</p>
+      <div class="acciones">
+        <a class="btn-primario" href="#contacto">Quiero ViYi</a>
+        <a class="btn-secundario" id="wa" href="#" rel="noopener">WhatsApp</a>
+      </div>
+      <p class="detalle">Sin llaves que copiar. Sin controles que se pierden.</p>
     </section>
 
-    <section id="vista-config" class="oculto">
-      <div class="tarjeta aviso">
-        <h2>Falta configurar Firebase</h2>
-        <p>Edita <code>docs/firebase-config.js</code> y pega la configuración web de tu proyecto de Firebase (Consola → Configuración del proyecto → Tus apps).</p>
+    <section class="puntos">
+      <article>
+        <h2>Abres tú</h2>
+        <p>Desde la oficina, desde el tráfico, desde otro país. La puerta no depende de que estés en casa.</p>
+      </article>
+      <article>
+        <h2>Abre tu invitado</h2>
+        <p>Le mandas un enlace con la hora a la que empieza y cuándo vence. Se abre solo esa vez, o las que digas.</p>
+      </article>
+      <article>
+        <h2>Queda escrito</h2>
+        <p>Cada apertura deja registro. La junta ve qué pasó en su edificio sin saber qué vecino fue.</p>
+      </article>
+    </section>
+
+    <section class="casos">
+      <h2 class="titulo-seccion">A quién le sirve</h2>
+      <div class="rejilla">
+        <article>
+          <h3>Tu casa</h3>
+          <p>El delivery, la señora que ayuda, tu hermano que llegó antes que tú. Le abres sin bajar y sin dejar la llave debajo de la mata.</p>
+        </article>
+        <article>
+          <h3>Tu residencia</h3>
+          <p>Se acaban los controles que hay que reponer y las llaves del portón que nadie sabe dónde están. Cada quien abre desde su teléfono, y quien se muda deja de abrir el mismo día.</p>
+        </article>
+        <article>
+          <h3>Tu local</h3>
+          <p>Le abres al proveedor a las seis de la mañana sin ir. Y al técnico le das un acceso que vence cuando termina.</p>
+        </article>
       </div>
     </section>
 
-    <section id="vista-email" class="oculto">
-      <form id="form-email" class="tarjeta">
-        <div class="cabecera-login">
-          <img src="icono-192.png?v=5" alt="ViYi" class="logo-login" width="68" height="68">
-        </div>
-        <p class="pase-evento-info oculto"></p>
-        <input type="email" id="pase-email" required autocomplete="email" inputmode="email" placeholder="Email" aria-label="Email">
-        <button type="submit" id="btn-continuar" class="btn-primario">Continuar</button>
-        <button type="button" id="btn-google" class="btn-secundario oculto">Google</button>
-        <p id="error-email" class="mensaje-error oculto"></p>
+    <section class="contacto" id="contacto">
+      <h2 class="titulo-seccion">Hablemos</h2>
+      <p class="lema-corto">Dinos dónde quieres ViYi y te contactamos.</p>
+      <form id="form">
+        <input type="text" id="nombre" placeholder="Tu nombre" autocomplete="name" required maxlength="80">
+        <input type="text" id="contacto-dato" placeholder="Teléfono o correo" autocomplete="tel" required maxlength="120">
+        <input type="text" id="lugar" placeholder="Edificio, urbanización o local" autocomplete="off" maxlength="120">
+        <textarea id="mensaje" placeholder="Cuéntanos (opcional)" rows="3" maxlength="800"></textarea>
+        <!-- La trampa para robots: no se ve, y una persona no la llena. -->
+        <input type="text" id="web" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button type="submit" class="btn-primario" id="enviar">Enviar</button>
+        <p id="aviso" class="aviso"></p>
       </form>
-    </section>
-
-    <section id="vista-login" class="oculto">
-      <form id="form-login" class="tarjeta">
-        <div class="cabecera-login">
-          <h2>ViYi</h2>
-        </div>
-        <p class="pase-evento-info oculto"></p>
-        <input type="email" id="campo-email" required autocomplete="email" inputmode="email" placeholder="Email" aria-label="Email">
-        <div class="campo-clave">
-          <input type="password" id="campo-password" required autocomplete="current-password" placeholder="Clave" aria-label="Clave">
-          <button type="button" id="btn-ver-clave" class="btn-ver-clave" aria-label="Mostrar clave">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
-          </button>
-        </div>
-        <button type="submit" id="btn-login" class="btn-primario">Entrar</button>
-        <button type="button" id="btn-olvide" class="enlace-clave">¿Olvidaste tu clave?</button>
-        <button type="button" id="btn-volver-login" class="enlace-clave oculto">Volver</button>
-        <p id="error-login" class="mensaje-error oculto"></p>
-      </form>
-    </section>
-
-    <section id="vista-registro" class="oculto">
-      <form id="form-registro" class="tarjeta">
-        <div class="cabecera-login">
-          <img src="icono-192.png?v=5" alt="ViYi" class="logo-login" width="68" height="68">
-        </div>
-        <p class="pase-evento-info oculto"></p>
-        <input type="text" id="reg-nombre" required autocomplete="given-name" placeholder="Nombre" aria-label="Nombre">
-        <input type="text" id="reg-apellido" required autocomplete="family-name" placeholder="Apellido" aria-label="Apellido">
-        <input type="email" id="reg-email" required autocomplete="email" inputmode="email" placeholder="Email" aria-label="Email">
-        <div class="campo-clave">
-          <input type="password" id="reg-password" required autocomplete="new-password" placeholder="Clave (mín. 6)" aria-label="Clave">
-          <button type="button" id="btn-ver-clave-reg" class="btn-ver-clave" aria-label="Mostrar clave">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
-          </button>
-        </div>
-        <button type="submit" id="btn-registro" class="btn-primario">Entrar</button>
-        <button type="button" id="btn-ir-login" class="enlace-clave">Ya tengo cuenta</button>
-        <button type="button" id="btn-volver-reg" class="enlace-clave oculto">Volver</button>
-        <p id="error-registro" class="mensaje-error oculto"></p>
-      </form>
-    </section>
-
-    <section id="vista-sin-acceso" class="oculto">
-      <div class="tarjeta aviso">
-        <h2>Cuenta sin acceso</h2>
-        <p>Tu cuenta no está registrada en el condominio o fue desactivada. Contacta al administrador.</p>
-        <button id="btn-salir-2" type="button" class="btn-secundario">Salir</button>
-      </div>
-    </section>
-
-    <section id="vista-panel" class="oculto">
-      <div id="tab-controles" class="panel-tab">
-        <div id="lista-dispositivos"></div>
-      </div>
-      <div id="tab-pases" class="panel-tab oculto">
-        <div id="pase-invitado" class="tarjeta oculto"></div>
-        <div class="tarjeta" id="pase-generador">
-          <h2>Compartir acceso</h2>
-          <div class="pase-scope oculto" id="pase-modo">
-            <button type="button" class="chip-scope activa" data-modo="enlace">Enlace</button>
-            <button type="button" class="chip-scope" data-modo="frecuentes">Frecuentes</button>
-          </div>
-          <input type="text" id="pase-evento" class="pase-evento" maxlength="60" autocapitalize="words" placeholder="Evento (Parrilla, Mahjong)" aria-label="Evento">
-          <div id="pase-invitados-lista" class="pase-disp oculto"></div>
-          <input type="search" id="pase-buscar" class="buscador oculto" placeholder="Buscar" aria-label="Buscar dispositivo" autocomplete="off">
-          <div id="pase-dispositivos" class="pase-disp"></div>
-          <!-- Duración a la vista, no en una rueda.
-               Era un carrusel horizontal: solo enseñaba dos o tres valores a la
-               vez, así que las demás opciones no existían para quien no supiera
-               arrastrarlo — el propio usuario lo notó ("Programado no se ve
-               cuando está en 6 h"). Cinco fichas caben en dos filas y se ven
-               todas. De paso se van 65 líneas de máquina para elegir entre
-               cinco valores: centrar, medir el centro, decidir al asentarse el
-               scroll y no confundir el scroll propio con el del dedo. -->
-          <span class="pase-etiqueta">Cuánto dura</span>
-          <div class="dur-chips" id="pase-duracion">
-            <button type="button" class="chip-scope" data-dur="3h">3 h</button>
-            <button type="button" class="chip-scope activa" data-dur="6h">6 h</button>
-            <button type="button" class="chip-scope" data-dur="24h">24 h</button>
-            <button type="button" class="chip-scope" data-dur="7d">7 d</button>
-            <button type="button" class="chip-scope chip-infinito" data-dur="indef" aria-label="Indefinido" title="Indefinido">∞</button>
-          </div>
-          <!-- Lo ocasional, detrás de una puerta con nombre.
-               Compartir una puerta pedía siete decisiones —evento,
-               dispositivos, duración, ahora/programar, fecha, simple/multiuso y
-               generar— y de esas solo tres se cambian de verdad cada vez. Las
-               otras dos tienen un valor bueno por defecto (empieza ya, un solo
-               uso) y ahora solo aparecen si las pides.
-               Detrás de un botón con NOMBRE, no de un gesto: esconder algo sin
-               decir dónde está es lo que dejó el Locker invisible. -->
-          <button type="button" id="btn-pase-opciones" class="btn-desplegar" aria-expanded="false" aria-controls="pase-opciones">Opciones</button>
-          <div id="pase-opciones" class="form-desplegable oculto">
-            <div class="pase-scope" id="pase-cuando">
-              <button type="button" class="chip-scope activa" data-cuando="ya">Ahora</button>
-              <button type="button" class="chip-scope" data-cuando="luego">Programar</button>
-            </div>
-            <!-- Campo nativo, a la vista y sin trucos.
-               Estuvo escondido bajo un texto nuestro en español, porque el
-               formato del nativo sale en el idioma del teléfono y no se puede
-               forzar (Safari ignora `lang`). Pero un `datetime-local` con
-               opacidad 0 deja de abrir el calendario en escritorio y en el
-               iPhone no dejaba poner la hora: se rompió el control por arreglar
-               un detalle de idioma. El idioma lo pone el aparato y ya está. -->
-          <label class="campo-perfil oculto" id="pase-desde-caja">
-            <input type="datetime-local" id="pase-desde" lang="es" aria-label="Empieza el">
-          </label>
-          </div>
-          <!-- El tipo de pase ES la acción, no un campo previo. Antes había que
-               elegir "Simple" o "Multiuso" y DESPUÉS pulsar Generar: dos pasos y
-               un estado invisible que había que recordar. Estos dos botones
-               dicen lo que hacen y de paso se llevan por delante el par de
-               fichas y su párrafo de ayuda.
-               En modo "frecuentes" solo queda uno: el multiuso es cosa de
-               enlaces. -->
-          <!-- El tipo se ELIGE y Generar confirma. Los dos botones no generan por
-               sí solos: crear un acceso a una puerta merece un toque más, y así
-               el enlace no sale de un roce.
-               Simple viene puesto y Generar está siempre ahí: esconderlo hasta
-               elegir obligaba a decidir entre Simple y Multiuso, cuando lo
-               normal es Simple y quien no lo sea ya lo cambiará. -->
-          <div class="pase-acciones" id="pase-acciones">
-            <button id="pase-simple" type="button" class="btn-secundario activa" data-tipo="simple">Simple</button>
-            <button id="pase-multi" type="button" class="btn-secundario" data-tipo="multiuso">Multiuso</button>
-            <button type="button" id="btn-info-enlace" class="btn-info" aria-label="Qué diferencia hay" aria-expanded="false">i</button>
-          </div>
-          <p id="info-enlace" class="pase-ayuda oculto">
-            <strong>Simple</strong> lo usa una sola persona; al canjearlo se cierra.<br>
-            <strong>Multiuso</strong> lo pueden usar varias personas con el mismo enlace.
-          </p>
-          <button id="btn-generar-pase" type="button" class="btn-primario pase-generar">Generar</button>
-          <div id="pase-resultado" class="pase-resultado oculto"></div>
-        </div>
-        <div id="pase-mis">
-          <div class="encabezado-admin">
-            <h2 id="titulo-mis-pases">Mis pases</h2>
-            <button id="btn-refrescar-pases" type="button" class="btn-secundario btn-icono" aria-label="Actualizar">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            </button>
-          </div>
-          <div class="pase-scope solo-admin oculto" id="pase-scope">
-            <button type="button" class="chip-scope activa" data-scope="mios">Míos</button>
-            <button type="button" class="chip-scope" data-scope="todos">Todos</button>
-          </div>
-          <ul id="lista-pases" class="lista-gestion"></ul>
-        </div>
-      </div>
-      <div id="tab-gestion" class="panel-tab oculto">
-        <!-- El orden es el del montaje: primero los inmuebles, que no dependen
-             de nada; después los dispositivos, que necesitan un inmueble; al
-             final los vecinos, a los que se les asignan las dos cosas. -->
-        <div id="sub-gestion" class="pase-scope">
-          <button type="button" class="chip-scope" data-sub="inmuebles">Inmuebles</button>
-          <button type="button" class="chip-scope activa" data-sub="dispositivos">Aparatos</button>
-          <button type="button" class="chip-scope" data-sub="vecinos">Vecinos</button>
-        </div>
-        <input type="search" id="buscar-gestion" class="buscador" placeholder="Buscar" aria-label="Buscar" autocomplete="off">
-        <div class="bloque-gestion" data-grupo="dispositivos">
-        <div class="encabezado-admin" data-seccion="dispositivos">
-          <h2>Aparatos</h2>
-          <button id="btn-refrescar-conexion" type="button" class="btn-secundario btn-icono" aria-label="Actualizar estado">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-          </button>
-          <button id="btn-nuevo-dispositivo" type="button" class="btn-secundario">+ Agregar</button>
-        </div>
-        <ul id="gestion-dispositivos" class="lista-gestion"></ul>
-        <div id="seccion-tuya" class="encabezado-admin oculto">
-          <h2>Servicio de Tuya</h2>
-        </div>
-        <div id="caja-tuya" class="tarjeta oculto">
-          <p id="estado-tuya" class="campo-ayuda"></p>
-          <label class="campo" for="tuya-vence">
-            <span>Vence el</span>
-            <input type="date" id="tuya-vence">
-          </label>
-          <p class="campo-ayuda">ViYi avisa por correo desde 21 días antes. La extensión gratuita de Tuya tarda uno o dos días hábiles en aprobarse.</p>
-          <button type="button" id="btn-guardar-tuya" class="btn-primario">Guardar</button>
-          <p id="error-tuya" class="mensaje-error oculto"></p>
-        </div>
-        </div>
-        <div class="bloque-gestion" data-grupo="inmuebles">
-        <div class="encabezado-admin" data-seccion="inmuebles">
-          <h2>Inmuebles</h2>
-          <button id="btn-nuevo-inmueble" type="button" class="btn-secundario">+ Agregar</button>
-        </div>
-        <ul id="gestion-inmuebles" class="lista-gestion"></ul>
-        </div>
-        <div class="bloque-gestion" data-grupo="vecinos">
-        <div class="encabezado-admin" data-seccion="vecinos">
-          <h2>Vecinos</h2>
-          <button id="btn-vecinos-lote" type="button" class="btn-secundario">+ Lote</button>
-          <button id="btn-nuevo-usuario" type="button" class="btn-secundario">+ Agregar</button>
-        </div>
-        <ul id="gestion-usuarios" class="lista-gestion"></ul>
-        </div>
-
-        <!-- El servicio de Tuya vence con fecha, y sin él ningún dispositivo
-             Tuya abre. La fecha se apunta aquí para que ViYi avise tres semanas
-             antes; antes había que editarla en la consola de Firebase, que es
-             un paseo que nadie recuerda seis meses después.
-             Solo para el administrador general: es quien puede renovar. -->
-        <div id="editor" class="tarjeta oculto"></div>
-      </div>
-      <div id="tab-registro" class="panel-tab oculto">
-        <!-- El mapa: solo para el administrador general. Saber qué edificios
-             usan ViYi y cuáles tienen la puerta caída no es asunto del admin de
-             un edificio, y menos de un vecino. -->
-        <div id="seccion-mapa" class="oculto">
-          <div class="encabezado-admin">
-            <h2>Zonas</h2>
-            <button id="btn-refrescar-mapa" type="button" class="btn-secundario btn-icono" aria-label="Actualizar">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            </button>
-          </div>
-          <div id="mapa-zonas"></div>
-          <p id="mapa-nota" class="campo-ayuda"></p>
-        </div>
-        <div class="encabezado-admin">
-          <h2>Conexión</h2>
-          <button id="btn-refrescar-conexiones" type="button" class="btn-secundario btn-icono" aria-label="Actualizar">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-          </button>
-        </div>
-        <div id="filtro-conexiones" class="pase-scope">
-          <button type="button" class="chip-scope" data-filtro="todos">Todos</button>
-          <button type="button" class="chip-scope activa" data-filtro="caidas">Caídas</button>
-          <button type="button" class="chip-scope" data-filtro="estables">Estables</button>
-        </div>
-        <ul id="lista-conexiones" class="lista-con"></ul>
-        <p id="con-limpios" class="campo-ayuda oculto"></p>
-        <div class="encabezado-admin">
-          <h2>Actividad</h2>
-          <button id="btn-refrescar" type="button" class="btn-secundario btn-icono" aria-label="Actualizar">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-          </button>
-        </div>
-        <div id="filtro-registros" class="pase-scope">
-          <button type="button" class="chip-scope activa" data-filtro="todos">Todos</button>
-          <button type="button" class="chip-scope" data-filtro="ok">Aciertos</button>
-          <button type="button" class="chip-scope" data-filtro="fallo">Fallos</button>
-        </div>
-        <ul id="lista-registros"></ul>
-        <button id="btn-mas-registros" type="button" class="btn-secundario oculto">Más</button>
-      </div>
-      <div id="tab-locker" class="panel-tab oculto">
-        <div class="encabezado-admin">
-          <h2>Locker</h2>
-        </div>
-        <!-- La única línea de texto de toda la pantalla, y está aquí porque su
-             trabajo no es explicar el Locker —eso lo hace verlo— sino contar el
-             gesto, que es invisible por definición. Es el mismo apaño que el
-             deslizador de zoom del recorte: el control que se ve enseña el que
-             no se ve. -->
-        <div class="tarjeta" id="seccion-skin">
-          <div id="vestuario">
-            <!-- El botón, primero y solo: es lo que vienes a mirar. El selector
-                 de dispositivo va DEBAJO, junto a las acciones — dice sobre qué
-                 estás trabajando, que es contexto, no protagonista. -->
-            <div id="vest-demo" class="vest-demo"></div>
-            <select id="vest-disp" class="vest-select" aria-label="Dispositivo"></select>
-            <!-- Editar va PEGADO a la muestra, y al abrirlo la galería y el
-                 Guardar se apartan (`#vestuario.editando`). Cambiar el nombre o
-                 la animación con el botón grande fuera de la pantalla era
-                 editar a ciegas: lo que se toca aquí se ve ahí arriba. -->
-            <button type="button" id="btn-editar-skin" class="btn-secundario vest-editar oculto">Editar</button>
-            <div id="vest-editor" class="oculto"></div>
-            <p id="vest-editor-msg" class="oculto"></p>
-            <div id="vest-opciones" class="vest-opciones"></div>
-            <!-- Elegir es PROBARSE; guardar es el acto.
-                 Antes se guardaba solo al centrar la opción, y aunque salía un
-                 "Estilo guardado" que se desvanecía, no daba seguridad: el aviso
-                 dura un segundo y medio y aparece aquí abajo mientras los ojos
-                 están en el botón. Un botón que hay que tocar deja claro qué se
-                 grabó y cuándo. -->
-            <button type="button" id="btn-guardar-estilo" class="btn-primario vest-guardar" disabled>Guardar</button>
-
-            <p id="vest-guardado" class="vest-guardado">Estilo guardado</p>
-            <p id="vest-nota" class="vest-ayuda vest-nota oculto"></p>
-          </div>
-        </div>
-        <!-- Oculto: el OAuth de Tuya (Device Data Sharing) solo existe en el
-             centro de datos de Europa, y este proyecto está en Western America.
-             El backend queda escrito y no molesta; en cuanto Tuya lo habilite
-             aquí, basta quitar `oculto`. Mientras tanto, un vecino se vincula
-             con el QR de la consola (Devices -> Link App Account -> Add App
-             Account). -->
-        <div class="tarjeta oculto" id="seccion-crear-skin">
-          <button type="button" id="btn-toggle-skin" class="btn-desplegar" aria-expanded="false" aria-controls="form-skin">Diseñar</button>
-          <form id="form-skin" class="form-desplegable oculto">
-            <label class="campo-perfil">Descríbelo
-              <textarea id="skin-prompt" rows="2" maxlength="700" placeholder="Una ficha de mahjong de marfil"></textarea>
-            </label>
-            <div class="skin-origen">
-              <button type="button" id="btn-generar-skin" class="btn-secundario">Generar</button>
-              <label class="btn-secundario btn-archivo">Subir foto
-                <input type="file" id="skin-archivo" accept="image/*">
-              </label>
-            </div>
-            <div id="skin-previa" class="skin-previa oculto">
-              <div class="anillo skin-previa-anillo">
-                <span class="boton-circular grande boton-imagen">
-                  <img id="skin-previa-img" class="boton-logo" alt="">
-                </span>
-              </div>
-              <p class="campo-ayuda recorte-pista">Arrastra la foto para encuadrarla</p>
-              <input type="range" id="skin-zoom" class="zoom-recorte" min="1" max="4" step="0.02" value="1" aria-label="Acercar la foto">
-              <label class="campo-perfil">Nombre
-                <input type="text" id="skin-nombre" maxlength="24" placeholder="Mahjong">
-              </label>
-              <label class="campo-perfil">Al activarse
-                <select id="skin-animacion">
-                  <option value="ninguna">Quieto</option>
-                  <option value="girar">Gira</option>
-                  <option value="latido">Palpita</option>
-                  <option value="latidoFuerte">Late fuerte</option>
-                  <option value="balanceo">Se balancea</option>
-                  <option value="rebote">Rebota</option>
-                  <option value="vibracion">Vibra</option>
-                  <option value="destello">Destella</option>
-                <option value="barrido">Reluce</option>
-                <option value="onda">Irradia</option>
-                <option value="orbita">Orbita</option>
-                <option value="volteo">Voltea</option>
-                <option value="titileo">Titila</option>
-                <option value="compuerta">Se abre</option>
-                <option value="radar">Rastrea</option>
-                <option value="chispa">Chispea</option>
-                <option value="acercamiento">Se acerca</option>
-                <option value="holo">Holo</option>
-                <option value="capa">Se envuelve</option>
-                <option value="color">Colorea</option>
-                </select>
-              </label>
-              <div class="campo-perfil">Para
-                <div class="skin-tipos" id="skin-tipos"></div>
-              </div>
-              <button type="button" id="btn-publicar-skin" class="btn-primario">Guardar</button>
-            </div>
-            <p id="skin-msg" class="mensaje-error oculto"></p>
-            <div id="skin-lista" class="skin-lista"></div>
-          </form>
-        </div>
-      </div>
-      <div id="tab-perfil" class="panel-tab oculto">
-        <div class="encabezado-admin">
-          <h2>Mi perfil</h2>
-        </div>
-        <form id="form-perfil" class="tarjeta">
-          <label class="campo-perfil">Nombre
-            <input type="text" id="perfil-nombre" autocomplete="given-name" placeholder="Nombre">
-          </label>
-          <label class="campo-perfil">Apellido
-            <input type="text" id="perfil-apellido" autocomplete="family-name" placeholder="Apellido">
-          </label>
-          <label class="campo-perfil">Email
-            <input type="email" id="perfil-email" autocomplete="email" disabled>
-          </label>
-          <div class="perfil-seccion" id="seccion-inmuebles">
-            <h3 id="titulo-inmuebles">Inmuebles</h3>
-            <ul id="lista-inmuebles" class="lista-inmuebles"></ul>
-          </div>
-          <!-- Nace oculto: aparece solo cuando de verdad hay un dato cambiado
-               (ver revisarCambiosPerfil). Nació así porque debajo empezaba el
-               Locker y un "Guardar" permanente se leía como el de guardar el
-               skin. El Locker ya se mudó a su propia pestaña, pero la regla se
-               queda: un Guardar encendido sobre un formulario sin cambios
-               promete trabajo que no hay. -->
-          <button type="submit" id="btn-guardar-perfil" class="btn-primario oculto">Guardar</button>
-          <p id="perfil-msg" class="mensaje-error oculto"></p>
-        </form>
-        <div class="tarjeta oculto" id="seccion-tuya">
-          <button type="button" id="btn-vincular-tuya" class="btn-secundario">Vincular</button>
-          <p id="tuya-msg" class="campo-ayuda">Para usar en ViYi los dispositivos que ya tienes en tu app Smart Life. Eliges cuáles compartes.</p>
-        </div>
-        <div class="tarjeta" id="seccion-clave">
-          <button type="button" id="btn-toggle-clave" class="btn-desplegar" aria-expanded="false" aria-controls="form-clave">Clave</button>
-          <form id="form-clave" class="form-desplegable oculto">
-            <div class="campo-clave">
-              <input type="password" id="clave-actual" autocomplete="current-password" placeholder="Clave actual">
-            </div>
-            <div class="campo-clave">
-              <input type="password" id="clave-nueva" autocomplete="new-password" placeholder="Clave nueva (mín. 6)">
-            </div>
-            <div class="campo-clave">
-              <input type="password" id="clave-nueva2" autocomplete="new-password" placeholder="Repetir clave nueva">
-            </div>
-            <button type="submit" id="btn-cambiar-clave" class="btn-primario">Guardar</button>
-            <p id="clave-msg" class="mensaje-error oculto"></p>
-          </form>
-        </div>
-        <!-- Administración: aquí y no en una hamburguesa aparte, para que el
-             admin use exactamente la misma app que un vecino. Llevan
-             `item-menu` para heredar el cambio de pestaña sin duplicar el
-             manejador; el aspecto se lo da `.acciones-perfil`. -->
-        <div class="tarjeta solo-admin oculto" id="seccion-admin">
-          <button type="button" class="item-menu" data-tab="tab-gestion">Admin</button>
-          <button type="button" class="item-menu" data-tab="tab-registro">Actividad</button>
-        </div>
-        <div class="tarjeta" id="seccion-salir">
-          <button id="btn-salir" type="button" class="btn-secundario item-salir">Salir</button>
-        </div>
-      </div>
+      <p class="o-bien">o escríbenos por <a id="wa2" href="#" rel="noopener">WhatsApp</a></p>
     </section>
   </main>
 
-  <div id="backdrop" class="backdrop oculto"></div>
-  <!-- Navegación principal ABAJO y siempre a la vista.
-       Estaba en un menú hamburguesa, y de ahí salió el problema de fondo del
-       Locker: nadie lo encontraba porque la navegación estaba escondida detrás
-       de un icono. Aquí van las tres de diario; lo demás —admin, actividad,
-       perfil, salir— sigue en el menú lateral de la hamburguesa.
-       Sin botón "Más": abría exactamente el mismo menú que la hamburguesa, o
-       sea dos puertas a un metro la una de la otra para el mismo sitio. -->
-  <nav id="barra-abajo" class="barra-abajo" aria-label="Secciones">
-    <button type="button" class="item-barra item-menu activa" data-tab="tab-controles">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="9" width="16" height="12" rx="3"/><path d="M8 9V6.5a4 4 0 0 1 8 0V9"/><circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>
-      <span>Controles</span>
-    </button>
-    <button type="button" class="item-barra item-menu" data-tab="tab-pases">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5A2.5 2.5 0 0 0 5.5 6h13A2.5 2.5 0 0 0 21 8.5v2a2 2 0 0 0 0 3v2A2.5 2.5 0 0 0 18.5 18h-13A2.5 2.5 0 0 0 3 15.5v-2a2 2 0 0 0 0-3z"/><path d="M14 6v12" stroke-dasharray="2 3"/></svg>
-      <span>Pases</span>
-    </button>
-    <button type="button" class="item-barra item-menu" data-tab="tab-locker">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2"/></svg>
-      <span>Locker</span>
-    </button>
-    <button type="button" class="item-barra item-menu" data-tab="tab-perfil">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/></svg>
-      <span>Perfil</span>
-    </button>
-  </nav>
+  <footer>
+    <a href="/app/">Entrar a ViYi</a>
+    <a href="privacidad.html">Privacidad</a>
+    <a href="terminos.html">Términos</a>
+  </footer>
 
-  <!-- Solo lo del ADMIN. Admin y Actividad no son del vecino, así que para él
-       este menú —y su hamburguesa— no existen: su navegación es la barra de
-       abajo y nada más. Salir se fue a Mi perfil, que es donde se busca. -->
-  <!-- Vacío a propósito: la navegación vive toda en la barra de abajo y en el
-       perfil. El nodo se queda porque `abrirMenu`/`cerrarMenu` lo tocan; se
-       quitará cuando se limpien esas funciones. -->
-  <nav id="menu-lateral" class="menu-lateral" aria-label="Menú" hidden></nav>
-
-  <div id="toast" class="oculto" role="status"></div>
-
-  <script type="module" src="app.js?v=384"></script>
+  <script src="landing.js?v=1"></script>
 </body>
 </html>

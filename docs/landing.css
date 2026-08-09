@@ -1,0 +1,214 @@
+/* La página pública de ViYi.
+   Hoja propia y no la de la app: la app pesa 3.500 líneas de relieve, botones y
+   animaciones que aquí no se usan, y quien llega a esta página no debería pagar
+   por ellas. Se comparten los COLORES, que es lo que hace que se sienta la
+   misma cosa. */
+
+:root {
+  --fondo: #0a0a0b;
+  --superficie: #151517;
+  --linea: #24242a;
+  --texto: #eceef0;
+  --texto-suave: #9a9aa4;
+  --primario: #a5ff2e;
+  --ancho: 1040px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: 'Josefin Sans', -apple-system, system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Barra ---- */
+.barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: var(--ancho);
+  margin: 0 auto;
+  padding: 18px 22px;
+}
+.marca { display: block; border-radius: 9px; }
+.entrar {
+  color: var(--texto-suave);
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--linea);
+}
+.entrar:hover { color: var(--texto); border-color: var(--texto-suave); }
+
+main { max-width: var(--ancho); margin: 0 auto; padding: 0 22px; }
+
+/* ---- Portada ----
+   El resplandor verde detrás del título es la única licencia decorativa de la
+   página: es la puerta iluminada de la marca, traída sin dibujarla. */
+.portada {
+  position: relative;
+  padding: 56px 0 64px;
+  text-align: center;
+}
+.portada::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  width: min(680px, 110%);
+  height: 420px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(165, 255, 46, 0.13), transparent 68%);
+  pointer-events: none;
+}
+.portada h1 {
+  position: relative;
+  margin: 0 0 18px;
+  font-family: 'Fredoka', 'Josefin Sans', sans-serif;
+  font-size: clamp(34px, 7vw, 58px);
+  line-height: 1.12;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.lema {
+  position: relative;
+  max-width: 30em;
+  margin: 0 auto 30px;
+  color: var(--texto-suave);
+  font-size: clamp(16px, 2.4vw, 19px);
+}
+.acciones {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+.detalle {
+  position: relative;
+  margin: 26px 0 0;
+  color: var(--texto-suave);
+  font-size: 14px;
+}
+
+.btn-primario, .btn-secundario {
+  display: inline-block;
+  padding: 13px 28px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn-primario { background: var(--primario); color: #10130a; }
+.btn-primario:hover { filter: brightness(1.08); }
+.btn-secundario { background: transparent; color: var(--texto); border-color: var(--linea); }
+.btn-secundario:hover { border-color: var(--texto-suave); }
+
+/* ---- Los tres puntos ---- */
+.puntos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  padding: 8px 0 20px;
+}
+.puntos article {
+  padding: 22px;
+  border-radius: 16px;
+  background: var(--superficie);
+  border: 1px solid var(--linea);
+}
+.puntos h2 {
+  margin: 0 0 8px;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--primario);
+}
+.puntos p { margin: 0; color: var(--texto-suave); font-size: 15px; }
+
+/* ---- Casos ---- */
+.titulo-seccion {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+.casos { padding: 44px 0 12px; }
+.rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+.rejilla article {
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--linea);
+}
+.rejilla h3 {
+  margin: 0 0 10px;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 21px;
+  font-weight: 600;
+}
+.rejilla p { margin: 0; color: var(--texto-suave); font-size: 15px; }
+
+/* ---- Contacto ---- */
+.contacto { padding: 54px 0 20px; }
+.lema-corto { margin: 0 0 20px; color: var(--texto-suave); }
+#form {
+  display: grid;
+  gap: 10px;
+  max-width: 520px;
+}
+#form input, #form textarea {
+  width: 100%;
+  padding: 13px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--linea);
+  background: var(--superficie);
+  color: var(--texto);
+  font-family: inherit;
+  font-size: 16px;   /* 16 y no menos: por debajo, iOS hace zoom al enfocar */
+  resize: vertical;
+}
+#form input::placeholder, #form textarea::placeholder { color: var(--texto-suave); }
+#form input:focus, #form textarea:focus { outline: none; border-color: var(--primario); }
+#form button { justify-self: start; margin-top: 4px; }
+#form button[disabled] { opacity: 0.6; cursor: default; }
+/* La trampa para robots: fuera de la vista sin `display:none`, que algunos
+   detectan y saltan. */
+#web { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+
+.aviso { margin: 4px 0 0; font-size: 15px; min-height: 1.4em; }
+.aviso.bien { color: var(--primario); }
+.aviso.mal { color: #f09595; }
+.o-bien { margin: 18px 0 0; color: var(--texto-suave); font-size: 15px; }
+.o-bien a { color: var(--texto); }
+
+footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  justify-content: center;
+  max-width: var(--ancho);
+  margin: 40px auto 0;
+  padding: 26px 22px 40px;
+  border-top: 1px solid var(--linea);
+  font-size: 14px;
+}
+footer a { color: var(--texto-suave); text-decoration: none; }
+footer a:hover { color: var(--texto); }

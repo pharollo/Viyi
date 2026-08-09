@@ -1004,6 +1004,69 @@ exports.vincularTuya = onCall(
 // Aquí vuelve el vecino tras autorizar. Cambia el código por su token y lo
 // guarda. El token NO se expone nunca al cliente: vive en una colección que las
 // reglas niegan a todo el mundo y solo tocan las Functions.
+// El formulario de la landing: quien quiere ViYi en su edificio o su local.
+//
+// `onRequest` y no `onCall` a propósito: un `onCall` obliga a cargar el SDK de
+// Firebase en la página pública, que son cientos de kilobytes para mandar tres
+// campos. Esto es un `fetch` y ya.
+//
+// Se guarda en Firestore Y se avisa por correo. Lo primero porque un correo que
+// no llega se pierde para siempre; lo segundo porque un documento en Firestore
+// que nadie mira tampoco sirve de nada.
+exports.contacto = onRequest(
+  { ...RARA, secrets: [RESEND_API_KEY], cors: true },
+  async (req, res) => {
+    if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Método no permitido.' }); return; }
+
+    const d = req.body || {};
+    const texto = (v, tope) => String(v == null ? '' : v).trim().slice(0, tope);
+    const nombre = texto(d.nombre, 80);
+    const contacto = texto(d.contacto, 120);
+    const lugar = texto(d.lugar, 120);
+    const mensaje = texto(d.mensaje, 800);
+
+    // La trampa para robots: un campo que no se ve y que una persona no llena.
+    // Se contesta que sí para no enseñarle al que lo llenó que fue detectado.
+    if (texto(d.web, 200)) { res.json({ ok: true }); return; }
+
+    if (!nombre || !contacto) {
+      res.status(400).json({ error: 'Hace falta tu nombre y cómo contactarte.' });
+      return;
+    }
+
+    const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    const doc = await db.collection('contactos').add({
+      nombre, contacto, lugar, mensaje, ip,
+      agente: texto(req.headers['user-agent'], 200),
+      creado: admin.firestore.FieldValue.serverTimestamp(),
+      atendido: false,
+    });
+
+    // El correo se manda DESPUÉS de guardar y sin tumbar la respuesta si falla:
+    // que Resend tenga un mal día no puede costar un cliente. Va a los mismos
+    // administradores globales que el resto de los avisos —`avisarAlDueno` ya
+    // sabe quiénes son— en vez de a una dirección escrita a mano aquí.
+    try {
+      const filas = [['Nombre', nombre], ['Contacto', contacto], ['Dónde', lugar], ['Mensaje', mensaje]]
+        .filter(([, v]) => v)
+        .map(([k, v]) => `<b>${escaparHtml(k)}:</b> ${escaparHtml(v)}<br>`).join('');
+      await avisarAlDueno({
+        apiKey: RESEND_API_KEY.value(),
+        asunto: `ViYi · ${nombre} quiere que lo contacten`,
+        titulo: 'Alguien escribió desde la página',
+        cuerpo: filas,
+        textoBoton: 'Abrir ViYi',
+        enlace: 'https://www.viyi.ai/app/',
+      });
+    } catch (e) {
+      console.error('contacto: no se pudo avisar por correo', e.message, doc.id);
+    }
+
+    res.json({ ok: true });
+  },
+);
+
 exports.tuyaCallback = onRequest(
   { ...RARA, secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
   async (req, res) => {
