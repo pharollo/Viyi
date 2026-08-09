@@ -2645,7 +2645,20 @@ async function avisarAlDueno({ asunto, titulo, cuerpo, textoBoton, enlace, apiKe
   // son asunto suyo y, en el caso del formulario de la página, datos de
   // contacto de gente que no es su vecino.
   const globales = snap.docs.filter((d) => !((d.data().administra || []).length));
-  const correos = globales.map((d) => d.data().email).filter(Boolean);
+
+  // El correo, y si la ficha no lo trae se busca en Auth.
+  //
+  // Las cuentas viejas se crearon antes de que el campo `email` se guardara en
+  // el documento, así que su ficha no lo tiene y este aviso no llegaba a nadie
+  // — mientras la pantalla de Mi perfil SÍ lo enseñaba, porque lo saca de
+  // `auth.currentUser`. Buscar los que falten deja de depender de cuándo se
+  // creó la cuenta.
+  const correos = (await Promise.all(globales.map(async (d) => {
+    const suyo = d.data().email;
+    if (suyo) return suyo;
+    const u = await admin.auth().getUser(d.id).catch(() => null);
+    return u && u.email;
+  }))).filter(Boolean);
   if (!correos.length) {
     console.error('Nadie a quien avisar:', asunto);
     return 0;
