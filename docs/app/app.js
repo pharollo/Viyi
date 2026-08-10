@@ -369,13 +369,17 @@ async function iniciar() {
     oficinas: 'oficina',
   };
 
+  // Las cámaras van PRIMERO, antes que las puertas. No es capricho de orden:
+  // en el teléfono se lee de arriba abajo, así que ver quién llegó tiene que
+  // caer antes que el botón de abrir. Al revés, el botón aparece primero y la
+  // comprobación queda después de la decisión.
   const TIPOS = [
+    { clave: 'camara', titulo: 'Cámaras' },
     { clave: 'puerta', titulo: 'Puertas' },
     { clave: 'cortina', titulo: 'Cortinas y persianas' },
     { clave: 'ascensor', titulo: 'Ascensores' },
     { clave: 'luz', titulo: 'Luces' },
     { clave: 'termostato', titulo: 'Termostatos' },
-    { clave: 'camara', titulo: 'Cámaras' },
     { clave: 'rele', titulo: 'Relés y equipos' },
     { clave: 'otro', titulo: 'Otros' },
   ];

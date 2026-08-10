@@ -2031,6 +2031,92 @@ exports.adminListarAccesoriosHomebridge = onCall(
   }
 );
 
+// --- Eventos de la cámara (movimiento) ----------------------------------
+//
+// Nest NO deja preguntar "¿hay movimiento?": lo publica cuando ocurre, en un
+// tópico de Pub/Sub. Por eso este camino es un buzón que Google golpea, y no
+// una consulta como el resto del estado de los aparatos.
+//
+// Google → Pub/Sub → esta función → Firestore → la app. Se guarda la HORA del
+// último movimiento en vez de un sí/no: un booleano habría que apagarlo con un
+// temporizador en el servidor, y si el proceso muere el sensor se queda
+// encendido para siempre. Con la hora, quien mira decide si es reciente — y un
+// dato viejo se delata solo.
+exports.eventosNest = onRequest(
+  { ...RARA, secrets: [NEST_PROJECT_ID] },
+  async (req, res) => {
+    // Pub/Sub reintenta durante días lo que no se responde con 2xx. Un error
+    // nuestro repitiéndose miles de veces es peor que perder un evento de
+    // movimiento, así que casi todo se contesta 204 y se apunta en el registro.
+    if (req.method !== 'POST') return res.status(405).send('');
+
+    // Solo Google puede tocar esta puerta. La suscripción manda un token
+    // firmado por Google; se comprueba la firma y para quién viene.
+    const cabecera = String(req.headers.authorization || '');
+    const jwt = cabecera.startsWith('Bearer ') ? cabecera.slice(7) : '';
+    if (!jwt) {
+      console.error('Evento de Nest sin token: lo ignoro');
+      return res.status(401).send('');
+    }
+    try {
+      const { OAuth2Client } = require('google-auth-library');
+      // Se comprueba QUIÉN firma, no a qué dirección venía. La misma función
+      // vive en dos URLs —la de Cloud Run y la de cloudfunctions.net— y atar la
+      // validación a una de ellas la rompe en cuanto la suscripción usa la
+      // otra. La cuenta que firma, en cambio, es la que nosotros elegimos al
+      // crear la suscripción y no cambia sola.
+      const ticket = await new OAuth2Client().verifyIdToken({ idToken: jwt });
+      const quien = (ticket.getPayload() || {}).email || '';
+      if (quien !== `${process.env.GCLOUD_PROJECT}@appspot.gserviceaccount.com`) {
+        console.error(`Evento de Nest firmado por quien no debe: ${quien}`);
+        return res.status(401).send('');
+      }
+    } catch (err) {
+      console.error('Token del evento de Nest no válido:', err.message);
+      return res.status(401).send('');
+    }
+
+    try {
+      const datos = ((req.body || {}).message || {}).data;
+      if (!datos) return res.status(204).send('');
+      const evento = JSON.parse(Buffer.from(datos, 'base64').toString('utf8'));
+      const rec = evento.resourceUpdate || {};
+      const idNest = String(rec.name || '').split('/').pop();
+      const tipos = Object.keys(rec.events || {});
+      const hayMovimiento = tipos.some((t) => /CameraMotion|CameraPerson|DoorbellChime/.test(t));
+      if (!idNest || !hayMovimiento) return res.status(204).send('');
+
+      // De qué aparato de ViYi habla. Se busca por el id de Nest porque el
+      // evento no sabe nada de ViYi.
+      const snap = await db.collection('dispositivos').where('proveedor', '==', 'nest').get();
+      let cual = null;
+      for (const doc of snap.docs) {
+        const cfg = await db.doc(`dispositivos/${doc.id}/privado/tuya`).get().catch(() => null);
+        const suyo = cfg && cfg.exists ? String(cfg.data().nestDeviceId || '').split('/').pop() : '';
+        if (suyo && suyo === idNest) { cual = doc; break; }
+      }
+      if (!cual) {
+        console.error(`Movimiento de un aparato Nest que ViYi no tiene dado de alta: ${idNest}`);
+        return res.status(204).send('');
+      }
+
+      const cuando = evento.timestamp ? new Date(evento.timestamp) : new Date();
+      await db.doc(`dispositivos/${cual.id}/estado/movimiento`).set({
+        ultimo: admin.firestore.Timestamp.fromDate(cuando),
+        // Qué lo disparó: no es lo mismo "algo se movió" que "hay una persona"
+        // o "tocaron el timbre", y con el tiempo eso permitirá avisar distinto.
+        que: tipos.map((t) => t.split('.').pop()).join(','),
+      }, { merge: true });
+      return res.status(204).send('');
+    } catch (err) {
+      // Se contesta 204 igual: si esto devolviera error, Pub/Sub reintentaría
+      // el mismo mensaje roto durante días.
+      console.error('No pude atender un evento de Nest:', err.message);
+      return res.status(204).send('');
+    }
+  }
+);
+
 // --- Vídeo en vivo de una cámara Nest -----------------------------------
 //
 // El vídeo NO pasa por aquí. Estas funciones solo hacen de intermediario del
