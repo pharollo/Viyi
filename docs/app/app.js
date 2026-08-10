@@ -399,7 +399,10 @@ async function iniciar() {
     skinsGaleria = Array.isArray(lista) ? lista : [];
     for (const s of skinsGaleria) {
       const anim = ANIMACIONES_SKIN[s.animacion] || ANIMACIONES_SKIN.ninguna;
-      ASPECTOS_IMAGEN[s.id] = { img: s.imagen, clase: anim.clase, galeria: true };
+      // `sonido` es opcional: un botón puede traer el suyo. Suena mientras el
+      // control está accionado, no como un clic — por eso entra y sale con
+      // fundido en vez de cortarse en seco.
+      ASPECTOS_IMAGEN[s.id] = { img: s.imagen, clase: anim.clase, galeria: true, sonido: s.sonido || '' };
     }
   }
 
@@ -1502,6 +1505,61 @@ async function iniciar() {
   let ctx = null;
   const bufer = {};
 
+  // ---- La música de un botón ----
+  //
+  // Un botón de la galería puede traer SU sonido, y eso no es un clic: suena
+  // mientras el control está accionado. Por eso entra y sale con fundido en vez
+  // de cortarse en seco — una canción que arranca a tope y se corta a machete
+  // suena a error, no a botón.
+  //
+  // Con `GainNode` y rampas, que es lo único que da un fundido de verdad: con
+  // `<audio>.volume` habría que hacerlo a mano con un temporizador, y en el
+  // iPhone ni siquiera se puede cambiar el volumen por código.
+  const musicaCargada = {};
+  async function musicaDeBoton(url) {
+    if (!ctx || ctx.state !== 'running') return null;
+    if (!musicaCargada[url]) {
+      musicaCargada[url] = fetch(url)
+        .then((r) => r.arrayBuffer())
+        .then((bytes) => new Promise((ok, mal) => {
+          const p = ctx.decodeAudioData(bytes, ok, mal);
+          if (p && p.then) p.then(ok, mal);
+        }))
+        .catch(() => null);
+    }
+    const bufer = await musicaCargada[url];
+    if (!bufer) return null;
+
+    const fuente = ctx.createBufferSource();
+    const vol = ctx.createGain();
+    fuente.buffer = bufer;
+    fuente.connect(vol).connect(ctx.destination);
+
+    const ahora = ctx.currentTime;
+    const ENTRA = 0.5;
+    vol.gain.setValueAtTime(0.0001, ahora);
+    // Exponencial y no lineal: el oído no oye el volumen en línea recta, y una
+    // rampa lineal se percibe como que entra de golpe al final.
+    vol.gain.exponentialRampToValueAtTime(1, ahora + ENTRA);
+    fuente.start();
+
+    let parado = false;
+    return () => {
+      if (parado) return;
+      parado = true;
+      const SALE = 0.9;
+      const t = ctx.currentTime;
+      try {
+        vol.gain.cancelScheduledValues(t);
+        vol.gain.setValueAtTime(Math.max(vol.gain.value, 0.0001), t);
+        vol.gain.exponentialRampToValueAtTime(0.0001, t + SALE);
+        // Se para DESPUÉS del fundido: pararla antes es cortarla en seco, que
+        // es justo lo que el fundido viene a evitar.
+        fuente.stop(t + SALE + 0.05);
+      } catch (e) { try { fuente.stop(); } catch (e2) { /* ignore */ } }
+    };
+  }
+
   const sonar = (nombre) => {
     const b = bufer[nombre];
     if (ctx && ctx.state === 'running' && b) {
@@ -2371,7 +2429,20 @@ async function iniciar() {
           : (dispositivo.tipo === 'ascensor' ? ICONOS.ascensor : ICONOS.candados);
       }
       boton.setAttribute('aria-label', `${dispositivo.etiquetaBoton || 'Abrir'} ${dispositivo.nombre}`);
-      boton.addEventListener('click', () => (demo ? pulsarDemo(boton, dispositivo) : pulsar(boton, dispositivo)));
+      boton.addEventListener('click', async () => {
+        // El botón con música: suena mientras está accionado y se apaga cuando
+        // vuelve a reposo, que es lo que `alCerrar` avisa. En el demo también,
+        // que para eso se prueba en el Locker.
+        const suMusica = ASPECTOS_IMAGEN[aspecto] && ASPECTOS_IMAGEN[aspecto].sonido;
+        if (!suMusica) {
+          if (demo) pulsarDemo(boton, dispositivo); else pulsar(boton, dispositivo);
+          return;
+        }
+        const parar = await musicaDeBoton(suMusica);
+        const alCerrar = () => parar && parar();
+        if (demo) pulsarDemo(boton, dispositivo, alCerrar); else pulsar(boton, dispositivo, alCerrar);
+      });
+      boton.addEventListener('pointerdown', despertarAudio, { passive: true });
       // En el demo no: ahí el botón es una muestra DENTRO del Locker, y volver
       // a abrir el Locker desde el Locker no lleva a ningún sitio.
       if (!demo) vestirAlMantenerPulsado(control, boton, dispositivo);
