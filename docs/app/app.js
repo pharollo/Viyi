@@ -2113,25 +2113,63 @@ async function iniciar() {
 
     pintar();
     if (!demo) {
-      (async () => {
+      // Aplicar un estado, venga de donde venga: de la consulta o de un aviso
+      // que Google acaba de empujar.
+      const aplicar = (d) => {
+        const v = esTermo ? d.temperaturaObjetivo
+          : (dispositivo.modo === 'dimmer' ? d.brillo : d.posicion);
+        if (typeof v === 'number') { valor = Math.min(cfg.max, Math.max(cfg.min, v)); }
+        // A qué nivel/modo vuelve el toque del centro cuando está apagado.
+        if (esDimmer && typeof d.brilloMemoria === 'number' && d.brilloMemoria > 0) {
+          valorEncendido = d.brilloMemoria;
+        }
+        if (esTermo && d.modoHVAC) {
+          termoApagado = d.modoHVAC === 'off';
+          if (!termoApagado) modoTermo = d.modoHVAC;
+        }
+        valorAncla = valor;
+        pintar();
+      };
+      const preguntar = async () => {
         try {
           const res = await consultarEstado({ dispositivoId: dispositivo.id });
-          const d = res.data || {};
-          const v = esTermo ? d.temperaturaObjetivo
-            : (dispositivo.modo === 'dimmer' ? d.brillo : d.posicion);
-          if (typeof v === 'number') { valor = Math.min(cfg.max, Math.max(cfg.min, v)); }
-          // A qué nivel/modo vuelve el toque del centro cuando está apagado.
-          if (esDimmer && typeof d.brilloMemoria === 'number' && d.brilloMemoria > 0) {
-            valorEncendido = d.brilloMemoria;
-          }
-          if (esTermo && d.modoHVAC) {
-            termoApagado = d.modoHVAC === 'off';
-            if (!termoApagado) modoTermo = d.modoHVAC;
-          }
-          valorAncla = valor;
-          pintar();
+          aplicar(res.data || {});
         } catch (err) { /* sin estado disponible */ }
-      })();
+      };
+      preguntar();
+
+      // Lo mismo que hace la perilla, porque este rodillo LA REEMPLAZA cuando
+      // el aparato está vestido de rueda. Escribirlo solo allí fue el fallo de
+      // esta noche: el código estaba bien y no se ejecutaba nunca, porque estos
+      // dos termostatos llevan aspecto rueda desde el Locker.
+      if (esTermo && (dispositivo.proveedor || '') === 'nest') {
+        let primera = true;
+        try {
+          const paro = onSnapshot(
+            doc(db, 'dispositivos', dispositivo.id, 'estado', 'termostato'),
+            (snap) => {
+              if (primera) { primera = false; return; }
+              if (snap.exists() && !arrastrando) aplicar(snap.data());
+            },
+            (err) => {
+              console.error('La escucha en vivo del rodillo falló:', err && err.code, err && err.message);
+              toast(`Sin actualización en vivo (${(err && err.code) || 'error'})`, 'error');
+            }
+          );
+          control.addEventListener('viyi:soltar', paro);
+        } catch (e) { /* sin escucha: queda el suelo de abajo */ }
+      }
+
+      // El suelo: se vuelve a preguntar mientras la pestaña esté a la vista.
+      let reloj = null;
+      const seguirMirando = () => {
+        clearInterval(reloj);
+        reloj = null;
+        if (!document.hidden) reloj = setInterval(preguntar, 30000);
+      };
+      seguirMirando();
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) preguntar(); seguirMirando(); });
+      control.addEventListener('viyi:soltar', () => clearInterval(reloj));
     } else {
       valor = esTermo ? 23 : 60; // valores de muestra para el Locker
       pintar();
