@@ -77,6 +77,7 @@ async function iniciar() {
   const adminListarAccesoriosHomebridge = httpsCallable(functions, 'adminListarAccesoriosHomebridge');
   const adminListarDispositivosTuya = httpsCallable(functions, 'adminListarDispositivosTuya');
   const adminListarDispositivosShelly = httpsCallable(functions, 'adminListarDispositivosShelly');
+  const adminListarDispositivosNest = httpsCallable(functions, 'adminListarDispositivosNest');
   const adminAccesorioCrudo = httpsCallable(functions, 'adminAccesorioCrudo');
   const crearPase = httpsCallable(functions, 'crearPase');
   const canjearPase = httpsCallable(functions, 'canjearPase');
@@ -3850,7 +3851,7 @@ async function iniciar() {
   async function abrirEditorDispositivo(existente) {
     const esNuevo = !existente;
     const d = existente || {};
-    let tuya = { tuyaDeviceId: '', codigo: 'switch_1', pulsoMs: 1000, codigoBrillo: 'bright_value_v2', brilloMax: 1000, posicionInvertida: false, accesorioId: '', caracteristica: '' };
+    let tuya = { tuyaDeviceId: '', codigo: 'switch_1', pulsoMs: 1000, codigoBrillo: 'bright_value_v2', brilloMax: 1000, posicionInvertida: false, accesorioId: '', caracteristica: '', nestDeviceId: '' };
     if (!esNuevo) {
       try {
         const s = await getDoc(doc(db, `dispositivos/${d.id}/privado/tuya`));
@@ -3971,7 +3972,7 @@ async function iniciar() {
     const cInvertir = casilla('Invertir apertura (marca si la persiana abre al revés)', tuya.posicionInvertida === true);
 
     // Proveedor: Tuya (nube) o Homebridge (API de UI-X vía túnel).
-    const sProveedor = selector([['tuya', 'Tuya'], ['homebridge', 'Homebridge'], ['shelly', 'Shelly']], d.proveedor || 'tuya');
+    const sProveedor = selector([['tuya', 'Tuya'], ['homebridge', 'Homebridge'], ['shelly', 'Shelly'], ['nest', 'Nest']], d.proveedor || 'tuya');
     // Shelly por su nube: el id del aparato (Device Information en la app) y el
     // canal de la salida, que en un Plus 1 es siempre 0.
     const iShelly = entrada(tuya.shellyId, 'ej: b48a0a1cd978');
@@ -4038,6 +4039,65 @@ async function iniciar() {
     cajaShelly.className = 'tuya-lista';
     cajaShelly.append(btnShelly, selShelly, estadoShelly);
     const campoShellyLista = campo('', cajaShelly);
+    // Nest: el aparato se elige de la lista de Google. No hay campo para
+    // escribir el id a mano porque ese id no está a la vista en ningún sitio
+    // que un humano visite —sale de la API—, así que un campo vacío sería una
+    // trampa.
+    const iNest = entrada(tuya.nestDeviceId || '', '');
+    const selNest = document.createElement('select');
+    selNest.className = 'oculto';
+    const estadoNest = document.createElement('div');
+    estadoNest.className = 'dps-detectados';
+    selNest.addEventListener('change', () => {
+      const op = selNest.selectedOptions[0];
+      if (!op || !op.value) return;
+      iNest.value = op.value;
+      if (!iNombre.value.trim()) ponerNombre(op.dataset.nombre);
+      // Un termostato solo puede ser termostato, y una cámara solo informa.
+      // Se deja el modo puesto para que no haya que adivinarlo.
+      if (op.dataset.tipo === 'THERMOSTAT') { sTipo.value = 'termostato'; sincronizarModoTipo(); }
+      else if (op.dataset.tipo === 'CAMERA' || op.dataset.tipo === 'DOORBELL') { sModo.value = 'sensor'; actualizarCampos(); }
+    });
+    const btnNest = botonForm('Traer aparatos de Nest', 'btn-secundario', async (ev) => {
+      const b = ev.currentTarget;
+      b.disabled = true;
+      const orig = b.textContent;
+      b.textContent = 'Consultando…';
+      estadoNest.textContent = '';
+      try {
+        const res = await adminListarDispositivosNest({});
+        const lista = (res.data && res.data.dispositivos) || [];
+        selNest.textContent = '';
+        const vacio = document.createElement('option');
+        vacio.value = '';
+        vacio.textContent = `— elige uno (${lista.length}) —`;
+        selNest.appendChild(vacio);
+        const COMO = { THERMOSTAT: 'termostato', CAMERA: 'cámara', DOORBELL: 'timbre', DISPLAY: 'pantalla' };
+        for (const n of lista) {
+          const o = document.createElement('option');
+          o.value = n.id;
+          o.textContent = `${n.nombre} · ${COMO[n.tipo] || n.tipo.toLowerCase()}`
+            + (n.sala && n.sala !== n.nombre ? ` · ${n.sala}` : '')
+            + (n.protocolosVideo.length ? ` · vídeo ${n.protocolosVideo.join('/')}` : '')
+            + (n.yaEsta ? ' · ya dado de alta' : '');
+          o.dataset.nombre = n.nombre;
+          o.dataset.tipo = n.tipo;
+          selNest.appendChild(o);
+        }
+        selNest.classList.toggle('oculto', !lista.length);
+        if (tuya.nestDeviceId) selNest.value = tuya.nestDeviceId;
+        estadoNest.textContent = lista.length ? '' : 'Nest no devolvió aparatos.';
+      } catch (err) {
+        estadoNest.textContent = err.message || 'No se pudo consultar Nest.';
+      } finally {
+        b.disabled = false;
+        b.textContent = orig;
+      }
+    });
+    const cajaNest = document.createElement('div');
+    cajaNest.className = 'tuya-lista';
+    cajaNest.append(btnNest, selNest, estadoNest);
+    const campoNest = campo('Aparato de Nest', cajaNest);
     const campoDevice = campo('Device ID de Tuya', iDevice);
     const campoCuenta = campo('Cuenta Tuya Origen', iCuenta);
     // Tuya: traer la lista en vez de copiar el Device ID de la consola a mano.
@@ -4351,6 +4411,7 @@ async function iniciar() {
     const actualizarCampos = () => {
       const esHb = sProveedor.value === 'homebridge';
       const esShelly = sProveedor.value === 'shelly';
+      const esNest = sProveedor.value === 'nest';
       const esTuya = !esHb && !esShelly;
       const esDimmer = sModo.value === 'dimmer';
       campoDevice.classList.toggle('oculto', !esTuya);
@@ -4370,6 +4431,7 @@ async function iniciar() {
       campoAccesorio.classList.toggle('oculto', !esHb);
       campoCaracteristica.classList.toggle('oculto', !esHb);
       campoShellyLista.classList.toggle('oculto', !esShelly);
+      campoNest.classList.toggle('oculto', !esNest);
       campoShelly.classList.toggle('oculto', !esShelly);
       campoShellyCanal.classList.toggle('oculto', !esShelly);
       cInvertir.label.classList.toggle('oculto', sModo.value !== 'cortina');
@@ -4402,6 +4464,7 @@ async function iniciar() {
             activo: cActivo.c.checked,
             registrar: cRegistrar.c.checked,
             tuyaDeviceId: iDevice.value.trim(),
+            nestDeviceId: sProveedor.value === 'nest' ? iNest.value.trim() : '',
             codigo: iCodigo.value.trim(),
             pulsoMs: Number(iPulso.value) || 1000,
             codigoBrillo: iCodigoBrillo.value.trim(),
@@ -4460,6 +4523,7 @@ async function iniciar() {
       campoCuenta,
       campoDevice,
       campoShellyLista,
+      campoNest,
       campoShelly,
       campoShellyCanal,
       campoCodigo,
