@@ -4195,7 +4195,10 @@ async function iniciar() {
       // Un termostato solo puede ser termostato, y una cámara solo informa.
       // Se deja el modo puesto para que no haya que adivinarlo.
       if (op.dataset.tipo === 'THERMOSTAT') sTipo.value = 'termostato';
-      else if (op.dataset.tipo === 'CAMERA' || op.dataset.tipo === 'DOORBELL') sModo.value = 'sensor';
+      // Una cámara de Nest se pone en modo `camara`, no `sensor`: por esta vía
+      // sí hay vídeo. El `sensor` es lo que tiene sentido cuando la cámara
+      // llega por Homebridge, que solo publica el movimiento.
+      else if (op.dataset.tipo === 'CAMERA' || op.dataset.tipo === 'DOORBELL') sModo.value = 'camara';
       // Asignar `.value` por código NO dispara `change`, así que hay que
       // repasar el formulario a mano. Faltaba `actualizarSub()` y el resultado
       // era un termostato con Subcategoría "Peatones", Aspecto y "Segundos en
@@ -4657,6 +4660,22 @@ async function iniciar() {
     }
 
     abrirEditor(esNuevo ? 'Nuevo dispositivo' : `Editar: ${d.nombre}`, [
+      // El PROVEEDOR va primero, y con él la lista de sus aparatos.
+      //
+      // Estaba en la décima posición, y eso ponía el formulario al revés: se
+      // pedía nombre, tipo, modo y aspecto antes de saber de qué aparato se
+      // hablaba, y la mitad de esos campos ni siquiera aplicaban al proveedor
+      // que se acabara eligiendo. Elegir Nest y seguir viendo "Device ID de
+      // Tuya" venía de aquí tanto como del filtro que lo escondía.
+      //
+      // En este orden el formulario se rellena solo hacia abajo: eliges
+      // proveedor, eliges el aparato de su lista, y el nombre y el modo llegan
+      // puestos. Lo que queda debajo es afinar, no adivinar.
+      campo('Proveedor', sProveedor),
+      campoTuyaLista,
+      campoShellyLista,
+      campoNest,
+      campoAccesorio,
       campo('Nombre visible', iNombre),
       campo('Identificador (se genera solo, no cambia después)', iId),
       campo('Tipo', sTipo),
@@ -4666,17 +4685,12 @@ async function iniciar() {
       campoSegundos,
       campo('Inmueble (dónde está)', sInmueble),
       campo('Dueño del aparato', sDueno),
-      campo('Proveedor', sProveedor),
       campo('Orden (menor = primero)', iOrden),
-      campoTuyaLista,
       campoCuenta,
       campoDevice,
-      campoShellyLista,
-      campoNest,
       campoShelly,
       campoShellyCanal,
       campoCodigo,
-      campoAccesorio,
       campoCaracteristica,
       campo('Duración del pulso (ms)', iPulso),
       campoTermoSwitch,
