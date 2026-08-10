@@ -2721,9 +2721,15 @@ async function revisarConexion() {
       });
     }
 
-    const deTuya = disps.filter((d) => !['homebridge', 'shelly'].includes(d.proveedor) && d.cfg && d.cfg.tuyaDeviceId);
+    // Cada proveedor se reconoce POR SU NOMBRE. Antes Tuya se quedaba con todo
+    // lo que no fuera Homebridge ni Shelly, y al aparecer Nest eso dejó de ser
+    // inofensivo: un termostato de Google caía en el saco de Tuya, se buscaba
+    // un id que allí no existe y salía marcado como DESCONECTADO. No faltaba
+    // del informe —habría sido menos grave—: aparecía en rojo mintiendo.
+    const deTuya = disps.filter((d) => (d.proveedor || 'tuya') === 'tuya' && d.cfg && d.cfg.tuyaDeviceId);
     const deHb = disps.filter((d) => d.proveedor === 'homebridge' && d.cfg && d.cfg.accesorioId);
     const deShelly = disps.filter((d) => d.proveedor === 'shelly' && d.cfg && d.cfg.shellyId);
+    const deNest = disps.filter((d) => d.proveedor === 'nest' && d.cfg && d.cfg.nestDeviceId);
 
     const onlineTuya = new Map();
     if (deTuya.length) {
@@ -2757,6 +2763,23 @@ async function revisarConexion() {
       }
     }
 
+    // Nest dice si el aparato está en línea en su propio trait `Connectivity`,
+    // así que no hay que deducirlo de si aparece en la lista.
+    const onlineNest = new Map();
+    if (deNest.length) {
+      try {
+        for (const n of await nest().listarDispositivos()) {
+          const c = (n.traits || {})['sdm.devices.traits.Connectivity'] || {};
+          // Solo se anota si el aparato REALMENTE lo dice. La cámara no publica
+          // este trait, y dar por falso lo que no se sabe la habría pintado
+          // desconectada estando perfecta: sin dato, el estado es desconocido.
+          if (c.status) onlineNest.set(n.id, c.status === 'ONLINE');
+        }
+      } catch (err) {
+        console.error('No se pudo consultar el estado en Nest:', err.message);
+      }
+    }
+
     const ahora = admin.firestore.Timestamp.now();
     const lista = [];
     for (const d of disps) {
@@ -2766,6 +2789,9 @@ async function revisarConexion() {
         if (onlineHb.size) online = onlineHb.has(d.cfg.accesorioId);
       } else if (d.proveedor === 'shelly') {
         if (onlineShelly.size) online = onlineShelly.get(d.cfg.shellyId) === true;
+      } else if (d.proveedor === 'nest') {
+        const v = onlineNest.get(String(d.cfg.nestDeviceId).split('/').pop());
+        if (v !== undefined) online = v;
       } else if (onlineTuya.size) {
         online = onlineTuya.get(d.cfg.tuyaDeviceId) === true;
       }

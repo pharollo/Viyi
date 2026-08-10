@@ -4055,8 +4055,14 @@ async function iniciar() {
       if (!iNombre.value.trim()) ponerNombre(op.dataset.nombre);
       // Un termostato solo puede ser termostato, y una cámara solo informa.
       // Se deja el modo puesto para que no haya que adivinarlo.
-      if (op.dataset.tipo === 'THERMOSTAT') { sTipo.value = 'termostato'; sincronizarModoTipo(); }
-      else if (op.dataset.tipo === 'CAMERA' || op.dataset.tipo === 'DOORBELL') { sModo.value = 'sensor'; actualizarCampos(); }
+      if (op.dataset.tipo === 'THERMOSTAT') sTipo.value = 'termostato';
+      else if (op.dataset.tipo === 'CAMERA' || op.dataset.tipo === 'DOORBELL') sModo.value = 'sensor';
+      // Asignar `.value` por código NO dispara `change`, así que hay que
+      // repasar el formulario a mano. Faltaba `actualizarSub()` y el resultado
+      // era un termostato con Subcategoría "Peatones", Aspecto y "Segundos en
+      // abrir": tres campos de puerta colgados de un aparato que no abre nada.
+      sincronizarModoTipo();
+      actualizarSub();
     });
     const btnNest = botonForm('Traer aparatos de Nest', 'btn-secundario', async (ev) => {
       const b = ev.currentTarget;
@@ -4412,7 +4418,11 @@ async function iniciar() {
       const esHb = sProveedor.value === 'homebridge';
       const esShelly = sProveedor.value === 'shelly';
       const esNest = sProveedor.value === 'nest';
-      const esTuya = !esHb && !esShelly;
+      // Por su nombre, no por descarte. Decía `!esHb && !esShelly`, y al
+      // aparecer Nest ese "todo lo demás es Tuya" empezó a pedir el Device ID
+      // de Tuya para un termostato de Google. Con el quinto proveedor volvería
+      // a pasar.
+      const esTuya = sProveedor.value === 'tuya';
       const esDimmer = sModo.value === 'dimmer';
       campoDevice.classList.toggle('oculto', !esTuya);
       campoTuyaLista.classList.toggle('oculto', !esTuya);
