@@ -3251,10 +3251,25 @@ async function iniciar() {
       // sigue haciendo falta: da el estado completo al abrir, y este documento
       // solo tiene lo que haya cambiado desde entonces.
       if ((dispositivo.proveedor || '') === 'nest') {
+        // Solo se hace caso a lo que llegó DESPUÉS de abrir esto.
+        //
+        // En ese documento hay restos de cuando estos aparatos iban por
+        // Homebridge —un objetivo de hace semanas, sin `visto`— y `onSnapshot`
+        // dispara de inmediato con lo que haya guardado. Sin este corte, ese
+        // valor viejo pisaría el que acaba de traer la consulta: la perilla
+        // saltaría de los 20,5° reales a unos 22° fantasma, y encima parecería
+        // fresco. Es el mismo fallo que hoy tuvo el informe de conexión
+        // enseñando un aparato en rojo dieciséis horas después de arreglarlo.
+        const desdeCuando = Date.now();
         try {
           const paro = onSnapshot(
             doc(db, 'dispositivos', dispositivo.id, 'estado', 'termostato'),
-            (snap) => { if (snap.exists()) aplicar(snap.data()); },
+            (snap) => {
+              if (!snap.exists()) return;
+              const d = snap.data();
+              const visto = d.visto && typeof d.visto.toMillis === 'function' ? d.visto.toMillis() : 0;
+              if (visto > desdeCuando) aplicar(d);
+            },
             () => { /* sin permiso o sin red: queda el estado de la consulta */ }
           );
           cont.addEventListener('viyi:soltar', paro);
