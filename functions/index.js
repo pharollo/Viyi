@@ -524,7 +524,71 @@ exports.ejecutarComando = onCall(
           await tuya().enviarComandos(config.tuyaDeviceId, comandos);
         }
       } else if (dispositivo.modo === 'termostato') {
-        throw new HttpsError('failed-precondition', 'El termostato por ahora solo funciona con Homebridge.');
+        // Termostato de Tuya. El modo se construyó primero contra Homebridge y
+        // este camino no existía: mandaba un `failed-precondition` y ahí moría.
+        //
+        // Los CÓDIGOS son configurables porque cada termostato Tuya usa los
+        // suyos: los de aire acondicionado suelen ser `switch`/`temp_set`/`mode`
+        // y los de calefacción a veces `switch_1` o `upper_temp`. Adivinar uno
+        // fijo funciona con el aparato que tengas delante y falla con el
+        // siguiente.
+        const cSwitch = config.codigoTermoSwitch || 'switch';
+        const cObjetivo = config.codigoTempObjetivo || 'temp_set';
+        const cModo = config.codigoModo || 'mode';
+        // ⚠️ Muchos termostatos Tuya hablan en DÉCIMAS: 235 son 23,5 °C. Si se
+        // manda 23 a uno de esos, pide 2,3 grados. El factor se guarda con el
+        // aparato porque no hay forma de deducirlo del valor: 23 es un número
+        // válido en las dos escalas.
+        const escala = Number(config.escalaTemp) > 0 ? Number(config.escalaTemp) : 1;
+
+        if (accion === 'temperatura') {
+          const t = Number(valor);
+          if (!Number.isFinite(t) || t < 5 || t > 35) {
+            throw new HttpsError('invalid-argument', 'La temperatura debe estar entre 5 y 35 grados.');
+          }
+          await tuya().enviarComandos(config.tuyaDeviceId, [
+            { code: cSwitch, value: true },
+            { code: cObjetivo, value: Math.round(t * escala) },
+          ]);
+        } else if (accion === 'modo') {
+          // 'off' se apaga con el interruptor, no con el modo: un termostato
+          // apagado no tiene modo, y mandarle uno lo enciende.
+          if (valor === 'off') {
+            await tuya().enviarComandos(config.tuyaDeviceId, [{ code: cSwitch, value: false }]);
+          } else {
+            // ⚠️ Hay DOS vocabularios de modo, y mandar el del otro es mandar un
+            // valor que el aparato no conoce:
+            //   · aire acondicionado → cold / hot / auto / wind
+            //   · calefacción        → manual / auto / program / holiday
+            // El termostato de la prueba (Cuarto Allancho) devolvió
+            // `mode: "manual"`, así que es de los segundos: pedirle "hot"
+            // habría fallado.
+            //
+            // En vez de suponerlo, se MIRA lo que el aparato dice ahora mismo.
+            // Cuesta una consulta y evita romper el aparato de otro.
+            const ahora = await tuya().estado(config.tuyaDeviceId).catch(() => []);
+            const modoActual = (ahora || []).find((e) => e.code === cModo);
+            const esDeAire = ['cold', 'hot', 'wind'].includes(String(modoActual?.value || ''));
+
+            const comandos = [{ code: cSwitch, value: true }];
+            if (esDeAire) {
+              const MODOS_TUYA = { cool: 'cold', heat: 'hot', auto: 'auto', wind: 'wind' };
+              const m = MODOS_TUYA[valor];
+              if (!m) throw new HttpsError('invalid-argument', 'Modo no válido.');
+              comandos.push({ code: cModo, value: m });
+            }
+            // En uno de calefacción no se toca `mode`: sus modos hablan de CÓMO
+            // sigue el programa (manual, por horario), no de frío o calor.
+            // Encenderlo y fijarle la temperatura es todo lo que ViYi quiere.
+            await tuya().enviarComandos(config.tuyaDeviceId, comandos);
+          }
+        } else if (accion === 'encender' || accion === 'apagar') {
+          await tuya().enviarComandos(config.tuyaDeviceId, [
+            { code: cSwitch, value: accion === 'encender' },
+          ]);
+        } else {
+          throw new HttpsError('invalid-argument', 'Acción de termostato no válida.');
+        }
       } else {
         if (accion !== 'encender' && accion !== 'apagar') {
           throw new HttpsError('invalid-argument', "La acción debe ser 'encender' o 'apagar'.");
@@ -1655,6 +1719,7 @@ exports.adminGuardarDispositivo = onCall(RARA, async (request) => {
     id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, segundosApertura, orden, activo, inmueble,
     dueno, cuentaTuya, registrar: registrarPedido, shellyId, shellyCanal,
     proveedor, tuyaDeviceId, codigo, pulsoMs, codigoBrillo, brilloMax,
+    codigoTermoSwitch, codigoTempObjetivo, codigoTempActual, codigoModo, escalaTemp,
     codigoPosicion, codigoPosicionEstado, posicionInvertida,
     accesorioId, caracteristica,
   } = request.data || {};
@@ -1766,6 +1831,16 @@ exports.adminGuardarDispositivo = onCall(RARA, async (request) => {
     pulsoMs: Number(pulsoMs) || 1000,
     codigoBrillo: (codigoBrillo || 'bright_value_v2').trim(),
     brilloMax: Number(brilloMax) || 1000,
+    // Termostato de Tuya. Cada aparato usa sus propios códigos, así que se
+    // guardan con él en vez de darlos por sabidos; los de por defecto son los
+    // más comunes en aires acondicionados.
+    codigoTermoSwitch: (codigoTermoSwitch || 'switch').trim(),
+    codigoTempObjetivo: (codigoTempObjetivo || 'temp_set').trim(),
+    codigoTempActual: (codigoTempActual || 'temp_current').trim(),
+    codigoModo: (codigoModo || 'mode').trim(),
+    // 1 = grados enteros; 10 = décimas (235 son 23,5 °C). No se puede deducir
+    // del valor —23 vale en las dos escalas— así que se elige al dar de alta.
+    escalaTemp: Number(escalaTemp) === 10 ? 10 : 1,
   };
   // Homebridge: id del accesorio y característica (opcional; por defecto On).
   if (accesorioId) privado.accesorioId = String(accesorioId).trim();
@@ -3233,6 +3308,42 @@ exports.consultarEstado = onCall(
         return { encendido: enc, brillo: bri, brilloMemoria: briMem };
       }
       const estados = await tuya().estado(config.tuyaDeviceId);
+      if (dispositivo.modo === 'termostato') {
+        // Se lee con los mismos códigos con los que se manda, y con la misma
+        // escala: si se manda en décimas también se lee en décimas, y sin
+        // dividir el termostato diría 235 grados.
+        const cSwitch = config.codigoTermoSwitch || 'switch';
+        const cObjetivo = config.codigoTempObjetivo || 'temp_set';
+        const cActual = config.codigoTempActual || 'temp_current';
+        const cModo = config.codigoModo || 'mode';
+        const escala = Number(config.escalaTemp) > 0 ? Number(config.escalaTemp) : 1;
+        const punto = (c) => (estados || []).find((e) => e.code === c);
+        const grados = (c) => {
+          const p = punto(c);
+          return p && typeof p.value === 'number' ? p.value / escala : null;
+        };
+        const encendido = (() => {
+          const p = punto(cSwitch);
+          if (!p) return null;
+          return typeof p.value === 'boolean' ? p.value : p.value !== 0;
+        })();
+        // Los dos vocabularios otra vez. Los de calefacción dicen `manual` o
+        // `auto`, que no significan frío ni calor: si está encendido, calienta.
+        const DE_TUYA = { cold: 'cool', hot: 'heat', auto: 'auto', wind: 'wind' };
+        const pm = punto(cModo);
+        const suModo = String(pm?.value || '');
+        return {
+          // Puede no publicar la ambiente: el de la prueba solo da `temp_set`.
+          // `null` y no la objetivo — enseñar la que pediste como si fuera la
+          // que hay es inventarse un dato.
+          temperaturaActual: grados(cActual),
+          temperaturaObjetivo: grados(cObjetivo),
+          // Apagado es apagado, diga lo que diga el modo: uno con `mode: cold`
+          // y el interruptor en off no está enfriando nada.
+          modoHVAC: encendido === false ? 'off'
+            : (DE_TUYA[suModo] || (encendido ? 'heat' : null)),
+        };
+      }
       if (dispositivo.modo === 'cortina') {
         // Posición actual de la persiana (percent_state), para recordarla.
         const codigoPosEstado = config.codigoPosicionEstado || 'percent_state';
