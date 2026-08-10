@@ -1917,7 +1917,7 @@ exports.adminGuardarDispositivo = onCall(RARA, async (request) => {
   if (!FALTA[provFinal][0]) {
     throw new HttpsError('invalid-argument', FALTA[provFinal][1]);
   }
-  let tipoFinal = ['puerta', 'cortina', 'ascensor', 'luz', 'termostato', 'rele', 'otro'].includes(tipo) ? tipo : 'otro';
+  let tipoFinal = ['puerta', 'cortina', 'ascensor', 'luz', 'termostato', 'camara', 'rele', 'otro'].includes(tipo) ? tipo : 'otro';
   let subFinal = ['bunker', 'porton'].includes(subtipo) ? subtipo : '';
   if (tipo === 'bunker') { tipoFinal = 'puerta'; subFinal = 'bunker'; } // compat con el tipo viejo
   if (tipoFinal !== 'puerta') subFinal = '';                            // el subtipo solo aplica a puerta
