@@ -3876,6 +3876,17 @@ async function iniciar() {
     const iPulso = entrada(tuya.pulsoMs, '', 'number');
     const iCodigoBrillo = entrada(tuya.codigoBrillo, 'bright_value_v2');
     const iBrilloMax = entrada(tuya.brilloMax, '', 'number');
+    // Los del termostato de Tuya. Cada aparato usa los suyos, así que se
+    // guardan con él; los `placeholder` son los más comunes y coinciden con lo
+    // que devolvió el de la prueba.
+    const iTermoSwitch = entrada(tuya.codigoTermoSwitch, 'switch');
+    const iTempObjetivo = entrada(tuya.codigoTempObjetivo, 'temp_set');
+    const iTempActual = entrada(tuya.codigoTempActual, 'temp_current');
+    const iCodigoModo = entrada(tuya.codigoModo, 'mode');
+    // Grados o décimas. No se puede deducir de un valor suelto —23 vale en las
+    // dos— pero sí del rango que declara el aparato, y eso lo hace el detector.
+    const sEscalaTemp = selector([['1', 'Grados enteros (23)'], ['10', 'Décimas (235 = 23,5)']],
+      String(tuya.escalaTemp || 1));
     const campoBrilloCodigo = campo('Código de brillo (Tuya)', iCodigoBrillo);
     const campoBrilloMax = campo('Brillo máximo (rango Tuya, ej. 1000)', iBrilloMax);
     const cInvertir = casilla('Invertir apertura (marca si la persiana abre al revés)', tuya.posicionInvertida === true);
@@ -4028,6 +4039,13 @@ async function iniciar() {
     const campoTuyaLista = campo('', cajaTuya);
 
     const campoCodigo = campo('Código del interruptor (Debug Device)', iCodigo);
+    // Termostato de Tuya: solo salen con ese modo, que en un portón serían
+    // cinco campos preguntando por una temperatura que no existe.
+    const campoTermoSwitch = campo('Termostato · encendido', iTermoSwitch);
+    const campoTempObjetivo = campo('Termostato · temperatura que se pide', iTempObjetivo);
+    const campoTempActual = campo('Termostato · temperatura ambiente', iTempActual);
+    const campoCodigoModo = campo('Termostato · modo', iCodigoModo);
+    const campoEscalaTemp = campo('Termostato · escala', sEscalaTemp);
     // Homebridge: elegir el accesorio de la lista de UI-X.
     const selAcc = document.createElement('select');
     if (tuya.accesorioId) {
@@ -4106,13 +4124,46 @@ async function iniciar() {
         const res = await adminInspeccionarDispositivo({ tuyaDeviceId: idTuya });
         const funciones = (res.data && res.data.funciones) || [];
         const sw = funciones.find((f) => f.type === 'Boolean' && /switch|light/i.test(f.code)) || funciones.find((f) => f.type === 'Boolean');
-        const brillo = funciones.find((f) => /bright/i.test(f.code));
         if (sw) iCodigo.value = sw.code;
+        const lista = funciones.map((f) => f.code).join(', ');
+
+        // El detector buscaba SIEMPRE un DP de brillo, así que en un termostato
+        // avisaba de que no lo encontró —cierto, y completamente inútil—
+        // mientras los DPs que sí importaban pasaban de largo en la lista. Se
+        // busca lo que corresponde al modo del aparato.
+        if (sModo.value === 'termostato') {
+          const obj = funciones.find((f) => /^temp_set$|set_temp|upper_temp/i.test(f.code));
+          const act = funciones.find((f) => /temp_current|current_temp|^va_temperature$/i.test(f.code));
+          const mod = funciones.find((f) => /^mode$|work_mode/i.test(f.code));
+          if (sw) iTermoSwitch.value = sw.code;
+          if (obj) iTempObjetivo.value = obj.code;
+          if (act) iTempActual.value = act.code;
+          if (mod) iCodigoModo.value = mod.code;
+
+          // La ESCALA se deduce del rango que declara el aparato: uno que
+          // admite hasta 350 habla en décimas, no pide 350 grados. Es lo único
+          // que no se puede sacar de un valor suelto —23 vale en las dos— pero
+          // del máximo sí.
+          let escalaDicha = '';
+          try {
+            const v = JSON.parse((obj && obj.values) || '{}');
+            if (v.max && Number(v.max) > 60) { sEscalaTemp.value = '10'; escalaDicha = ' · en décimas'; }
+            else if (v.max) { sEscalaTemp.value = '1'; escalaDicha = ' · en grados enteros'; }
+          } catch (e) { /* sin rango declarado: se queda como esté */ }
+
+          iResultadoDps.innerHTML = (obj
+            ? `✓ Termostato: <b>${obj.code}</b>${mod ? ` · modo <b>${mod.code}</b>` : ''}`
+              + `${act ? ` · ambiente <b>${act.code}</b>` : ' · sin temperatura ambiente'}${escalaDicha}`
+            : '⚠ No encontré el DP de temperatura; elige a mano uno con "temp".')
+            + `<br>DPs disponibles: ${lista}`;
+          return;
+        }
+
+        const brillo = funciones.find((f) => /bright/i.test(f.code));
         if (brillo) {
           iCodigoBrillo.value = brillo.code;
           try { const v = JSON.parse(brillo.values || '{}'); if (v.max) iBrilloMax.value = v.max; } catch (e) { /* sin rango */ }
         }
-        const lista = funciones.map((f) => f.code).join(', ');
         iResultadoDps.innerHTML = (brillo
           ? `✓ Brillo detectado: <b>${brillo.code}</b>${iBrilloMax.value ? ` (máx ${iBrilloMax.value})` : ''}`
           : '⚠ No encontré un DP de brillo; elige a mano uno con "bright".')
@@ -4138,6 +4189,10 @@ async function iniciar() {
       campoCodigo.classList.toggle('oculto', !esTuya);
       campoBrilloCodigo.classList.toggle('oculto', !esTuya || !esDimmer);
       campoBrilloMax.classList.toggle('oculto', !esTuya || !esDimmer);
+      const esTermo = sModo.value === 'termostato';
+      for (const c of [campoTermoSwitch, campoTempObjetivo, campoTempActual, campoCodigoModo, campoEscalaTemp]) {
+        c.classList.toggle('oculto', !esTuya || !esTermo);
+      }
       // El inspector de DPs sirve para cualquier dispositivo Tuya (no solo
       // dimmers): es la herramienta para depurar suiches, cortinas, etc.
       campoDetectar.classList.toggle('oculto', !esTuya);
@@ -4179,6 +4234,11 @@ async function iniciar() {
             codigo: iCodigo.value.trim(),
             pulsoMs: Number(iPulso.value) || 1000,
             codigoBrillo: iCodigoBrillo.value.trim(),
+            codigoTermoSwitch: iTermoSwitch.value.trim(),
+            codigoTempObjetivo: iTempObjetivo.value.trim(),
+            codigoTempActual: iTempActual.value.trim(),
+            codigoModo: iCodigoModo.value.trim(),
+            escalaTemp: Number(sEscalaTemp.value) || 1,
             brilloMax: Number(iBrilloMax.value) || 1000,
             posicionInvertida: cInvertir.c.checked,
             accesorioId: sProveedor.value === 'homebridge' ? selAcc.value : '',
@@ -4233,6 +4293,11 @@ async function iniciar() {
       campoAccesorio,
       campoCaracteristica,
       campo('Duración del pulso (ms)', iPulso),
+      campoTermoSwitch,
+      campoTempObjetivo,
+      campoTempActual,
+      campoCodigoModo,
+      campoEscalaTemp,
       campoBrilloCodigo,
       campoBrilloMax,
       cInvertir.label,
