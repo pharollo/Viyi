@@ -3260,15 +3260,26 @@ async function iniciar() {
         // saltaría de los 20,5° reales a unos 22° fantasma, y encima parecería
         // fresco. Es el mismo fallo que hoy tuvo el informe de conexión
         // enseñando un aparato en rojo dieciséis horas después de arreglarlo.
-        const desdeCuando = Date.now();
+        // Se ignora la PRIMERA lectura y se aceptan las siguientes.
+        //
+        // La primera trae lo que ya estaba guardado —incluidos restos de cuando
+        // estos aparatos iban por Homebridge, un objetivo de hace semanas— y
+        // pisaría el estado fresco que acaba de traer la consulta. De la
+        // segunda en adelante, cada aviso ES un cambio que Google acaba de
+        // empujar.
+        //
+        // Antes esto comparaba la marca de tiempo con `Date.now()`, y eso
+        // metía en la ecuación el reloj DEL TELÉFONO: unos segundos de
+        // adelanto y un cambio recién llegado se descartaba por viejo. Hoy
+        // mismo un reloj torcido nos costó medio día con el Raspberry; no
+        // hacía falta volver a depender de otro.
+        let primera = true;
         try {
           const paro = onSnapshot(
             doc(db, 'dispositivos', dispositivo.id, 'estado', 'termostato'),
             (snap) => {
-              if (!snap.exists()) return;
-              const d = snap.data();
-              const visto = d.visto && typeof d.visto.toMillis === 'function' ? d.visto.toMillis() : 0;
-              if (visto > desdeCuando) aplicar(d);
+              if (primera) { primera = false; return; }
+              if (snap.exists()) aplicar(snap.data());
             },
             () => { /* sin permiso o sin red: queda el estado de la consulta */ }
           );
