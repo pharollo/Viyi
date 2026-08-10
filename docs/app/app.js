@@ -93,6 +93,56 @@ async function iniciar() {
   let misDispositivos = [];
   let avisoTimer = null;
 
+  // ---- Que la app se entere de que hay versión nueva ----
+  //
+  // ViYi es UNA sola pantalla que vive días abierta, sobre todo instalada en el
+  // teléfono. Sin service worker y sin nada que recargue, el código nuevo solo
+  // llegaba cuando el navegador volvía a pedir el HTML — y eso pasaba, en la
+  // práctica, al salir y volver a entrar. Reportado tal cual: "no se les
+  // actualiza si no salen y entran de nuevo".
+  //
+  // La versión propia sale de la URL de este mismo módulo (`?v=391`), así que
+  // no hay un número que actualizar a mano en dos sitios y que se desincronice.
+  const MI_VERSION = (import.meta.url.match(/[?&]v=(\d+)/) || [])[1] || '';
+
+  async function versionPublicada() {
+    try {
+      // `no-store` y un parámetro que cambia: sin las dos cosas el navegador
+      // devuelve el HTML de su caché y esto no se enteraría nunca — que es
+      // exactamente el problema que viene a resolver.
+      const r = await fetch(`./?ver=${Date.now()}`, { cache: 'no-store' });
+      const html = await r.text();
+      return (html.match(/app\.js\?v=(\d+)/) || [])[1] || '';
+    } catch (e) {
+      return '';   // sin red: no se sabe, y no saber no es motivo de nada
+    }
+  }
+
+  let avisandoVersion = false;
+  async function mirarSiHayVersionNueva({ recargarSolo = false } = {}) {
+    if (!MI_VERSION || avisandoVersion) return;
+    const publicada = await versionPublicada();
+    if (!publicada || publicada === MI_VERSION) return;
+    // Solo hacia ADELANTE: si la publicada es más vieja que la mía, es que
+    // Pages todavía sirve su copia cacheada, y recargar la devolvería atrás.
+    if (Number(publicada) <= Number(MI_VERSION)) return;
+
+    if (recargarSolo) { location.reload(); return; }
+    avisandoVersion = true;
+    // Se avisa, no se recarga a la fuerza: recargar mientras alguien escribe un
+    // pase o arrastra una perilla le borra lo que estaba haciendo.
+    toast('Hay una versión nueva. Toca para actualizar.', 'exito', () => location.reload());
+  }
+
+  // Al volver a primer plano se recarga SOLA: quien acaba de abrir la app no
+  // estaba haciendo nada, así que no hay nada que interrumpir, y es el momento
+  // en que una recarga no se nota.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) mirarSiHayVersionNueva({ recargarSolo: true });
+  });
+  // Y de tanto en tanto para quien la deja abierta y a la vista.
+  setInterval(() => mirarSiHayVersionNueva(), 30 * 60 * 1000);
+
   // Caché del arranque instantáneo (lo primero que se pinta al refrescar).
   // Hay que reescribirla cuando algo del perfil cambia en caliente; si no, el
   // refresh pinta lo viejo hasta que conteste Firestore y parece que no se
@@ -607,11 +657,23 @@ async function iniciar() {
   };
 
   let temporizadorToast = null;
-  function toast(mensaje, tipo) {
+  function toast(mensaje, tipo, alTocar) {
     const el = $('toast');
     el.textContent = mensaje;
+    // `className` de golpe, que además quita el `oculto` que lo tenía guardado.
     el.className = tipo === 'error' ? 'toast-error' : 'toast-ok';
     clearTimeout(temporizadorToast);
+    el.onclick = null;
+    el.style.cursor = '';
+    if (alTocar) {
+      // Un aviso con acción se queda más rato: 3,5 segundos es tiempo de leer,
+      // no de decidir y tocar. Y no se va solo si es para tocarlo... pero
+      // tampoco se queda para siempre tapando la barra de abajo.
+      el.style.cursor = 'pointer';
+      el.onclick = () => { el.classList.add('oculto'); alTocar(); };
+      temporizadorToast = setTimeout(() => el.classList.add('oculto'), 12000);
+      return;
+    }
     temporizadorToast = setTimeout(() => el.classList.add('oculto'), 3500);
   }
 
