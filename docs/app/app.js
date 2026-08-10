@@ -3957,8 +3957,11 @@ async function iniciar() {
     const iCodigoModo = entrada(tuya.codigoModo, 'mode');
     // Grados o décimas. No se puede deducir de un valor suelto —23 vale en las
     // dos— pero sí del rango que declara el aparato, y eso lo hace el detector.
-    const sEscalaTemp = selector([['1', 'Grados enteros (23)'], ['10', 'Décimas (235 = 23,5)']],
-      String(tuya.escalaTemp || 1));
+    const sEscalaTemp = selector([
+      ['1', 'Grados enteros (22 = 22°)'],
+      ['2', 'Medios grados (44 = 22°)'],
+      ['10', 'Décimas (220 = 22°)'],
+    ], String(tuya.escalaTemp || 1));
     // Hasta dónde llega este aparato. Uno de suelo radiante admite 10-70, y el
     // rango fijo de antes le recortaba la mitad.
     const iTempMin = entrada(tuya.tempMin, '5', 'number');
@@ -4243,15 +4246,26 @@ async function iniciar() {
           // son 29 grados en décimas. Un termostato no pide 2,9 ni 290, así que
           // el número real desempata mejor que cualquier declaración — y fue lo
           // que delató que mi primera heurística se equivocaba.
+          // La AMBIENTE es el mejor testigo: una habitación está entre 5 y 35
+          // grados, y eso descarta escalas a las que ese número no llega.
+          // Con la objetivo no vale —alguien puede pedir 10 o 30— pero con la
+          // que el aparato MIDE sí: si cruda da 39 y a la mitad da 19,5, la
+          // mitad es la que describe una habitación.
           const estadoAhora = (res.data && res.data.estado) || [];
-          const puesto = estadoAhora.find((e) => e.code === (obj && obj.code));
-          const vAhora = puesto && typeof puesto.value === 'number' ? puesto.value : null;
-          if (vAhora !== null && vAhora >= 5 && vAhora <= 40) {
-            sEscalaTemp.value = '1';
-            escalaDicha = ` · en grados enteros (ahora marca ${vAhora})`;
-          } else if (vAhora !== null && vAhora >= 50 && vAhora <= 400) {
-            sEscalaTemp.value = '10';
-            escalaDicha = ` · en décimas (ahora marca ${vAhora})`;
+          const leer = (c) => {
+            const p = estadoAhora.find((e) => e.code === c);
+            return p && typeof p.value === 'number' ? p.value : null;
+          };
+          const ambiente = act ? leer(act.code) : null;
+          const testigo = ambiente !== null ? ambiente : (obj ? leer(obj.code) : null);
+          const deHabitacion = (t) => t >= 5 && t <= 35;
+          if (testigo !== null) {
+            const opciones = [[1, 'en grados enteros'], [2, 'en medios grados'], [10, 'en décimas']];
+            const buena = opciones.find(([f]) => deHabitacion(testigo / f));
+            if (buena) {
+              sEscalaTemp.value = String(buena[0]);
+              escalaDicha = ` · ${buena[1]} (mide ${testigo} = ${(testigo / buena[0]).toFixed(1)}°)`;
+            }
           }
           try {
             const v = JSON.parse((obj && obj.values) || '{}');

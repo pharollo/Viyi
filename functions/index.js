@@ -1872,9 +1872,17 @@ exports.adminGuardarDispositivo = onCall(RARA, async (request) => {
     codigoTempObjetivo: (codigoTempObjetivo || 'temp_set').trim(),
     codigoTempActual: (codigoTempActual || 'temp_current').trim(),
     codigoModo: (codigoModo || 'mode').trim(),
-    // 1 = grados enteros; 10 = décimas (235 son 23,5 °C). No se puede deducir
-    // del valor —23 vale en las dos escalas— así que se elige al dar de alta.
-    escalaTemp: Number(escalaTemp) === 10 ? 10 : 1,
+    // Cuántas unidades crudas son un grado. Hay tres codificaciones en la vida
+    // real y las tres se han visto:
+    //   1  → grados enteros (23 son 23 °C)
+    //   2  → MEDIOS grados (44 son 22 °C) — los termostatos de esta casa
+    //   10 → décimas (235 son 23,5 °C)
+    //
+    // No se puede deducir de un valor suelto: 22 vale en las tres. Lo delató la
+    // pared —"el termostato físico muestra la mitad"— y con eso encajó todo lo
+    // demás: el rango 10-70 crudo son 5-35 °C, que es el de un termostato de
+    // habitación, y la ambiente de 39 son 19,5 °C en vez de 39.
+    escalaTemp: [1, 2, 10].includes(Number(escalaTemp)) ? Number(escalaTemp) : 1,
     // El rango del aparato, que lo declara en su especificación: uno de suelo
     // radiante llega a 70, y el 5-35 de antes le recortaba la mitad.
     tempMin: Number.isFinite(Number(tempMin)) ? Number(tempMin) : 5,
