@@ -2083,8 +2083,10 @@ exports.eventosNest = onRequest(
       const rec = evento.resourceUpdate || {};
       const idNest = String(rec.name || '').split('/').pop();
       const tipos = Object.keys(rec.events || {});
+      const rasgos = rec.traits || {};
       const hayMovimiento = tipos.some((t) => /CameraMotion|CameraPerson|DoorbellChime/.test(t));
-      if (!idNest || !hayMovimiento) return res.status(204).send('');
+      const hayRasgos = Object.keys(rasgos).length > 0;
+      if (!idNest || (!hayMovimiento && !hayRasgos)) return res.status(204).send('');
 
       // De qué aparato de ViYi habla. Se busca por el id de Nest porque el
       // evento no sabe nada de ViYi.
@@ -2101,6 +2103,41 @@ exports.eventosNest = onRequest(
       }
 
       const cuando = evento.timestamp ? new Date(evento.timestamp) : new Date();
+
+      // Cambios de rasgos: temperatura, humedad, modo del HVAC. Google los
+      // empuja en cuanto ocurren —también cuando alguien toca el termostato en
+      // la PARED—, así que la app puede enterarse sin preguntar.
+      //
+      // Cada mensaje trae solo lo que cambió, nunca el estado completo, por eso
+      // se mezcla con `merge` en vez de reemplazar. Sobrescribir dejaría la
+      // temperatura ambiente en blanco cada vez que cambia la humedad.
+      if (hayRasgos) {
+        const T = (n) => rasgos[`sdm.devices.traits.${n}`] || null;
+        const parche = { visto: admin.firestore.Timestamp.fromDate(cuando) };
+        const amb = T('Temperature');
+        if (amb && amb.ambientTemperatureCelsius != null) {
+          parche.temperaturaActual = Math.round(amb.ambientTemperatureCelsius * 10) / 10;
+        }
+        const obj = T('ThermostatTemperatureSetpoint');
+        if (obj) {
+          const grados = obj.heatCelsius != null ? obj.heatCelsius : obj.coolCelsius;
+          if (grados != null) parche.temperaturaObjetivo = Math.round(grados * 2) / 2;
+        }
+        const modo = T('ThermostatMode');
+        if (modo && modo.mode) {
+          const aPantalla = { OFF: 'off', HEAT: 'heat', COOL: 'cool', HEATCOOL: 'auto' };
+          parche.modoHVAC = aPantalla[modo.mode] || 'off';
+        }
+        const hum = T('Humidity');
+        if (hum && hum.ambientHumidityPercent != null) parche.humedad = hum.ambientHumidityPercent;
+        // Solo si hay algo que decir: un mensaje de un rasgo que no nos
+        // interesa no debe tocar la fecha y hacer parecer fresco lo viejo.
+        if (Object.keys(parche).length > 1) {
+          await db.doc(`dispositivos/${cual.id}/estado/termostato`).set(parche, { merge: true });
+        }
+        if (!hayMovimiento) return res.status(204).send('');
+      }
+
       await db.doc(`dispositivos/${cual.id}/estado/movimiento`).set({
         ultimo: admin.firestore.Timestamp.fromDate(cuando),
         // Qué lo disparó: no es lo mismo "algo se movió" que "hay una persona"

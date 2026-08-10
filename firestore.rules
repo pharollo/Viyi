@@ -94,6 +94,18 @@ service cloud.firestore {
 
       // Config Tuya: las Functions la leen con Admin SDK; el admin puede
       // verla para editarla desde el panel. Nadie escribe desde el cliente.
+      // El estado en vivo. Lo escribe SOLO el backend —los eventos que Google
+      // empuja por Pub/Sub— y lo lee quien pueda ver el aparato: es el mismo
+      // dato que ya devuelve `consultarEstado`, pero suscribible, para que la
+      // perilla se entere cuando alguien toca el termostato en la pared.
+      match /estado/{doc} {
+        allow read: if autenticado() && (esAdminGlobal() || tieneAcceso(id)
+          || (esAdmin()
+              && get(/databases/$(database)/documents/dispositivos/$(id)).data.get('inmueble', '') in alcanceAdmin()
+              && get(/databases/$(database)/documents/dispositivos/$(id)).data.get('dueno', '') == ''));
+        allow write: if false;
+      }
+
       match /privado/{doc} {
         allow read: if esAdminGlobal()
           || (esAdmin()

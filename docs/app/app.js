@@ -49,7 +49,7 @@ async function iniciar() {
     GoogleAuthProvider, signInWithPopup,
   } = authMod;
   const {
-    getFirestore, doc, getDoc, collection, query, where, orderBy, limit, startAfter, getDocs, documentId,
+    getFirestore, doc, getDoc, onSnapshot, collection, query, where, orderBy, limit, startAfter, getDocs, documentId,
   } = fsMod;
   const { getFunctions, httpsCallable } = fnMod;
 
@@ -3231,16 +3231,36 @@ async function iniciar() {
       pintar(23);
       encendido = true;
       pintarEstado();
-    } else (async () => {
-      try {
-        const res = await consultarEstado({ dispositivoId: dispositivo.id });
-        const d = res.data || {};
+    } else {
+      const aplicar = (d) => {
         if (typeof d.temperaturaObjetivo === 'number') pintar(d.temperaturaObjetivo);
         if (typeof d.temperaturaActual === 'number') temp.textContent = ` · ${fmt(Math.round(d.temperaturaActual * 2) / 2)}°`;
-        encendido = !!(d.modoHVAC && d.modoHVAC !== 'off');
+        if (d.modoHVAC !== undefined) encendido = !!(d.modoHVAC && d.modoHVAC !== 'off');
         pintarEstado();
-      } catch (err) { /* sin estado disponible */ }
-    })();
+      };
+      (async () => {
+        try {
+          const res = await consultarEstado({ dispositivoId: dispositivo.id });
+          aplicar(res.data || {});
+        } catch (err) { /* sin estado disponible */ }
+      })();
+
+      // Y además se ESCUCHA. Google empuja cada cambio del termostato por
+      // Pub/Sub —incluido cuando alguien lo toca en la pared—, el backend lo
+      // guarda, y la perilla se entera sin preguntar. La consulta de arriba
+      // sigue haciendo falta: da el estado completo al abrir, y este documento
+      // solo tiene lo que haya cambiado desde entonces.
+      if ((dispositivo.proveedor || '') === 'nest') {
+        try {
+          const paro = onSnapshot(
+            doc(db, 'dispositivos', dispositivo.id, 'estado', 'termostato'),
+            (snap) => { if (snap.exists()) aplicar(snap.data()); },
+            () => { /* sin permiso o sin red: queda el estado de la consulta */ }
+          );
+          cont.addEventListener('viyi:soltar', paro);
+        } catch (e) { /* el SDK viejo no escucha: no pasa nada */ }
+      }
+    }
 
     return cont;
   }
