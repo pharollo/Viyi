@@ -3338,6 +3338,13 @@ exports.consultarEstado = onCall(
         const DE_TUYA = { cold: 'cool', hot: 'heat', auto: 'auto', wind: 'wind' };
         const pm = punto(cModo);
         const suModo = String(pm?.value || '');
+        // Diagnóstico: qué llegó de Tuya y con qué códigos se está leyendo. La
+        // pantalla enseñaba números que no cuadraban con el estado del aparato
+        // —39 grados de ambiente en uno que ni publica la ambiente— y sin esto
+        // no hay forma de saber si el problema es la lectura o lo que se pinta.
+        console.log(`Termostato ${dispositivoId}: leo ${cActual}/${cObjetivo}/${cModo} escala ${escala}`,
+          '| crudo:', JSON.stringify(estados),
+          '| devuelvo:', JSON.stringify({ act: grados(cActual), obj: grados(cObjetivo), enc: encendido }));
         return {
           // Puede no publicar la ambiente: el de la prueba solo da `temp_set`.
           // `null` y no la objetivo — enseñar la que pediste como si fuera la
