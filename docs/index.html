@@ -37,7 +37,30 @@
   <script>
     (function () {
       var p = new URLSearchParams(location.search);
-      if (p.get('p') || p.get('pase')) location.replace('/app/' + location.search + location.hash);
+      var traeUnPase = p.get('p') || p.get('pase');
+
+      // Y quien abre esto desde el icono que se guardó en la pantalla de
+      // inicio: viene a abrir una puerta, no a leer de qué va el producto.
+      // Los accesos guardados ANTES de que el landing se mudara aquí apuntan a
+      // la raíz, y un icono ya guardado no se puede reescribir desde el
+      // servidor. Lo que sí se puede es reconocerlo: una ventana sin barra de
+      // navegador solo existe si se abrió desde un acceso instalado.
+      //
+      // Dos formas de preguntarlo porque no hay una que valga en los dos
+      // sitios: Safari en iOS solo entiende `navigator.standalone`, y el resto
+      // solo entiende `display-mode`.
+      var esElIconoGuardado = window.navigator.standalone === true || (
+        window.matchMedia && (
+          matchMedia('(display-mode: standalone)').matches ||
+          matchMedia('(display-mode: fullscreen)').matches ||
+          matchMedia('(display-mode: minimal-ui)').matches
+        )
+      );
+
+      // `replace` y no `href` para que el botón de atrás no lo devuelva aquí.
+      if (traeUnPase || esElIconoGuardado) {
+        location.replace('/app/' + location.search + location.hash);
+      }
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
