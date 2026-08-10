@@ -431,7 +431,7 @@ const TIPOS_DE_ACCESO = ['puerta', 'ascensor'];
 // defecto de quien no entre en la lista. Tiene que ir en paralelo con el
 // selector `sModo` del editor (docs/app/app.js): si el editor ofrece un modo
 // que aquí no esté, se guarda como 'pulso' en silencio.
-const MODOS_VALIDOS = ['interruptor', 'cortina', 'dimmer', 'termostato', 'sensor'];
+const MODOS_VALIDOS = ['interruptor', 'cortina', 'dimmer', 'termostato', 'sensor', 'camara'];
 const seRegistra = (d) => {
   const disp = d || {};
   if (typeof disp.registrar === 'boolean') return disp.registrar;

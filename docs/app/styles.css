@@ -4368,3 +4368,44 @@ input:checked ~ .pase-tgl::before {
 @media (prefers-reduced-motion: reduce) {
   .sensor-ficha.activo .sensor-luz { animation: none; }
 }
+
+/* ---- Cámara en vivo -------------------------------------------------------
+   El marco es el hueco hundido de siempre —la misma pieza que el sensor— pero
+   con proporción de vídeo. Se enseña vacío antes de conectar en vez de crecer
+   de golpe cuando llega la imagen: un control que cambia de tamaño mueve todo
+   lo que tiene debajo justo cuando lo estás mirando. */
+.control-camara { cursor: pointer; }
+.camara-marco {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--superficie);
+  box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
+  -webkit-tap-highlight-color: transparent;
+}
+.camara-marco video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.camara-marco.viendo video { opacity: 1; }
+.camara-aviso {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--texto-suave);
+  pointer-events: none;
+}
+/* Mientras se ve, el aviso estorba: se va del todo. */
+.camara-marco.viendo .camara-aviso { display: none; }

@@ -78,6 +78,9 @@ async function iniciar() {
   const adminListarDispositivosTuya = httpsCallable(functions, 'adminListarDispositivosTuya');
   const adminListarDispositivosShelly = httpsCallable(functions, 'adminListarDispositivosShelly');
   const adminListarDispositivosNest = httpsCallable(functions, 'adminListarDispositivosNest');
+  const videoNestIniciar = httpsCallable(functions, 'videoNestIniciar');
+  const videoNestExtender = httpsCallable(functions, 'videoNestExtender');
+  const videoNestDetener = httpsCallable(functions, 'videoNestDetener');
   const adminAccesorioCrudo = httpsCallable(functions, 'adminAccesorioCrudo');
   const crearPase = httpsCallable(functions, 'crearPase');
   const canjearPase = httpsCallable(functions, 'canjearPase');
@@ -2415,6 +2418,141 @@ async function iniciar() {
   //
   // Se ve distinto a propósito: nada que invite al dedo. Quien lo mire tiene
   // que entender en un segundo que esto informa, no obedece.
+  // Cámara en vivo (Nest, por WebRTC).
+  //
+  // El vídeo va de Google al teléfono directamente; ViYi solo pasa el saludo.
+  // No arranca solo: mirar una cámara es una decisión, y además abrir la
+  // conexión sin que nadie esté mirando gasta una de las pocas sesiones
+  // simultáneas que la cámara admite.
+  function controlCamara(dispositivo, demo) {
+    const control = document.createElement('div');
+    control.className = 'control control-camara';
+
+    const marco = document.createElement('div');
+    marco.className = 'camara-marco';
+    const video = document.createElement('video');
+    // `playsinline` es obligatorio en el iPhone: sin él, Safari se lleva el
+    // vídeo a pantalla completa y se apodera de la app.
+    video.playsInline = true;
+    video.autoplay = true;
+    const aviso = document.createElement('div');
+    aviso.className = 'camara-aviso';
+    aviso.textContent = demo ? 'Vista de la entrada' : 'Toca para ver';
+    marco.append(video, aviso);
+
+    const titulo = document.createElement('span');
+    titulo.className = 'etiqueta-control';
+    titulo.textContent = dispositivo.nombre;
+    control.append(marco, titulo);
+    if (demo) return control;
+
+    let pc = null;
+    let sesion = null;
+    let relojRenovar = null;
+    let mirando = false;
+
+    const decir = (t) => { aviso.textContent = t; aviso.hidden = !t; };
+
+    const cerrar = async () => {
+      mirando = false;
+      clearTimeout(relojRenovar);
+      relojRenovar = null;
+      if (pc) { try { pc.close(); } catch (e) { /* ya estaba */ } pc = null; }
+      video.srcObject = null;
+      marco.classList.remove('viendo');
+      const seCierra = sesion;
+      sesion = null;
+      if (seCierra) {
+        // Se avisa a Google aunque el usuario ya se haya ido: una sesión
+        // abandonada ocupa sitio hasta que vence sola.
+        videoNestDetener({ dispositivoId: dispositivo.id, sesion: seCierra }).catch(() => {});
+      }
+      decir('Toca para ver');
+    };
+
+    // Se renueva ANTES de que venza, no cuando vence: si se espera al final, el
+    // corte ya ocurrió. Y el identificador que devuelve Google es NUEVO cada
+    // vez —repetir el primero deja de funcionar a la segunda—.
+    const programarRenovacion = (expira) => {
+      clearTimeout(relojRenovar);
+      const falta = new Date(expira).getTime() - Date.now();
+      const cuando = Math.max(15000, (Number.isFinite(falta) ? falta : 300000) - 45000);
+      relojRenovar = setTimeout(async () => {
+        if (!mirando || !sesion) return;
+        try {
+          const r = await videoNestExtender({ dispositivoId: dispositivo.id, sesion });
+          sesion = (r.data && r.data.sesion) || sesion;
+          programarRenovacion(r.data && r.data.expira);
+        } catch (err) {
+          decir('Se cortó la conexión');
+          cerrar();
+        }
+      }, cuando);
+    };
+
+    const mirar = async () => {
+      if (mirando) { cerrar(); return; }
+      mirando = true;
+      decir('Conectando…');
+      try {
+        pc = new RTCPeerConnection();
+        // EL ORDEN IMPORTA: Google rechaza la oferta si no viene audio, vídeo y
+        // datos exactamente así. Y el canal de datos es obligatorio aunque no se
+        // use para nada.
+        pc.addTransceiver('audio', { direction: 'recvonly' });
+        pc.addTransceiver('video', { direction: 'recvonly' });
+        pc.createDataChannel('dataSendChannel');
+        pc.addEventListener('track', (ev) => {
+          if (ev.streams && ev.streams[0]) video.srcObject = ev.streams[0];
+        });
+
+        await pc.setLocalDescription(await pc.createOffer());
+        // Hay que mandar la oferta con los candidatos YA recogidos: Google no
+        // acepta candidatos sueltos después.
+        await new Promise((listo) => {
+          if (pc.iceGatheringState === 'complete') return listo();
+          const mirarEstado = () => {
+            if (pc.iceGatheringState === 'complete') {
+              pc.removeEventListener('icegatheringstatechange', mirarEstado);
+              listo();
+            }
+          };
+          pc.addEventListener('icegatheringstatechange', mirarEstado);
+          setTimeout(listo, 4000);   // con lo recogido basta si tarda demasiado
+        });
+
+        const r = await videoNestIniciar({
+          dispositivoId: dispositivo.id,
+          ofertaSdp: pc.localDescription.sdp,
+        });
+        if (!mirando) return cerrar();   // se salió mientras conectaba
+        const d = r.data || {};
+        await pc.setRemoteDescription({ type: 'answer', sdp: d.respuestaSdp });
+        sesion = d.sesion;
+        programarRenovacion(d.expira);
+        marco.classList.add('viendo');
+        decir('');
+        // Si el navegador no deja sonar sin gesto, se enseña sin sonido antes
+        // que no enseñar nada.
+        video.play().catch(() => { video.muted = true; video.play().catch(() => {}); });
+      } catch (err) {
+        mirando = false;
+        decir(err.message || 'No pude abrir la cámara');
+        setTimeout(() => { if (!mirando) decir('Toca para ver'); }, 4000);
+      }
+    };
+
+    marco.addEventListener('click', mirar);
+    // Al salir de la app o cambiar de pestaña se suelta la cámara: nadie la
+    // está mirando y la sesión es un recurso escaso.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && mirando) cerrar();
+    });
+    control.addEventListener('viyi:soltar', cerrar);
+
+    return control;
+  }
+
   function controlSensor(dispositivo, demo) {
     const control = document.createElement('div');
     control.className = 'control control-sensor';
@@ -2467,6 +2605,7 @@ async function iniciar() {
     const evento = aspectoForzado ? '' : eventoDe(dispositivo);
     // Puerta de pulso con aspecto Jet: interruptor con tapa de seguridad.
     // El sensor va primero: no tiene aspecto que elegir, porque no es un botón.
+    if (dispositivo.modo === 'camara') return controlCamara(dispositivo, demo);
     if (dispositivo.modo === 'sensor') return controlSensor(dispositivo, demo);
     if (dispositivo.modo === 'pulso' && aspecto === 'jet') {
       return vestirDeEvento(controlJet(dispositivo, demo), evento);
@@ -3913,7 +4052,7 @@ async function iniciar() {
     sTipo.addEventListener('change', actualizarSub);
     // (sModo aún no existe aquí; el cambio de modo y la llamada inicial van más
     // abajo, cuando sModo ya está definido.)
-    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (perilla de apertura)'], ['dimmer', 'Dimmer (perilla de brillo)'], ['termostato', 'Termostato (temperatura)'], ['sensor', 'Sensor (solo informa)']], d.modo || 'pulso');
+    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (perilla de apertura)'], ['dimmer', 'Dimmer (perilla de brillo)'], ['termostato', 'Termostato (temperatura)'], ['sensor', 'Sensor (solo informa)'], ['camara', 'Cámara (vídeo en vivo)']], d.modo || 'pulso');
     const campoModo = campo('Modo', sModo);
     // Un termostato solo tiene el modo termostato: al elegir ese tipo se
     // auto-selecciona el modo y se oculta el campo; al salir, se restablece.
