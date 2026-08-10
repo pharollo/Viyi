@@ -2031,6 +2031,121 @@ exports.adminListarAccesoriosHomebridge = onCall(
   }
 );
 
+// --- Vídeo en vivo de una cámara Nest -----------------------------------
+//
+// El vídeo NO pasa por aquí. Estas funciones solo hacen de intermediario del
+// saludo: el navegador propone (oferta SDP), Google responde, y a partir de ahí
+// la imagen viaja de Google al teléfono directamente. Por eso mirar la entrada
+// no cuesta ancho de banda ni tiempo de Cloud Run, y por eso las credenciales
+// pueden quedarse aquí sin que el navegador las vea nunca.
+//
+// Quién puede mirar lo decide `autorizar()`, el mismo que decide quién puede
+// abrir la puerta. Eso incluye los pases temporales — y está bien que así sea:
+// un pase solo lleva los dispositivos que quien lo compartió eligió meter, así
+// que nadie ve la cámara por accidente.
+
+// Google exige que la oferta traiga las tres pistas y EN ESTE ORDEN. Si no, la
+// rechaza con "Offer must contain each of audio, video and application m lines
+// in that order", que no dice cuál es el orden bueno. Se comprueba aquí para
+// que el error diga qué arreglar en vez de reenviar el de Google.
+function revisarOferta(sdp) {
+  if (typeof sdp !== 'string' || sdp.length < 50 || sdp.length > 60000) {
+    throw new HttpsError('invalid-argument', 'La oferta de vídeo no es válida.');
+  }
+  const pistas = (sdp.match(/^m=(\w+)/gm) || []).map((l) => l.slice(2));
+  const esperado = ['audio', 'video', 'application'];
+  if (esperado.some((t, i) => pistas[i] !== t)) {
+    throw new HttpsError(
+      'invalid-argument',
+      `La oferta debe traer audio, vídeo y datos en ese orden (llegó: ${pistas.join(', ') || 'nada'}).`
+    );
+  }
+}
+
+async function camaraNest(uid, dispositivoId) {
+  const { usuario, dispositivo, config } = await autorizar(uid, dispositivoId);
+  if ((dispositivo.proveedor || 'tuya') !== 'nest' || !config.nestDeviceId) {
+    throw new HttpsError('failed-precondition', 'Ese dispositivo no es una cámara de Nest.');
+  }
+  return { usuario, dispositivo, config };
+}
+
+exports.videoNestIniciar = onCall(
+  { ...OCASIONAL, secrets: SECRETS_NEST },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
+    const { dispositivoId, ofertaSdp } = request.data || {};
+    if (!dispositivoId) throw new HttpsError('invalid-argument', 'Falta el dispositivoId.');
+    revisarOferta(ofertaSdp);
+
+    const { usuario, dispositivo, config } = await camaraNest(request.auth.uid, dispositivoId);
+    let res;
+    try {
+      res = await nest().comando(
+        config.nestDeviceId,
+        'sdm.devices.commands.CameraLiveStream.GenerateWebRtcStream',
+        { offerSdp: ofertaSdp }
+      );
+    } catch (err) {
+      console.error(`No pude abrir el vídeo de ${dispositivoId}: ${err.message}`);
+      throw new HttpsError('unavailable', `No pude abrir el vídeo: ${err.message}`);
+    }
+
+    // Mirar la entrada queda anotado, como abrirla. En un producto de accesos,
+    // saber quién vio la puerta importa tanto como saber quién la abrió.
+    await registrar({
+      uid: request.auth.uid, usuario, dispositivoId,
+      dispositivoNombre: dispositivo.nombre, accion: 'ver cámara',
+      exito: true, inmueble: dispositivo.inmueble,
+    }).catch(() => {});
+
+    const r = res.results || {};
+    return { respuestaSdp: r.answerSdp, sesion: r.mediaSessionId, expira: r.expiresAt };
+  }
+);
+
+// La sesión dura 5 minutos y hay que renovarla ANTES de que venza. Google
+// devuelve un identificador NUEVO en cada renovación, y es el que hay que usar
+// la próxima vez: guardar el primero y repetirlo deja de funcionar al segundo
+// intento.
+exports.videoNestExtender = onCall(
+  { ...OCASIONAL, secrets: SECRETS_NEST },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
+    const { dispositivoId, sesion } = request.data || {};
+    if (!dispositivoId || !sesion) throw new HttpsError('invalid-argument', 'Falta la sesión de vídeo.');
+    const { config } = await camaraNest(request.auth.uid, dispositivoId);
+    const res = await nest().comando(
+      config.nestDeviceId,
+      'sdm.devices.commands.CameraLiveStream.ExtendWebRtcStream',
+      { mediaSessionId: sesion }
+    ).catch((err) => {
+      console.error(`No pude renovar el vídeo de ${dispositivoId}: ${err.message}`);
+      throw new HttpsError('unavailable', `No pude renovar el vídeo: ${err.message}`);
+    });
+    const r = res.results || {};
+    return { sesion: r.mediaSessionId || sesion, expira: r.expiresAt };
+  }
+);
+
+// Cerrar al salir no es cortesía: Google limita cuántas sesiones simultáneas
+// admite una cámara, y las abandonadas ocupan sitio hasta que vencen solas.
+exports.videoNestDetener = onCall(
+  { ...RARA, secrets: SECRETS_NEST },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
+    const { dispositivoId, sesion } = request.data || {};
+    if (!dispositivoId || !sesion) return { ok: true };
+    const { config } = await camaraNest(request.auth.uid, dispositivoId);
+    await nest().comando(
+      config.nestDeviceId,
+      'sdm.devices.commands.CameraLiveStream.StopWebRtcStream',
+      { mediaSessionId: sesion }
+    ).catch((err) => console.error(`No pude cerrar el vídeo de ${dispositivoId}: ${err.message}`));
+    return { ok: true };
+  }
+);
+
 // Lista los aparatos de Nest, para elegirlos en el editor en vez de copiar el
 // id a mano de la consola de Google. Marca cuáles ya están dados de alta —el
 // mismo criterio que el listado de Tuya— y dice qué protocolo de vídeo soporta
