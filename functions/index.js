@@ -637,6 +637,12 @@ exports.ejecutarComando = onCall(
         });
       }
       if (err instanceof HttpsError) throw err;
+      // Se APUNTA antes de cambiarlo por el mensaje amable. El detalle solo se
+      // guardaba en `registros`, y un aparato de un vecino no lleva registro
+      // —`seRegistra` lo excluye a propósito—, así que el error de verdad se
+      // perdía entero y quedaba un "no respondió" imposible de diagnosticar.
+      // Tercera vez hoy con el mismo patrón: Homebridge, Banesco y esto.
+      console.error(`Comando falló en ${dispositivoId} (${accion || 'pulso'}):`, (err && err.message) || err);
       throw new HttpsError('internal', 'El dispositivo no respondió. Intenta de nuevo.');
     }
   }
