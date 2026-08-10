@@ -4128,6 +4128,19 @@ async function iniciar() {
     const campoTempMin = campo('Termostato · mínimo', iTempMin);
     const campoTempMax = campo('Termostato · máximo', iTempMax);
     // Homebridge: elegir el accesorio de la lista de UI-X.
+    //
+    // Los tipos de HomeKit que ViYi sabe accionar, uno por modo: pulso e
+    // interruptor (relés, cerraduras, portones), dimmer (bombillo), cortina,
+    // termostato y sensor. Lo que no esté aquí no se esconde —se manda al
+    // segundo grupo del desplegable—, porque el catálogo de HomeKit crece y
+    // dejar fuera un tipo nuevo sin decirlo sería peor que enseñarlo.
+    const TIPOS_ACCIONABLES = new Set([
+      'Switch', 'Outlet', 'Lightbulb', 'Valve', 'Fan', 'Fanv2',
+      'LockMechanism', 'Door', 'GarageDoorOpener',
+      'WindowCovering', 'Window',
+      'Thermostat', 'HeaterCooler',
+      'MotionSensor', 'ContactSensor', 'OccupancySensor',
+    ]);
     const selAcc = document.createElement('select');
     if (tuya.accesorioId) {
       const o = document.createElement('option');
@@ -4149,14 +4162,36 @@ async function iniciar() {
         const res = await adminListarAccesoriosHomebridge({});
         const lista = (res.data && res.data.accesorios) || [];
         selAcc.textContent = '';
-        for (const a of lista) {
+        // Homebridge publica un servicio por cada cosa que sabe hacer un
+        // aparato, y de una sola cámara salen dieciséis: micrófono, gestión de
+        // grabación, once ranuras de RTP… ninguno accionable. Elegir uno de
+        // esos parece razonable en la lista y luego no hace nada.
+        //
+        // Se AGRUPAN, no se esconden: los tipos que ViYi sabe manejar arriba y
+        // el resto abajo. Una lista que parece completa y no lo es es peor que
+        // una con ruido —ya pasó con el listado de Tuya, que omitía aparatos en
+        // silencio y solo se notó porque el usuario los contó—.
+        const utiles = lista.filter((a) => TIPOS_ACCIONABLES.has(a.tipo));
+        const resto = lista.filter((a) => !TIPOS_ACCIONABLES.has(a.tipo));
+        const meter = (donde, a) => {
           const o = document.createElement('option');
           o.value = a.uniqueId;
           o.textContent = `${a.nombre}${a.tipo ? ' — ' + a.tipo : ''}`;
-          selAcc.appendChild(o);
-        }
+          donde.appendChild(o);
+        };
+        const grupo = (etiqueta, cuales) => {
+          if (!cuales.length) return;
+          const g = document.createElement('optgroup');
+          g.label = etiqueta;
+          for (const a of cuales) meter(g, a);
+          selAcc.appendChild(g);
+        };
+        grupo('Se pueden usar', utiles);
+        grupo('Otros servicios (no accionables)', resto);
         if (tuya.accesorioId) selAcc.value = tuya.accesorioId;
-        estadoAcc.textContent = lista.length ? `${lista.length} accesorios cargados.` : 'No se encontraron accesorios.';
+        estadoAcc.textContent = lista.length
+          ? `${utiles.length} utilizables de ${lista.length}.`
+          : 'No se encontraron accesorios.';
       } catch (err) {
         estadoAcc.textContent = err.message || 'No se pudo consultar Homebridge.';
       } finally {
