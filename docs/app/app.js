@@ -3808,6 +3808,16 @@ async function iniciar() {
       .slice(0, 40);
     let idManual = !esNuevo; // en edición el id ya está fijo; no se regenera
     iId.addEventListener('input', () => { idManual = true; });
+    // Poner el nombre Y el id que le corresponde.
+    //
+    // Se usa desde los selectores de Tuya y Shelly, que rellenan el nombre POR
+    // CÓDIGO — y asignar `.value` no dispara el evento `input`, que es lo que
+    // generaba el id. Resultado: escrito a mano salía el id, elegido de la
+    // lista no salía ninguno, y el aparato no se podía guardar.
+    const ponerNombre = (txt) => {
+      iNombre.value = tituloCase(txt || '');
+      if (!idManual) iId.value = aSlug(iNombre.value);
+    };
     iNombre.addEventListener('input', () => {
       const pos = iNombre.selectionStart;
       iNombre.value = tituloCase(iNombre.value);
@@ -3914,7 +3924,7 @@ async function iniciar() {
       const op = selShelly.selectedOptions[0];
       if (!op || !op.value) return;
       iShelly.value = op.value;
-      if (!iNombre.value.trim()) iNombre.value = tituloCase(op.dataset.nombre || '');
+      if (!iNombre.value.trim()) ponerNombre(op.dataset.nombre);
       // El canal de la primera salida: en un Plus 1 es el único que hay, y en
       // uno de dos deja el formulario en un valor válido en vez de en blanco.
       if (op.dataset.canal) iShellyCanal.value = op.dataset.canal;
@@ -3971,7 +3981,7 @@ async function iniciar() {
       const op = selTuya.selectedOptions[0];
       if (!op || !op.value) return;
       iDevice.value = op.value;
-      if (!iNombre.value.trim()) iNombre.value = tituloCase(op.dataset.nombre || '');
+      if (!iNombre.value.trim()) ponerNombre(op.dataset.nombre);
       if (!iCuenta.value.trim() && op.dataset.cuenta) iCuenta.value = op.dataset.cuenta;
     });
     const btnTuya = botonForm('Traer dispositivos de Tuya', 'btn-secundario', async (ev) => {
@@ -6429,8 +6439,23 @@ async function iniciar() {
     const card = $('pase-invitado');
     clearInterval(avisoTimer);
     avisoTimer = null;
+    // Con acceso VIGENTE, no solo con entrada en `accesos`.
+    //
+    // Faltaba la vigencia: un pase vencido deja su registro ahí —y debe
+    // quedarse, es el historial— así que la tarjeta lo seguía enseñando días
+    // después. Se comprueba lo mismo que la regla de Firestore: que haya
+    // empezado y que no haya vencido. Es el cuarto sitio donde se mira el
+    // acceso, y tenía que decir lo mismo que los otros tres.
+    const ahoraMs = Date.now();
+    const vigente = (acc) => {
+      if (!acc) return false;
+      const expira = msExpira(acc.expira);
+      if (expira && expira <= ahoraMs) return false;
+      const desde = msExpira(acc.desde);
+      return !desde || desde <= ahoraMs;
+    };
     const conAcceso = misDispositivos
-      .filter((d) => usuarioActual.accesos && usuarioActual.accesos[d.id]);
+      .filter((d) => usuarioActual.accesos && vigente(usuarioActual.accesos[d.id]));
     if (!conAcceso.length) { card.classList.add('oculto'); card.textContent = ''; return; }
     card.classList.remove('oculto');
     card.textContent = '';
