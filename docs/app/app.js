@@ -1516,6 +1516,9 @@ async function iniciar() {
   // `<audio>.volume` habría que hacerlo a mano con un temporizador, y en el
   // iPhone ni siquiera se puede cambiar el volumen por código.
   const musicaCargada = {};
+  // Qué canción está sonando ahora mismo, para poder pararla. Una a la vez:
+  // dos botones con música sonando juntos no es una función, es un accidente.
+  let pararLaQueSuena = null;
   async function musicaDeBoton(url) {
     if (!ctx || ctx.state !== 'running') return null;
     if (!musicaCargada[url]) {
@@ -1535,8 +1538,18 @@ async function iniciar() {
     fuente.buffer = bufer;
     fuente.connect(vol).connect(ctx.destination);
 
+    // Una canción SOLA: si ya sonaba, se para antes de empezar la nueva.
+    //
+    // Pulsar varias veces encadenaba una copia encima de otra hasta convertirlo
+    // en ruido. Se corta con un fundido cortísimo en vez de en seco, que un
+    // corte a machete hace "clac" en el altavoz.
+    if (pararLaQueSuena) pararLaQueSuena(0.08);
+
     const ahora = ctx.currentTime;
-    const ENTRA = 0.5;
+    // 0,12 s y no medio segundo: la canción entra a tope desde el primer
+    // instante —no tiene silencio de entrada— así que una rampa larga se comía
+    // el principio. Esto es lo justo para no hacer "clac" al arrancar.
+    const ENTRA = 0.12;
     vol.gain.setValueAtTime(0.0001, ahora);
     // Exponencial y no lineal: el oído no oye el volumen en línea recta, y una
     // rampa lineal se percibe como que entra de golpe al final.
@@ -1544,10 +1557,11 @@ async function iniciar() {
     fuente.start();
 
     let parado = false;
-    return () => {
+    const parar = (segundos) => {
       if (parado) return;
       parado = true;
-      const SALE = 0.9;
+      if (pararLaQueSuena === parar) pararLaQueSuena = null;
+      const SALE = typeof segundos === 'number' ? segundos : 0.9;
       const t = ctx.currentTime;
       try {
         vol.gain.cancelScheduledValues(t);
@@ -1558,6 +1572,11 @@ async function iniciar() {
         fuente.stop(t + SALE + 0.05);
       } catch (e) { try { fuente.stop(); } catch (e2) { /* ignore */ } }
     };
+    // Y cuando la canción se acaba sola, deja de ser "la que suena": si no, el
+    // siguiente toque intentaría parar una fuente ya terminada.
+    fuente.onended = () => { if (pararLaQueSuena === parar) pararLaQueSuena = null; };
+    pararLaQueSuena = parar;
+    return parar;
   }
 
   const sonar = (nombre) => {
