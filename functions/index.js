@@ -338,6 +338,11 @@ function desdeCuando(valor) {
 //
 // El admin decide por aparato con el campo `registrar`, que manda sobre esto.
 const TIPOS_DE_ACCESO = ['puerta', 'ascensor'];
+// Los modos que un aparato puede tener. 'pulso' no está porque es el valor por
+// defecto de quien no entre en la lista. Tiene que ir en paralelo con el
+// selector `sModo` del editor (docs/app/app.js): si el editor ofrece un modo
+// que aquí no esté, se guarda como 'pulso' en silencio.
+const MODOS_VALIDOS = ['interruptor', 'cortina', 'dimmer', 'termostato', 'sensor'];
 const seRegistra = (d) => {
   const disp = d || {};
   if (typeof disp.registrar === 'boolean') return disp.registrar;
@@ -1828,7 +1833,11 @@ exports.adminGuardarDispositivo = onCall(RARA, async (request) => {
     nombre,
     tipo: tipoFinal,
     subtipo: subFinal,
-    modo: ['interruptor', 'cortina', 'dimmer', 'termostato'].includes(modo) ? modo : 'pulso',
+    // Esta lista tiene que llevar TODOS los modos del selector del editor. Le
+    // faltaba 'sensor', y el efecto era mudo y desconcertante: el editor lo
+    // ofrecía, tú lo elegías, se guardaba... como 'pulso'. Ningún error, ningún
+    // aviso; simplemente no se grababa lo que pediste.
+    modo: MODOS_VALIDOS.includes(modo) ? modo : 'pulso',
     proveedor: provFinal,
     etiquetaBoton: etiquetaBoton || '',
     // Aspecto del control (solo tiene sentido en puertas de pulso):
