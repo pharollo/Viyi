@@ -3238,12 +3238,30 @@ async function iniciar() {
         if (d.modoHVAC !== undefined) encendido = !!(d.modoHVAC && d.modoHVAC !== 'off');
         pintarEstado();
       };
-      (async () => {
+      const preguntar = async () => {
         try {
           const res = await consultarEstado({ dispositivoId: dispositivo.id });
           aplicar(res.data || {});
         } catch (err) { /* sin estado disponible */ }
-      })();
+      };
+      preguntar();
+
+      // Y se vuelve a preguntar cada medio minuto mientras la pestaña esté a la
+      // vista. La escucha en vivo de abajo es mejor —llega en el momento— pero
+      // depende de permisos y de una conexión que puede fallar en silencio;
+      // esto es el suelo que garantiza que el número sea cierto. Con la app
+      // escondida no se pregunta nada: gastar batería por una perilla que nadie
+      // mira no tiene sentido.
+      let reloj = null;
+      const seguirMirando = () => {
+        clearInterval(reloj);
+        reloj = null;
+        if (document.hidden) return;
+        reloj = setInterval(preguntar, 30000);
+      };
+      seguirMirando();
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) preguntar(); seguirMirando(); });
+      cont.addEventListener('viyi:soltar', () => clearInterval(reloj));
 
       // Y además se ESCUCHA. Google empuja cada cambio del termostato por
       // Pub/Sub —incluido cuando alguien lo toca en la pared—, el backend lo
@@ -3281,7 +3299,14 @@ async function iniciar() {
               if (primera) { primera = false; return; }
               if (snap.exists()) aplicar(snap.data());
             },
-            () => { /* sin permiso o sin red: queda el estado de la consulta */ }
+            (err) => {
+              // Ya no en silencio. Se calló durante toda una prueba en la que
+              // el dato llegaba al servidor y la perilla no se movía, y no
+              // había forma de saber por qué desde el teléfono. Como el suelo
+              // de arriba mantiene el número correcto, contarlo no rompe nada.
+              console.error('La escucha en vivo del termostato falló:', err && err.code, err && err.message);
+              toast(`Sin actualización en vivo (${(err && err.code) || 'error'})`, 'error');
+            }
           );
           cont.addEventListener('viyi:soltar', paro);
         } catch (e) { /* el SDK viejo no escucha: no pasa nada */ }
