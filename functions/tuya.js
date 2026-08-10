@@ -189,15 +189,45 @@ class TuyaClient {
 
   // Info de varios dispositivos en UNA sola llamada (trae el campo `online`).
   // Se pide por lotes porque Tuya limita cuántos ids acepta por petición.
+  // ⚠️ Un aparato inaccesible hace que Tuya rechace el LOTE ENTERO, no solo su
+  // parte. El 10 de agosto de 2026 dos aparatos de una cuenta que dejó de estar
+  // vinculada devolvían "permission denied", y con eso los DIECIOCHO se
+  // quedaron sin revisar durante dieciséis horas: el informe de conexión seguía
+  // enseñando la última foto buena, con un aparato en rojo que ya estaba
+  // arreglado. El fallo era mudo —se capturaba arriba y se seguía— y de esos
+  // los peores: no se ve un error, se ve un dato viejo que parece fresco.
+  //
+  // Por eso, si un lote falla, se vuelve a preguntar uno por uno: se paga una
+  // llamada por aparato solo cuando algo va mal, y los sanos se salvan.
   async infoLote(deviceIds) {
     const ids = (deviceIds || []).filter(Boolean);
     const salida = [];
-    for (let i = 0; i < ids.length; i += 20) {
-      const lote = ids.slice(i, i + 20);
+    const pedir = async (lote) => {
       const res = await this.peticion('GET', `/v1.0/iot-03/devices?device_ids=${lote.join(',')}`);
       // Según el endpoint, Tuya devuelve el arreglo suelto o dentro de `list`.
-      const arr = Array.isArray(res) ? res : ((res && res.list) || []);
-      salida.push(...arr);
+      return Array.isArray(res) ? res : ((res && res.list) || []);
+    };
+    for (let i = 0; i < ids.length; i += 20) {
+      const lote = ids.slice(i, i + 20);
+      try {
+        salida.push(...await pedir(lote));
+      } catch (err) {
+        if (lote.length === 1) {
+          // Este aparato concreto no se puede consultar. Se deja fuera y se
+          // dice cuál: sin el id en el registro, encontrarlo entre dieciocho
+          // costó una hora.
+          console.error(`Tuya no da información de ${lote[0]}: ${err.message}`);
+          continue;
+        }
+        console.error(`El lote de Tuya falló (${lote.length} aparatos); voy uno por uno: ${err.message}`);
+        for (const id of lote) {
+          try {
+            salida.push(...await pedir([id]));
+          } catch (err2) {
+            console.error(`Tuya no da información de ${id}: ${err2.message}`);
+          }
+        }
+      }
     }
     return salida;
   }

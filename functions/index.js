@@ -2793,7 +2793,13 @@ async function revisarConexion() {
         const v = onlineNest.get(String(d.cfg.nestDeviceId).split('/').pop());
         if (v !== undefined) online = v;
       } else if (onlineTuya.size) {
-        online = onlineTuya.get(d.cfg.tuyaDeviceId) === true;
+        // Solo si Tuya habló de ESTE aparato. Con `=== true` a secas, un id del
+        // que Tuya no dice nada —porque su cuenta se desvinculó y contesta
+        // "permission deny"— salía marcado como CAÍDO. Y no es lo mismo: el
+        // aparato puede estar perfecto y encendido; lo que se perdió es el
+        // permiso para preguntarle. Sin dato, desconocido.
+        const v = onlineTuya.get(d.cfg.tuyaDeviceId);
+        if (v !== undefined) online = v === true;
       }
 
       if (online !== null) {
@@ -3455,11 +3461,15 @@ exports.consultarEstado = onCall(
           // mismo que usa Homebridge. Un proveedor nuevo no puede obligar a la
           // interfaz a aprender palabras nuevas para lo mismo.
           const aPantalla = { calor: 'heat', frio: 'cool', auto: 'auto', off: 'off' };
+          // Los NOMBRES de los campos son parte del contrato, igual que los
+          // modos. Devolvía `objetivo`/`actual`/`modo` —correctos y en español,
+          // pero inventados— y la perilla, que busca `temperaturaObjetivo`, no
+          // encontraba nada y se quedaba plantada en su mínimo: 10°. Parecía
+          // que el termostato "se devolvía" solo al refrescar.
           return {
-            encendido: e.encendido,
-            objetivo: e.objetivo,
-            actual: e.actual,
-            modo: aPantalla[e.modo] || 'off',
+            temperaturaObjetivo: e.objetivo,
+            temperaturaActual: e.actual,
+            modoHVAC: e.encendido ? (aPantalla[e.modo] || 'cool') : 'off',
           };
         }
         if (dispositivo.modo === 'sensor') {
