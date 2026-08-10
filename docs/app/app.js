@@ -4140,16 +4140,48 @@ async function iniciar() {
           if (act) iTempActual.value = act.code;
           if (mod) iCodigoModo.value = mod.code;
 
-          // La ESCALA se deduce del rango que declara el aparato: uno que
-          // admite hasta 350 habla en décimas, no pide 350 grados. Es lo único
-          // que no se puede sacar de un valor suelto —23 vale en las dos— pero
-          // del máximo sí.
+          // La ESCALA la DECLARA Tuya, no hay que adivinarla.
+          //
+          // El primer intento la dedujo del máximo (">60 son décimas") y se
+          // equivocó: dos termostatos del mismo modelo salieron uno en grados y
+          // otro en décimas, cuando uno reportaba `temp_set: 29`. Tuya trae el
+          // dato en la especificación del DP como `scale`, que es el número de
+          // decimales: `scale: 1` significa dividir entre 10.
+          //
+          // Equivocarse aquí no es cosmético: con la escala mal, pedir 23 °C
+          // manda 230 y leer 29 enseña 2,9.
           let escalaDicha = '';
+          // Lo primero, el VALOR que tiene puesto ahora: 29 son 29 grados, y 290
+          // son 29 grados en décimas. Un termostato no pide 2,9 ni 290, así que
+          // el número real desempata mejor que cualquier declaración — y fue lo
+          // que delató que mi primera heurística se equivocaba.
+          const estadoAhora = (res.data && res.data.estado) || [];
+          const puesto = estadoAhora.find((e) => e.code === (obj && obj.code));
+          const vAhora = puesto && typeof puesto.value === 'number' ? puesto.value : null;
+          if (vAhora !== null && vAhora >= 5 && vAhora <= 40) {
+            sEscalaTemp.value = '1';
+            escalaDicha = ` · en grados enteros (ahora marca ${vAhora})`;
+          } else if (vAhora !== null && vAhora >= 50 && vAhora <= 400) {
+            sEscalaTemp.value = '10';
+            escalaDicha = ` · en décimas (ahora marca ${vAhora})`;
+          }
           try {
             const v = JSON.parse((obj && obj.values) || '{}');
-            if (v.max && Number(v.max) > 60) { sEscalaTemp.value = '10'; escalaDicha = ' · en décimas'; }
-            else if (v.max) { sEscalaTemp.value = '1'; escalaDicha = ' · en grados enteros'; }
-          } catch (e) { /* sin rango declarado: se queda como esté */ }
+            if (escalaDicha) { /* el valor real ya decidió */ }
+            else if (v.scale !== undefined && v.scale !== null) {
+              const factor = Math.pow(10, Number(v.scale) || 0);
+              sEscalaTemp.value = factor >= 10 ? '10' : '1';
+              escalaDicha = factor >= 10 ? ' · en décimas (lo dice el aparato)'
+                : ' · en grados enteros (lo dice el aparato)';
+            } else if (v.max && Number(v.max) > 60) {
+              // Solo si no lo declara: un rango hasta 350 no son 350 grados.
+              sEscalaTemp.value = '10';
+              escalaDicha = ' · en décimas (deducido del rango)';
+            } else if (v.max) {
+              sEscalaTemp.value = '1';
+              escalaDicha = ' · en grados enteros (deducido del rango)';
+            }
+          } catch (e) { /* sin especificación: se queda como esté */ }
 
           iResultadoDps.innerHTML = (obj
             ? `✓ Termostato: <b>${obj.code}</b>${mod ? ` · modo <b>${mod.code}</b>` : ''}`
