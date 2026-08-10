@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { GoogleAuth } = require('google-auth-library');
 const { TuyaClient, esServicioVencido } = require('./tuya');
 const { HomebridgeClient } = require('./homebridge');
+const { NestClient, MODOS_NEST, estadoTermostato: estadoTermoNest } = require('./nest');
 const { ShellyClient } = require('./shelly');
 const { plantillaResetClave, plantillaInvitacion, plantillaAccesoDado, maqueta: maquetaCorreo, enviar: enviarCorreo, esc: escaparHtml } = require('./correo');
 
@@ -32,6 +33,14 @@ const SECRETS_HB = [HOMEBRIDGE_URL, HOMEBRIDGE_USER, HOMEBRIDGE_PASS];
 const SHELLY_SERVER = defineSecret('SHELLY_SERVER');
 const SHELLY_AUTH_KEY = defineSecret('SHELLY_AUTH_KEY');
 const SECRETS_SHELLY = [SHELLY_SERVER, SHELLY_AUTH_KEY];
+// Nest, por la API de Google (Smart Device Management). No hay túnel ni nada
+// en la casa: se habla con Google directo, así que la cámara y los termostatos
+// dejan de depender de que el Raspberry esté vivo.
+const NEST_PROJECT_ID = defineSecret('NEST_PROJECT_ID');
+const NEST_CLIENT_ID = defineSecret('NEST_CLIENT_ID');
+const NEST_CLIENT_SECRET = defineSecret('NEST_CLIENT_SECRET');
+const NEST_REFRESH_TOKEN = defineSecret('NEST_REFRESH_TOKEN');
+const SECRETS_NEST = [NEST_PROJECT_ID, NEST_CLIENT_ID, NEST_CLIENT_SECRET, NEST_REFRESH_TOKEN];
 // Envío de los correos propios (firebase functions:secrets:set RESEND_API_KEY).
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 
@@ -130,6 +139,19 @@ function homebridge() {
   return clienteHb;
 }
 
+let clienteNest = null;
+function nest() {
+  if (!clienteNest) {
+    clienteNest = new NestClient({
+      projectId: NEST_PROJECT_ID.value(),
+      clientId: NEST_CLIENT_ID.value(),
+      clientSecret: NEST_CLIENT_SECRET.value(),
+      refreshToken: NEST_REFRESH_TOKEN.value(),
+    });
+  }
+  return clienteNest;
+}
+
 // Ejecuta un comando en un accesorio de Homebridge según el modo del dispositivo.
 // Devuelve el texto de la acción para el registro.
 // Shelly por su nube. Solo relé (pulso e interruptor): el Plus 1 no hace más,
@@ -158,6 +180,73 @@ async function ejecutarShelly(dispositivo, config, { accion }) {
     return accion;
   }
   throw new HttpsError('failed-precondition', `Shelly todavía no maneja el modo ${modo} en ViYi.`);
+}
+
+// Nest, por la API de Google. El termostato tiene una regla que no perdona:
+// el comando de temperatura DEPENDE del modo en que esté. En HEAT solo vale
+// `SetHeat`, en COOL solo `SetCool`, y en HEATCOOL hay que mandar las DOS a la
+// vez con `SetRange`. Mandar la que no toca da un error que no dice cuál era la
+// buena. Por eso se lee el modo actual antes de decidir —es el mismo patrón que
+// costó descubrir con los termostatos de Tuya y sus dos vocabularios—.
+async function ejecutarNest(dispositivo, config, { accion, valor }) {
+  const id = config.nestDeviceId;
+  if (!id) {
+    throw new HttpsError('failed-precondition', 'El aparato de Nest no está configurado.');
+  }
+  const n = nest();
+
+  if (dispositivo.modo === 'termostato') {
+    if (accion === 'modo') {
+      const mapa = { off: 'OFF', heat: 'HEAT', cool: 'COOL', auto: 'HEATCOOL' };
+      if (!(valor in mapa)) {
+        throw new HttpsError('invalid-argument', 'Modo de termostato no válido.');
+      }
+      await n.comando(id, 'sdm.devices.commands.ThermostatMode.SetMode', { mode: mapa[valor] });
+      return `modo ${valor}`;
+    }
+
+    if (accion === 'temperatura') {
+      const t = Number(valor);
+      if (!Number.isFinite(t) || t < 9 || t > 32) {
+        // El rango real de un Nest es 9–32 °C; fuera de ahí lo rechaza Google
+        // con un error genérico, y es mejor decirlo aquí.
+        throw new HttpsError('invalid-argument', 'Temperatura fuera de rango (9–32°).');
+      }
+      const temp = Math.round(t * 2) / 2;
+      const info = await n.dispositivo(id);
+      const modo = ((info.traits || {})['sdm.devices.traits.ThermostatMode'] || {}).mode;
+
+      if (modo === 'HEAT') {
+        await n.comando(id, 'sdm.devices.commands.ThermostatTemperatureSetpoint.SetHeat', { heatCelsius: temp });
+      } else if (modo === 'COOL') {
+        await n.comando(id, 'sdm.devices.commands.ThermostatTemperatureSetpoint.SetCool', { coolCelsius: temp });
+      } else if (modo === 'HEATCOOL') {
+        // En automático hay dos consignas y Google exige las dos juntas. Se
+        // conserva la separación que ya tenía el aparato —moverla sin que nadie
+        // lo pidiera cambiaría cuándo enciende, no solo a qué temperatura—.
+        const sp = (info.traits || {})['sdm.devices.traits.ThermostatTemperatureSetpoint'] || {};
+        const separacion = (sp.coolCelsius != null && sp.heatCelsius != null)
+          ? Math.max(1.5, sp.coolCelsius - sp.heatCelsius) : 2;
+        await n.comando(id, 'sdm.devices.commands.ThermostatTemperatureSetpoint.SetRange',
+          { heatCelsius: temp, coolCelsius: Math.min(32, temp + separacion) });
+      } else {
+        // Apagado no acepta consigna: se dice por qué en vez de dejar que
+        // Google conteste con un error que no menciona el modo.
+        throw new HttpsError('failed-precondition', 'El termostato está apagado: enciéndelo antes de fijar la temperatura.');
+      }
+      return `temperatura ${temp}°`;
+    }
+
+    throw new HttpsError('invalid-argument', 'Acción de termostato no válida.');
+  }
+
+  // La cámara no se "ejecuta": se mira. El vídeo va por su propia función, que
+  // negocia la sesión con Google y la renueva.
+  if (dispositivo.modo === 'sensor' || dispositivo.modo === 'camara') {
+    throw new HttpsError('failed-precondition', 'Este aparato de Nest solo informa; no se le manda nada.');
+  }
+
+  throw new HttpsError('failed-precondition', `Nest no soporta el modo ${dispositivo.modo}.`);
 }
 
 async function ejecutarHomebridge(dispositivo, config, { accion, valor, data }) {
@@ -440,7 +529,7 @@ async function autorizar(uid, dispositivoId) {
 }
 
 exports.ejecutarComando = onCall(
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY] },
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY, ...SECRETS_NEST] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
@@ -473,6 +562,8 @@ exports.ejecutarComando = onCall(
         accionRegistrada = await ejecutarShelly(dispositivo, config, { accion });
       } else if (proveedor === 'homebridge') {
         accionRegistrada = await ejecutarHomebridge(dispositivo, config, { accion, valor, data: request.data });
+      } else if (proveedor === 'nest') {
+        accionRegistrada = await ejecutarNest(dispositivo, config, { accion, valor });
       } else if (dispositivo.modo === 'pulso') {
         accionRegistrada = 'pulso';
         await tuya().enviarComandos(config.tuyaDeviceId, [{ code: codigo, value: true }]);
@@ -1760,12 +1851,12 @@ exports.adminGuardarDispositivo = onCall(RARA, async (request) => {
     codigoTermoSwitch, codigoTempObjetivo, codigoTempActual, codigoModo, escalaTemp,
     tempMin, tempMax,
     codigoPosicion, codigoPosicionEstado, posicionInvertida,
-    accesorioId, caracteristica,
+    accesorioId, caracteristica, nestDeviceId,
   } = request.data || {};
   if (!id || !/^[a-z0-9-]{2,40}$/.test(id)) {
     throw new HttpsError('invalid-argument', 'El id debe ser minúsculas, números y guiones (ej: porton-garaje).');
   }
-  const provFinal = ['homebridge', 'shelly'].includes(proveedor) ? proveedor : 'tuya';
+  const provFinal = ['homebridge', 'shelly', 'nest'].includes(proveedor) ? proveedor : 'tuya';
   if (!nombre) {
     throw new HttpsError('invalid-argument', 'Falta el nombre del dispositivo.');
   }
@@ -1821,6 +1912,7 @@ exports.adminGuardarDispositivo = onCall(RARA, async (request) => {
     homebridge: [accesorioId, 'Falta el accesorio de Homebridge.'],
     shelly: [shellyId, 'Falta el Device ID de Shelly.'],
     tuya: [tuyaDeviceId, 'Falta el Device ID de Tuya.'],
+    nest: [nestDeviceId, 'Falta el aparato de Nest.'],
   };
   if (!FALTA[provFinal][0]) {
     throw new HttpsError('invalid-argument', FALTA[provFinal][1]);
@@ -1899,6 +1991,10 @@ exports.adminGuardarDispositivo = onCall(RARA, async (request) => {
   };
   // Homebridge: id del accesorio y característica (opcional; por defecto On).
   if (accesorioId) privado.accesorioId = String(accesorioId).trim();
+  // Nest: el id del aparato dentro del proyecto de Device Access. Se acepta el
+  // nombre completo (`enterprises/…/devices/…`) o el id pelado; el cliente
+  // resuelve las dos formas.
+  if (nestDeviceId) privado.nestDeviceId = String(nestDeviceId).trim();
   if (caracteristica) privado.caracteristica = String(caracteristica).trim();
   // Cortina: código de posición e inversión (opcionales; por defecto
   // percent_control / percent_state). Solo se guardan si se envían.
@@ -1930,6 +2026,42 @@ exports.adminListarAccesoriosHomebridge = onCall(
         nombre: a.serviceName || (a.values && a.values.Name) || a.uniqueId,
         tipo: a.type || '',
         caracteristicas: Object.keys((a && a.values) || {}),
+      })),
+    };
+  }
+);
+
+// Lista los aparatos de Nest, para elegirlos en el editor en vez de copiar el
+// id a mano de la consola de Google. Marca cuáles ya están dados de alta —el
+// mismo criterio que el listado de Tuya— y dice qué protocolo de vídeo soporta
+// cada cámara, que es lo que decide si se le puede enseñar imagen a un vecino.
+exports.adminListarDispositivosNest = onCall(
+  { ...RARA, secrets: SECRETS_NEST },
+  async (request) => {
+    await exigirAdmin(request);
+    let lista;
+    try {
+      lista = await nest().listarDispositivos();
+    } catch (err) {
+      console.error('Nest no contestó:', err.message);
+      throw new HttpsError('unavailable', `No pude consultar Nest: ${err.message}`);
+    }
+    // Cuáles ya existen en ViYi, para no darlos de alta dos veces.
+    const snap = await db.collection('dispositivos').where('proveedor', '==', 'nest').get();
+    const yaEstan = new Set();
+    for (const doc of snap.docs) {
+      const cfg = await db.doc(`dispositivos/${doc.id}/privado/tuya`).get().catch(() => null);
+      const nid = cfg && cfg.exists ? (cfg.data().nestDeviceId || '') : '';
+      if (nid) yaEstan.add(String(nid).split('/').pop());
+    }
+    return {
+      dispositivos: lista.map((d) => ({
+        id: d.id,
+        nombre: d.nombre,
+        tipo: d.tipo,
+        sala: d.sala,
+        protocolosVideo: d.protocolosVideo,
+        yaEsta: yaEstan.has(d.id),
       })),
     };
   }
@@ -2694,7 +2826,7 @@ exports.adminProveedores = onCall(RARA, async (request) => {
 
 // Botón "actualizar" del panel: consulta en vivo. Solo admin.
 exports.estadoDispositivos = onCall(
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY] },
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY, ...SECRETS_NEST] },
   async (request) => {
     await exigirAdmin(request);
     return revisarConexion();
@@ -2902,7 +3034,7 @@ exports.vigilarServicioTuya = onSchedule(
 );
 
 exports.revisarConexionProgramada = onSchedule(
-  { ...RARA, schedule: 'every 10 minutes', timeZone: 'America/Caracas', secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY] },
+  { ...RARA, schedule: 'every 10 minutes', timeZone: 'America/Caracas', secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY, ...SECRETS_NEST] },
   async () => {
     const { dispositivos } = await revisarConexion();
     const caidos = dispositivos.filter((d) => d.online === false).map((d) => d.nombre);
@@ -3268,7 +3400,7 @@ exports.consultarEstado = onCall(
   // los dispositivos no pague el arranque en frío al abrir la app (~1-2s en la
   // primera consulta tras inactividad). Reserva 1 CPU fija de la cuota, que
   // ahora cabe: con maxInstances 1 el techo bajó de 69 a 23 CPU.
-  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY], minInstances: 1 },
+  { secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY, ...SECRETS_NEST], minInstances: 1 },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
@@ -3286,6 +3418,30 @@ exports.consultarEstado = onCall(
         // Un portón de pulso no tiene estado que leer (el relé vuelve solo), y
         // el interruptor sí, pero lee de otro sitio. Se devuelve desconocido en
         // vez de caer por el camino de Tuya con un id que no existe allí.
+        return { estado: null };
+      }
+      if ((dispositivo.proveedor || 'tuya') === 'nest') {
+        const info = await nest().dispositivo(config.nestDeviceId);
+        const traits = info.traits || {};
+        if (dispositivo.modo === 'termostato') {
+          const e = estadoTermoNest(traits);
+          // Se traducen los modos al vocabulario que ya habla la pantalla, el
+          // mismo que usa Homebridge. Un proveedor nuevo no puede obligar a la
+          // interfaz a aprender palabras nuevas para lo mismo.
+          const aPantalla = { calor: 'heat', frio: 'cool', auto: 'auto', off: 'off' };
+          return {
+            encendido: e.encendido,
+            objetivo: e.objetivo,
+            actual: e.actual,
+            modo: aPantalla[e.modo] || 'off',
+          };
+        }
+        if (dispositivo.modo === 'sensor') {
+          // La cámara publica el movimiento por eventos (Pub/Sub), no como un
+          // valor que se pueda preguntar. Se devuelve desconocido en vez de
+          // inventarse un `false` que parecería "no hay nadie".
+          return { estado: null };
+        }
         return { estado: null };
       }
       if ((dispositivo.proveedor || 'tuya') === 'homebridge') {
