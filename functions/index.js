@@ -452,7 +452,18 @@ exports.ejecutarComando = onCall(
     const proveedor = dispositivo.proveedor || 'tuya';
 
     try {
-      let accionRegistrada;
+      // Con valor por defecto a propósito.
+      //
+      // Estaba sin inicializar, y el camino del termostato de Tuya —que se
+      // escribió después— no lo asignaba. Resultado: el comando llegaba al
+      // aparato y REVENTABA al apuntarlo, porque Firestore no acepta un campo
+      // `undefined`. Desde fuera parecía que el termostato no respondía, cuando
+      // sí lo hacía.
+      //
+      // Un camino nuevo que se olvide de decir qué hizo ya no puede tumbar un
+      // comando que ya se ejecutó: como mucho queda anotado con el nombre de la
+      // acción pedida.
+      let accionRegistrada = accion || 'pulso';
       if (proveedor === 'shelly') {
         accionRegistrada = await ejecutarShelly(dispositivo, config, { accion });
       } else if (proveedor === 'homebridge') {
@@ -562,11 +573,13 @@ exports.ejecutarComando = onCall(
             { code: cSwitch, value: true },
             { code: cObjetivo, value: aMandar },
           ]);
+          accionRegistrada = `temperatura ${aMandar / escala}°`;
         } else if (accion === 'modo') {
           // 'off' se apaga con el interruptor, no con el modo: un termostato
           // apagado no tiene modo, y mandarle uno lo enciende.
           if (valor === 'off') {
             await tuya().enviarComandos(config.tuyaDeviceId, [{ code: cSwitch, value: false }]);
+            accionRegistrada = 'apagar';
           } else {
             // ⚠️ Hay DOS vocabularios de modo, y mandar el del otro es mandar un
             // valor que el aparato no conoce:
@@ -593,11 +606,13 @@ exports.ejecutarComando = onCall(
             // sigue el programa (manual, por horario), no de frío o calor.
             // Encenderlo y fijarle la temperatura es todo lo que ViYi quiere.
             await tuya().enviarComandos(config.tuyaDeviceId, comandos);
+            accionRegistrada = `modo ${valor}`;
           }
         } else if (accion === 'encender' || accion === 'apagar') {
           await tuya().enviarComandos(config.tuyaDeviceId, [
             { code: cSwitch, value: accion === 'encender' },
           ]);
+          accionRegistrada = accion;
         } else {
           throw new HttpsError('invalid-argument', 'Acción de termostato no válida.');
         }
