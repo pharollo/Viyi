@@ -1538,12 +1538,20 @@ async function iniciar() {
     fuente.buffer = bufer;
     fuente.connect(vol).connect(ctx.destination);
 
-    // Una canción SOLA: si ya sonaba, se para antes de empezar la nueva.
+    // Si YA sonaba, este toque la apaga y no empieza otra.
     //
-    // Pulsar varias veces encadenaba una copia encima de otra hasta convertirlo
-    // en ruido. Se corta con un fundido cortísimo en vez de en seco, que un
-    // corte a machete hace "clac" en el altavoz.
-    if (pararLaQueSuena) pararLaQueSuena(0.08);
+    // El botón se comporta como un interruptor de música: toque para poner,
+    // toque para quitar. Antes cada toque encadenaba una copia encima de otra
+    // hasta convertirlo en ruido; después se reiniciaba, que tampoco es lo que
+    // uno espera al volver a tocar algo que ya suena.
+    //
+    // Se apaga con fundido, no en seco: un corte a machete hace "clac" en el
+    // altavoz. Corto —0,25 s— porque aquí lo pediste tú y la respuesta tiene
+    // que sentirse inmediata, no como si el botón dudara.
+    if (pararLaQueSuena) {
+      pararLaQueSuena(0.25);
+      return 'apagada';
+    }
 
     const ahora = ctx.currentTime;
     // 0,12 s y no medio segundo: la canción entra a tope desde el primer
@@ -2457,7 +2465,12 @@ async function iniciar() {
           if (demo) pulsarDemo(boton, dispositivo); else pulsar(boton, dispositivo);
           return;
         }
+        // ⚠️ Se distingue "apagué la música" de "no hay audio". Las dos cosas
+        // devolvían `null` y con eso un botón sin sonido —o con el audio aún
+        // sin desbloquear— habría dejado de ABRIR LA PUERTA. Un fallo de sonido
+        // no puede costar un acceso.
         const parar = await musicaDeBoton(suMusica);
+        if (parar === 'apagada') return;
         const alCerrar = () => parar && parar();
         if (demo) pulsarDemo(boton, dispositivo, alCerrar); else pulsar(boton, dispositivo, alCerrar);
       });
