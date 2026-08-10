@@ -3959,6 +3959,10 @@ async function iniciar() {
     // dos— pero sí del rango que declara el aparato, y eso lo hace el detector.
     const sEscalaTemp = selector([['1', 'Grados enteros (23)'], ['10', 'Décimas (235 = 23,5)']],
       String(tuya.escalaTemp || 1));
+    // Hasta dónde llega este aparato. Uno de suelo radiante admite 10-70, y el
+    // rango fijo de antes le recortaba la mitad.
+    const iTempMin = entrada(tuya.tempMin, '5', 'number');
+    const iTempMax = entrada(tuya.tempMax, '35', 'number');
     const campoBrilloCodigo = campo('Código de brillo (Tuya)', iCodigoBrillo);
     const campoBrilloMax = campo('Brillo máximo (rango Tuya, ej. 1000)', iBrilloMax);
     const cInvertir = casilla('Invertir apertura (marca si la persiana abre al revés)', tuya.posicionInvertida === true);
@@ -4118,6 +4122,8 @@ async function iniciar() {
     const campoTempActual = campo('Termostato · temperatura ambiente', iTempActual);
     const campoCodigoModo = campo('Termostato · modo', iCodigoModo);
     const campoEscalaTemp = campo('Termostato · escala', sEscalaTemp);
+    const campoTempMin = campo('Termostato · mínimo', iTempMin);
+    const campoTempMax = campo('Termostato · máximo', iTempMax);
     // Homebridge: elegir el accesorio de la lista de UI-X.
     const selAcc = document.createElement('select');
     if (tuya.accesorioId) {
@@ -4222,6 +4228,16 @@ async function iniciar() {
           //
           // Equivocarse aquí no es cosmético: con la escala mal, pedir 23 °C
           // manda 230 y leer 29 enseña 2,9.
+          // El RANGO que declara el aparato. El 5-35 fijo del backend recortaba
+          // la mitad de lo que este admite: llega a 70 por ser de suelo.
+          let rangoDicho = '';
+          try {
+            const v = JSON.parse((obj && obj.values) || '{}');
+            if (v.min !== undefined) iTempMin.value = v.min;
+            if (v.max !== undefined) iTempMax.value = v.max;
+            if (v.min !== undefined && v.max !== undefined) rangoDicho = ` · de ${v.min} a ${v.max}°`;
+          } catch (e) { /* sin especificación */ }
+
           let escalaDicha = '';
           // Lo primero, el VALOR que tiene puesto ahora: 29 son 29 grados, y 290
           // son 29 grados en décimas. Un termostato no pide 2,9 ni 290, así que
@@ -4259,6 +4275,7 @@ async function iniciar() {
             ? `✓ Termostato: <b>${obj.code}</b>${mod ? ` · modo <b>${mod.code}</b>` : ''}`
               + `${act ? ` · ambiente <b>${act.code}</b>` : ' · sin temperatura ambiente'}${escalaDicha}`
             : '⚠ No encontré el DP de temperatura; elige a mano uno con "temp".')
+            + rangoDicho
             + `<br>DPs disponibles: ${lista}`;
           return;
         }
@@ -4294,7 +4311,8 @@ async function iniciar() {
       campoBrilloCodigo.classList.toggle('oculto', !esTuya || !esDimmer);
       campoBrilloMax.classList.toggle('oculto', !esTuya || !esDimmer);
       const esTermo = sModo.value === 'termostato';
-      for (const c of [campoTermoSwitch, campoTempObjetivo, campoTempActual, campoCodigoModo, campoEscalaTemp]) {
+      for (const c of [campoTermoSwitch, campoTempObjetivo, campoTempActual, campoCodigoModo,
+        campoEscalaTemp, campoTempMin, campoTempMax]) {
         c.classList.toggle('oculto', !esTuya || !esTermo);
       }
       // El inspector de DPs sirve para cualquier dispositivo Tuya (no solo
@@ -4343,6 +4361,8 @@ async function iniciar() {
             codigoTempActual: iTempActual.value.trim(),
             codigoModo: iCodigoModo.value.trim(),
             escalaTemp: Number(sEscalaTemp.value) || 1,
+            tempMin: Number(iTempMin.value),
+            tempMax: Number(iTempMax.value),
             brilloMax: Number(iBrilloMax.value) || 1000,
             posicionInvertida: cInvertir.c.checked,
             accesorioId: sProveedor.value === 'homebridge' ? selAcc.value : '',
@@ -4402,6 +4422,8 @@ async function iniciar() {
       campoTempActual,
       campoCodigoModo,
       campoEscalaTemp,
+      campoTempMin,
+      campoTempMax,
       campoBrilloCodigo,
       campoBrilloMax,
       cInvertir.label,

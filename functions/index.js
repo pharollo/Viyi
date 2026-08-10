@@ -543,12 +543,24 @@ exports.ejecutarComando = onCall(
 
         if (accion === 'temperatura') {
           const t = Number(valor);
-          if (!Number.isFinite(t) || t < 5 || t > 35) {
-            throw new HttpsError('invalid-argument', 'La temperatura debe estar entre 5 y 35 grados.');
+          if (!Number.isFinite(t)) {
+            throw new HttpsError('invalid-argument', 'Temperatura no válida.');
           }
+          // El RANGO lo declara el aparato, y el mío no era el suyo: 5-35 fijos
+          // dejaban fuera la mitad de lo que este admite, que llega a 70 por ser
+          // de suelo radiante.
+          //
+          // ⚠️ El `step: 5` que también declara NO se aplica, y es a propósito:
+          // uno de los dos termostatos tiene ahora mismo `temp_set: 22`, que no
+          // es múltiplo de cinco. O sea que el aparato lo acepta y ese paso es
+          // una sugerencia de su interfaz, no una regla. Redondear a 25 sería
+          // empeorar la precisión por una restricción que no existe.
+          const min = Number.isFinite(Number(config.tempMin)) ? Number(config.tempMin) : 5;
+          const max = Number.isFinite(Number(config.tempMax)) ? Number(config.tempMax) : 35;
+          const aMandar = Math.max(min, Math.min(max, Math.round(t * escala)));
           await tuya().enviarComandos(config.tuyaDeviceId, [
             { code: cSwitch, value: true },
-            { code: cObjetivo, value: Math.round(t * escala) },
+            { code: cObjetivo, value: aMandar },
           ]);
         } else if (accion === 'modo') {
           // 'off' se apaga con el interruptor, no con el modo: un termostato
@@ -1726,6 +1738,7 @@ exports.adminGuardarDispositivo = onCall(RARA, async (request) => {
     dueno, cuentaTuya, registrar: registrarPedido, shellyId, shellyCanal,
     proveedor, tuyaDeviceId, codigo, pulsoMs, codigoBrillo, brilloMax,
     codigoTermoSwitch, codigoTempObjetivo, codigoTempActual, codigoModo, escalaTemp,
+    tempMin, tempMax,
     codigoPosicion, codigoPosicionEstado, posicionInvertida,
     accesorioId, caracteristica,
   } = request.data || {};
@@ -1847,6 +1860,10 @@ exports.adminGuardarDispositivo = onCall(RARA, async (request) => {
     // 1 = grados enteros; 10 = décimas (235 son 23,5 °C). No se puede deducir
     // del valor —23 vale en las dos escalas— así que se elige al dar de alta.
     escalaTemp: Number(escalaTemp) === 10 ? 10 : 1,
+    // El rango del aparato, que lo declara en su especificación: uno de suelo
+    // radiante llega a 70, y el 5-35 de antes le recortaba la mitad.
+    tempMin: Number.isFinite(Number(tempMin)) ? Number(tempMin) : 5,
+    tempMax: Number.isFinite(Number(tempMax)) ? Number(tempMax) : 35,
   };
   // Homebridge: id del accesorio y característica (opcional; por defecto On).
   if (accesorioId) privado.accesorioId = String(accesorioId).trim();
