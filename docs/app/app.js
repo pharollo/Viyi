@@ -1129,6 +1129,31 @@ async function iniciar() {
         const dueno = s.data().dueno || '';
         return !dueno || dueno === usuario.uid;
       });
+
+      // Y ADEMÁS lo que le compartieron a mano o por un pase vigente.
+      //
+      // Esta rama traía los aparatos por alcance de inmueble y ahí se paraba,
+      // así que ascender a alguien a admin de su edificio le BORRABA del panel
+      // todo lo que estuviera fuera de él. A Alan le compartieron la cámara del
+      // lobby de Doravila, la tenía en su lista, y no la veía: administra
+      // Tulipanes.
+      //
+      // Ser admin de un edificio es un permiso que SUMA, no uno que sustituye
+      // a lo que ya tenías como vecino.
+      const sueltos = new Set(usuario.dispositivos || []);
+      const ahoraMs = Date.now();
+      for (const [id, info] of Object.entries(usuario.accesos || {})) {
+        if (msExpira(info && info.expira) > ahoraMs) sueltos.add(id);
+      }
+      const yaEstan = new Set(documentos.map((d) => d.id));
+      const faltan = [...sueltos].filter((id) => !yaEstan.has(id));
+      if (faltan.length) {
+        const extra = await Promise.all(faltan.map((id) => getDoc(doc(db, 'dispositivos', id))
+          .catch(() => null)));
+        for (const s of extra) {
+          if (s && s.exists() && s.data().activo !== false) documentos.push(s);
+        }
+      }
     } else {
       const ids = new Set(usuario.dispositivos || []);
       // Dispositivos compartidos por pases vigentes (no vencidos).
