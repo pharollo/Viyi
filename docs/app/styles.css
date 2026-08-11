@@ -4390,6 +4390,7 @@ input:checked ~ .pase-tgl::before {
      360 la deja claramente por encima de un control sin comerse la vista. */
   min-width: 220px;
   max-width: 360px;
+  transition: max-width 0.25s ease;
   margin-inline: auto;
   overflow: hidden;
   border-radius: 18px;
@@ -4414,6 +4415,32 @@ input:checked ~ .pase-tgl::before {
   transition: opacity 0.35s ease;
 }
 .camara-marco.viendo video { opacity: 1; }
+
+/* Agrandar = MÁS ANCHO, misma forma y mismo recorte. Es la diferencia entre
+   enseñar más y estirar lo mismo: al cambiar la proporción, el hueco crecía y
+   la imagen no —"lo que agranda es la ventana, no el video", lo dijo el
+   usuario y era exacto—. Con 360 → 520 los mismos píxeles ocupan más pantalla,
+   que es lo que se busca cuando quieres mirar de cerca quién llegó. */
+.camara-marco.grande { max-width: 520px; }
+.camara-crecer {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+/* Solo cuando hay algo que agrandar. */
+.camara-marco.viendo .camara-crecer { display: grid; place-items: center; }
+.camara-crecer svg { width: 18px; height: 18px; }
 
 .camara-aviso {
   position: absolute;
