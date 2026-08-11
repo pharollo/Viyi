@@ -4385,7 +4385,15 @@ input:checked ~ .pase-tgl::before {
   box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
   -webkit-tap-highlight-color: transparent;
 }
+/* El vídeo va ABSOLUTO, fuera del flujo. Con `width/height: 100%` a secas
+   seguía contando para el tamaño del marco: al llegar el stream el navegador le
+   aplicaba la proporción real de la cámara y el contenedor crecía de golpe,
+   empujando todo lo de abajo justo cuando lo estabas mirando. La proporción fija
+   del marco no gana contra un hijo en flujo con dimensiones propias; sacarlo del
+   flujo sí. */
 .camara-marco video {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -4394,6 +4402,31 @@ input:checked ~ .pase-tgl::before {
   transition: opacity 0.35s ease;
 }
 .camara-marco.viendo video { opacity: 1; }
+
+/* Agrandar: el marco pasa a vertical —que es como se mira una entrada en el
+   teléfono— y la imagen deja de recortarse. `contain` en vez de `cover` porque
+   al agrandar lo que se quiere es VER MÁS, no llenar el hueco. */
+.camara-marco.grande { aspect-ratio: 3 / 4; }
+.camara-marco.grande video { object-fit: contain; background: #000; }
+.camara-crecer {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+/* Solo aparece cuando hay algo que agrandar. */
+.camara-marco.viendo .camara-crecer { display: grid; place-items: center; }
+.camara-crecer svg { width: 18px; height: 18px; }
 .camara-aviso {
   position: absolute;
   inset: 0;
