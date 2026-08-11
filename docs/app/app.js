@@ -5131,6 +5131,12 @@ async function iniciar() {
     tNombres.rows = 4;
     tNombres.placeholder = 'Un nombre por línea:\nQuinta Anaís\nQuinta El Roble 12\nCasa 3';
     const campoNombres = campo('Nombres', tNombres);
+    const campoCiudad = campo('Ciudad', sCiudad);
+    const campoEstado = campo('Estado', iEstado);
+    // Lo que sustituye a los tres campos cuando el inmueble está dentro de otro.
+    const notaHeredada = document.createElement('p');
+    notaHeredada.className = 'campo-ayuda';
+
     const campoTorres = campo('Torres', iTorres);
     const campoPisos = campo('Pisos', iPisos);
     const campoPorPiso = campo('Apartamentos por piso', iPorPiso);
@@ -5153,10 +5159,11 @@ async function iniciar() {
       campo('Tipo', sTipo),
       campo('Nombre', iNombre),
       campo('Dentro de (el conjunto o edificio que lo contiene)', sPadre),
-      campo('Ciudad', sCiudad),
+      campoCiudad,
       iCiudad,
-      campo('Estado', iEstado),
+      campoEstado,
       filaZona,
+      notaHeredada,
       iZona,
       campo('Dónde está', ubic.caja),
       ubic.pie,
@@ -5230,6 +5237,26 @@ async function iniciar() {
     }
 
     function sincronizarLote() {
+      // La ubicación NO se pregunta a lo que vive dentro de otra cosa.
+      //
+      // Un apartamento está donde está su edificio, y eso no cambia nunca: la
+      // ciudad, el estado y la zona son las del padre. Preguntarlas tres veces
+      // por diecisiete apartamentos es ruido, y encima invita a que alguien las
+      // toque y cree una copia que luego envejece. Se enseña de dónde salen y
+      // se acabó.
+      const dentroDeOtro = Boolean(sPadre.value);
+      for (const c of [campoCiudad, iCiudad, campoEstado, filaZona]) {
+        c.classList.toggle('oculto', dentroDeOtro);
+      }
+      notaHeredada.classList.toggle('oculto', !dentroDeOtro);
+      if (dentroDeOtro) {
+        const padre = cacheInmuebles.find((x) => x.id === sPadre.value);
+        const z = recorridoDeZonas().zonaDe(sPadre.value);
+        const donde = [z && z.nombre, padre && padre.ciudad].filter(Boolean).join(', ');
+        notaHeredada.textContent = donde
+          ? `Ubicación heredada de ${padre.nombre}: ${donde}`
+          : `La ubicación es la de ${(padre && padre.nombre) || 'su edificio'}`;
+      }
       campoCompone.classList.toggle('oculto', !esConjunto());
       campoTorres.classList.toggle('oculto', !conTorres());
       campoNombres.classList.toggle('oculto', !bloque() || conTorres());
@@ -5261,7 +5288,7 @@ async function iniciar() {
         ? `Se crearán ${partes.join(' y ')}. ${total} inmuebles en total.`
         : `Se agregarán ${partes.join(' y ')} a ${inm.nombre || 'este inmueble'}. Los que ya existan se dejan como están.`;
     }
-    [sTipo, sCompone, sNomenclatura].forEach((x) => x.addEventListener('change', sincronizarLote));
+    [sTipo, sCompone, sNomenclatura, sPadre].forEach((x) => x.addEventListener('change', sincronizarLote));
     [iTorres, iPisos, iPorPiso, iPH, tNombres].forEach((i) => i.addEventListener('input', sincronizarLote));
     sincronizarLote();
     const acciones = [
