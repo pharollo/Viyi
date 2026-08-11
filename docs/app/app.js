@@ -5031,7 +5031,16 @@ async function iniciar() {
       if (!c) { sZona.value = ''; return; }
       const suyas = cacheZonas.filter((z) => sinTildes(z.ciudad || '') === c);
       sZona.textContent = '';
-      sZona.appendChild(opcion('', 'Sin zona'));
+      // "Sin zona" solo cuando de verdad no hay ninguna. Un apartamento no
+      // necesita zona propia: la tiene su edificio, y el mapa ya la resuelve
+      // subiendo por el árbol. Decirle "Sin zona" era falso y hacía pensar que
+      // faltaba un dato.
+      //
+      // Se enseña la heredada pero NO se selecciona: elegirla la escribiría en
+      // el apartamento, y entonces cambiar la del edificio dejaría a los
+      // diecisiete apuntando a la vieja. Heredar es no tener copia.
+      const heredada = inm.padre ? recorridoDeZonas().zonaDe(inm.padre) : null;
+      sZona.appendChild(opcion('', heredada ? `Hereda de su edificio · ${heredada.nombre}` : 'Sin zona'));
       for (const z of suyas) sZona.appendChild(opcion(z.id, z.nombre));
       sZona.appendChild(opcion('__nueva', 'Otra…'));
       sZona.value = [...sZona.options].some((o) => o.value === antes) ? antes : '';
