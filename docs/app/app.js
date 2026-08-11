@@ -5128,6 +5128,16 @@ async function iniciar() {
     // El último piso suele ser solo el PH, así que va aparte y no como un piso
     // más: si no, saldría "13A" donde debería decir "PH".
     const campoPH = campo('Penthouses, encima del último piso', iPH);
+    // Cómo se llaman los apartamentos. No hay una forma "correcta": cada
+    // edificio venezolano usa la suya, y el mismo conjunto puede tener torres
+    // con criterios distintos. Se elige ANTES de generar porque renombrar
+    // diecisiete a mano después es justo lo que pasó con Doravila.
+    const sNomenclatura = selector([
+      ['letra', 'Piso + letra  ·  1A, 1B, 2A…'],
+      ['numeroLetra', 'Piso + número + A  ·  11A, 12A, 21A…'],
+      ['numero', 'Piso + número  ·  101, 102, 201…'],
+    ], 'letra');
+    const campoNomenclatura = campo('Cómo se numeran', sNomenclatura);
     const previa = document.createElement('p');
     previa.className = 'dps-detectados lote-previa';
     const filas = [
@@ -5146,11 +5156,20 @@ async function iniciar() {
       campoNombres,
       campoPisos,
       campoPorPiso,
+      campoNomenclatura,
       campoPH,
       previa,
     ];
 
     const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const NOMENCLATURAS = {
+      letra: (piso, k) => `${piso}${LETRAS[k]}`,
+      // El "A" no es la unidad: es la letra de la torre o del ala, y suele
+      // repetirse en todos. Por eso va fija y el que cambia es el número.
+      numeroLetra: (piso, k) => `${piso}${k + 1}A`,
+      numero: (piso, k) => `${piso}${String(k + 1).padStart(2, '0')}`,
+    };
+    const comoSeLlama = (piso, k) => (NOMENCLATURAS[sNomenclatura.value] || NOMENCLATURAS.letra)(piso, k);
     const esConjunto = () => sTipo.value === 'conjunto';
     // Lo que cuelga directamente de la raíz: torres de un conjunto, o casas y
     // quintas si el conjunto es de esos. Vacío = la raíz no tiene ese nivel.
@@ -5182,7 +5201,7 @@ async function iniciar() {
       if (unidad()) {
         for (let piso = 1; piso <= num(iPisos); piso++) {
           for (let k = 0; k < num(iPorPiso); k++) {
-            aptos.push({ nombre: `${piso}${LETRAS[k]}`, tipo: unidad(), hijos: [] });
+            aptos.push({ nombre: comoSeLlama(piso, k), tipo: unidad(), hijos: [] });
           }
         }
         const ph = num(iPH);
@@ -5233,7 +5252,7 @@ async function iniciar() {
         ? `Se crearán ${partes.join(' y ')}. ${total} inmuebles en total.`
         : `Se agregarán ${partes.join(' y ')} a ${inm.nombre || 'este inmueble'}. Los que ya existan se dejan como están.`;
     }
-    [sTipo, sCompone].forEach((x) => x.addEventListener('change', sincronizarLote));
+    [sTipo, sCompone, sNomenclatura].forEach((x) => x.addEventListener('change', sincronizarLote));
     [iTorres, iPisos, iPorPiso, iPH, tNombres].forEach((i) => i.addEventListener('input', sincronizarLote));
     sincronizarLote();
     const acciones = [
