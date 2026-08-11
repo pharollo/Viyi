@@ -4391,6 +4391,10 @@ input:checked ~ .pase-tgl::before {
   min-width: 220px;
   max-width: 360px;
   transition: max-width 0.25s ease;
+  /* La ilustración del sitio, mientras no hay vídeo. `cover` porque es un
+     fondo: llenar el marco importa más que enseñarla entera. */
+  background-size: cover;
+  background-position: center;
   margin-inline: auto;
   overflow: hidden;
   border-radius: 18px;
@@ -4415,6 +4419,18 @@ input:checked ~ .pase-tgl::before {
   transition: opacity 0.35s ease;
 }
 .camara-marco.viendo video { opacity: 1; }
+/* Un velo oscuro sobre la ilustración: sin él, "Toca para ver" se pierde sobre
+   la madera clara. Y de paso la baja de tono, que en un panel negro una
+   ilustración a plena luz grita. */
+.camara-marco::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 12, 0.55);
+  transition: opacity 0.35s ease;
+}
+/* Con el vídeo en marcha estorba: se va. */
+.camara-marco.viendo::before { opacity: 0; }
 
 /* Agrandar = MÁS ANCHO, misma forma y mismo recorte. Es la diferencia entre
    enseñar más y estirar lo mismo: al cambiar la proporción, el hueco crecía y

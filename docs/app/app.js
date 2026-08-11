@@ -2491,6 +2491,14 @@ async function iniciar() {
 
     const marco = document.createElement('div');
     marco.className = 'camara-marco';
+    // Imagen de reposo POR CONVENCIÓN, sin configuración: si existe
+    // `reposo-{id}.jpg` se usa, y si no, el marco queda como estaba. Poner una
+    // cámara nueva es dejar caer un archivo con su nombre — nada de un campo
+    // más en el editor ni de subir nada a ningún lado.
+    //
+    // Y si el archivo no está, el navegador simplemente no pinta fondo: el
+    // fallo de un adorno no puede dejar un hueco roto donde va el vídeo.
+    marco.style.backgroundImage = `url('reposo-${dispositivo.id}.jpg?v=1')`;
     const video = document.createElement('video');
     // `playsinline` es obligatorio en el iPhone: sin él, Safari se lleva el
     // vídeo a pantalla completa y se apodera de la app.
