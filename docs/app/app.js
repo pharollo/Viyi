@@ -4084,11 +4084,50 @@ async function iniciar() {
       p.textContent = 'No hay inmuebles creados todavía.';
       cont.appendChild(p);
     }
-    for (const inm of cacheInmuebles) {
+    // Agrupado por edificio, no en una lista plana.
+    //
+    // Con diecisiete apartamentos de Doravila y los de las otras torres, la
+    // lista salía como un muro de casillas donde "11A" y "1D" se leían igual y
+    // no había forma de saber de qué edificio era cada uno. El nombre de un
+    // apartamento solo significa algo junto al de su edificio.
+    const unaCasilla = (inm) => {
       const { label, c } = casilla(`${inm.nombre} · ${TIPO_INMUEBLE_TXT[inm.tipo] || inm.tipo}`, set.has(inm.id));
       mapa.set(inm.id, c);
-      cont.appendChild(label);
+      return { label, c };
+    };
+    const porPadre = new Map();
+    const raices = [];
+    const conocidos = new Set(cacheInmuebles.map((x) => x.id));
+    for (const inm of cacheInmuebles) {
+      if (!inm.padre || !conocidos.has(inm.padre)) { raices.push(inm); continue; }
+      if (!porPadre.has(inm.padre)) porPadre.set(inm.padre, []);
+      porPadre.get(inm.padre).push(inm);
     }
+    const pintarRama = (inm, donde) => {
+      const hijos = porPadre.get(inm.id) || [];
+      const { label, c } = unaCasilla(inm);
+      if (!hijos.length) { donde.appendChild(label); return c.checked; }
+
+      const det = document.createElement('details');
+      det.className = 'casillas-rama';
+      const sum = document.createElement('summary');
+      sum.innerHTML = '<svg class="pase-grupo-flecha" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>';
+      // El edificio es una casilla más —se le puede dar acceso a lo común sin
+      // darle ningún apartamento—, así que va DENTRO del resumen y no como un
+      // título muerto.
+      sum.appendChild(label);
+      const dentro = document.createElement('div');
+      dentro.className = 'casillas-dentro';
+      let algunoMarcado = false;
+      for (const h of hijos) algunoMarcado = pintarRama(h, dentro) || algunoMarcado;
+      // Abierto si hay algo marcado ahí dentro: una selección escondida detrás
+      // de una flecha es una selección que nadie ve.
+      det.open = algunoMarcado;
+      det.append(sum, dentro);
+      donde.appendChild(det);
+      return algunoMarcado || c.checked;
+    };
+    for (const raiz of raices) pintarRama(raiz, cont);
     return {
       cont,
       seleccionados: () => cacheInmuebles

@@ -4474,3 +4474,21 @@ input:checked ~ .pase-tgl::before {
      solo porque alguien pidió menos movimiento. */
   .btn-icono.girando { opacity: 0.55; }
 }
+
+/* ---- Casillas agrupadas por edificio (editor del vecino) ---------------- */
+.casillas-rama > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+  cursor: pointer;
+}
+.casillas-rama > summary::-webkit-details-marker { display: none; }
+.casillas-rama > summary .pase-grupo-flecha {
+  flex: none;
+  color: var(--texto-suave);
+  transition: transform 0.18s ease;
+}
+.casillas-rama[open] > summary .pase-grupo-flecha { transform: rotate(90deg); }
+/* Los hijos sangrados bajo la flecha, para que se lea a qué pertenecen. */
+.casillas-dentro { padding-left: 22px; }
