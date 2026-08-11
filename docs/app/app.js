@@ -2498,7 +2498,18 @@ async function iniciar() {
     //
     // Y si el archivo no está, el navegador simplemente no pinta fondo: el
     // fallo de un adorno no puede dejar un hueco roto donde va el vídeo.
-    marco.style.backgroundImage = `url('reposo-${dispositivo.id}.jpg?v=1')`;
+    // Si la ilustración carga, ELLA es la invitación a tocar y el texto sobra.
+    // Si no carga, el marco sería un gris mudo y entonces las palabras sí hacen
+    // falta. Se comprueba de verdad en vez de suponerlo: una cámara nueva sin
+    // su archivo no puede quedarse sin decir qué hacer.
+    const fondo = `reposo-${dispositivo.id}.jpg?v=1`;
+    const prueba = new Image();
+    prueba.addEventListener('load', () => {
+      marco.style.backgroundImage = `url('${fondo}')`;
+      marco.classList.add('con-foto');
+      if (!mirando) decir('');
+    });
+    prueba.src = fondo;
     const video = document.createElement('video');
     // `playsinline` es obligatorio en el iPhone: sin él, Safari se lleva el
     // vídeo a pantalla completa y se apodera de la app.
@@ -2540,6 +2551,8 @@ async function iniciar() {
     let mirando = false;
 
     const decir = (t) => { aviso.textContent = t; aviso.hidden = !t; };
+    // Lo que se dice cuando no pasa nada: nada si hay ilustración.
+    const enReposo = () => decir(marco.classList.contains('con-foto') ? '' : 'Toca para ver');
 
     const cerrar = async () => {
       mirando = false;
@@ -2556,7 +2569,7 @@ async function iniciar() {
         // abandonada ocupa sitio hasta que vence sola.
         videoNestDetener({ dispositivoId: dispositivo.id, sesion: seCierra }).catch(() => {});
       }
-      decir('Toca para ver');
+      enReposo();
     };
 
     // Se renueva ANTES de que venza, no cuando vence: si se espera al final, el
@@ -2627,7 +2640,7 @@ async function iniciar() {
       } catch (err) {
         mirando = false;
         decir(err.message || 'No pude abrir la cámara');
-        setTimeout(() => { if (!mirando) decir('Toca para ver'); }, 4000);
+        setTimeout(() => { if (!mirando) enReposo(); }, 4000);
       }
     };
 
