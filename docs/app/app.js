@@ -611,10 +611,28 @@ async function iniciar() {
     return `Disponible el ${f.toLocaleDateString('es', { day: 'numeric', month: 'short' })} a las ${hora}`;
   }
 
+  // ¿Este acceso vale AHORA? No basta con existir: un pase tiene principio y
+  // final. Vive aquí arriba, en común, porque la misma pregunta se hace en tres
+  // sitios y tenerla escrita en uno solo es lo que evita que un camino se
+  // quede sin ella — que es exactamente lo que pasó con el vestido de evento.
+  function accesoVigente(acc) {
+    if (!acc) return false;
+    const ahora = Date.now();
+    const expira = msExpira(acc.expira);
+    if (expira && expira <= ahora) return false;
+    const desde = msExpira(acc.desde);
+    return !desde || desde <= ahora;
+  }
+
   function eventoDe(d) {
     if (!usuarioActual || !usuarioActual.accesos) return '';
     if ((usuarioActual.dispositivos || []).includes(d.id)) return '';
     const acc = usuarioActual.accesos[d.id];
+    // Y el pase tiene que seguir vivo. Sin esto, el botón se quedaba vestido de
+    // "Paella" tres semanas después de la paella: el acceso ya no abría nada
+    // —eso lo comprueba el servidor— pero el aro y el rótulo seguían ahí,
+    // prometiendo una fiesta que terminó.
+    if (!accesoVigente(acc)) return '';
     return acc && typeof acc.evento === 'string' ? acc.evento.trim() : '';
   }
 
@@ -7052,15 +7070,8 @@ async function iniciar() {
     // empezado y que no haya vencido. Es el cuarto sitio donde se mira el
     // acceso, y tenía que decir lo mismo que los otros tres.
     const ahoraMs = Date.now();
-    const vigente = (acc) => {
-      if (!acc) return false;
-      const expira = msExpira(acc.expira);
-      if (expira && expira <= ahoraMs) return false;
-      const desde = msExpira(acc.desde);
-      return !desde || desde <= ahoraMs;
-    };
     const conAcceso = misDispositivos
-      .filter((d) => usuarioActual.accesos && vigente(usuarioActual.accesos[d.id]));
+      .filter((d) => usuarioActual.accesos && accesoVigente(usuarioActual.accesos[d.id]));
     if (!conAcceso.length) { card.classList.add('oculto'); card.textContent = ''; return; }
     card.classList.remove('oculto');
     card.textContent = '';
