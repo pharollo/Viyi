@@ -4391,14 +4391,17 @@ input:checked ~ .pase-tgl::before {
   min-width: 220px;
   max-width: 360px;
   transition: max-width 0.25s ease;
-  /* La ilustración del sitio, mientras no hay vídeo. `cover` porque es un
-     fondo: llenar el marco importa más que enseñarla entera. */
-  background-size: cover;
-  background-position: center;
   margin-inline: auto;
   overflow: hidden;
   border-radius: 18px;
-  background: var(--superficie);
+  /* `background-color` y NO la abreviada `background`: la abreviada reinicia
+     todo lo que no nombra, así que borraba el `background-size` de abajo y la
+     ilustración salía a tamaño natural — mil píxeles en un marco de 360, del
+     que solo cabía el techo.
+     Y el tamaño va DESPUÉS del color, para que no vuelva a pasar por orden. */
+  background-color: var(--superficie);
+  background-size: cover;
+  background-position: center;
   box-shadow: inset 4px 4px 9px var(--sombra-oscura), inset -4px -4px 9px var(--sombra-clara);
   -webkit-tap-highlight-color: transparent;
 }
