@@ -3552,16 +3552,29 @@ async function iniciar() {
   });
 
   // Botón de actualizar: consulta en vivo, por si no quieres esperar los 10 min.
-  async function refrescarConexion(boton) {
-    if (boton) boton.disabled = true;
+  // Un botón que gira mientras se trae lo que sea.
+  //
+  // Pulsar y no ver nada durante dos segundos se siente como que el botón no
+  // respondió, y entonces se pulsa otra vez. El giro es la respuesta al toque;
+  // el `disabled` evita el segundo viaje. Los dos juntos porque uno sin el otro
+  // deja la mitad del problema: deshabilitado y quieto parece roto, y girando
+  // pero pulsable invita a insistir.
+  async function conGiro(boton, trabajo) {
+    if (boton) { boton.classList.add('girando'); boton.disabled = true; }
+    try {
+      return await trabajo();
+    } finally {
+      if (boton) { boton.classList.remove('girando'); boton.disabled = false; }
+    }
+  }
+
+  async function refrescarConexion() {
     try {
       const res = await estadoDispositivos();
       pintarConexion((res.data && res.data.dispositivos) || []);
       toast('Estado actualizado.', 'ok');
     } catch (err) {
       toast('No se pudo consultar el estado.', 'error');
-    } finally {
-      if (boton) boton.disabled = false;
     }
   }
 
@@ -5555,7 +5568,7 @@ async function iniciar() {
   }
 
   $('btn-nuevo-dispositivo').addEventListener('click', () => abrirEditorDispositivo(null));
-  $('btn-refrescar-conexion').addEventListener('click', (ev) => refrescarConexion(ev.currentTarget));
+  $('btn-refrescar-conexion').addEventListener('click', (ev) => conGiro(ev.currentTarget, () => refrescarConexion()));
   $('btn-nuevo-inmueble').addEventListener('click', () => abrirEditorInmueble(null));
   $('btn-nuevo-usuario').addEventListener('click', () => abrirEditorUsuario(null));
 
@@ -6876,7 +6889,7 @@ async function iniciar() {
     paseModo = b.dataset.modo;
     aplicarModoPase();
   });
-  $('btn-refrescar-pases').addEventListener('click', cargarMisPases);
+  $('btn-refrescar-pases').addEventListener('click', (ev) => conGiro(ev.currentTarget, cargarMisPases));
   // Toggle admin: ver solo mis pases o todos los del condominio.
   $('pase-scope').addEventListener('click', (e) => {
     const b = e.target.closest('.chip-scope');
@@ -7984,9 +7997,9 @@ async function iniciar() {
     }
   }
 
-  $('btn-refrescar').addEventListener('click', () => cargarRegistros());
-  $('btn-refrescar-conexiones').addEventListener('click', cargarConexiones);
-  $('btn-refrescar-mapa').addEventListener('click', pintarMapaZonas);
+  $('btn-refrescar').addEventListener('click', (ev) => conGiro(ev.currentTarget, () => cargarRegistros()));
+  $('btn-refrescar-conexiones').addEventListener('click', (ev) => conGiro(ev.currentTarget, cargarConexiones));
+  $('btn-refrescar-mapa').addEventListener('click', (ev) => conGiro(ev.currentTarget, pintarMapaZonas));
   $('filtro-conexiones').addEventListener('click', (e) => {
     const chip = e.target.closest('[data-filtro]');
     if (!chip || chip.dataset.filtro === filtroConexiones) return;

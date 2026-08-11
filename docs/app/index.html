@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=350">
+  <link rel="stylesheet" href="styles.css?v=351">
 </head>
 <body>
   <header>
@@ -400,6 +400,10 @@
         </div>
       </div>
       <div id="tab-perfil" class="panel-tab oculto">
+        <div class="tarjeta solo-admin oculto" id="seccion-admin">
+          <button type="button" class="item-menu" data-tab="tab-gestion">Admin</button>
+          <button type="button" class="item-menu" data-tab="tab-registro">Actividad</button>
+        </div>
         <div class="encabezado-admin">
           <h2>Mi perfil</h2>
         </div>
@@ -450,10 +454,6 @@
              admin use exactamente la misma app que un vecino. Llevan
              `item-menu` para heredar el cambio de pestaña sin duplicar el
              manejador; el aspecto se lo da `.acciones-perfil`. -->
-        <div class="tarjeta solo-admin oculto" id="seccion-admin">
-          <button type="button" class="item-menu" data-tab="tab-gestion">Admin</button>
-          <button type="button" class="item-menu" data-tab="tab-registro">Actividad</button>
-        </div>
         <div class="tarjeta" id="seccion-salir">
           <button id="btn-salir" type="button" class="btn-secundario item-salir">Salir</button>
         </div>
@@ -498,6 +498,6 @@
 
   <div id="toast" class="oculto" role="status"></div>
 
-  <script type="module" src="app.js?v=406"></script>
+  <script type="module" src="app.js?v=407"></script>
 </body>
 </html>

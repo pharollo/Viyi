@@ -4409,3 +4409,20 @@ input:checked ~ .pase-tgl::before {
 }
 /* Mientras se ve, el aviso estorba: se va del todo. */
 .camara-marco.viendo .camara-aviso { display: none; }
+
+/* ---- Botones de refrescar: girar mientras trabajan ---------------------
+   Sin esto, pulsar y no ver nada durante dos segundos se siente como que el
+   botón no respondió — y se vuelve a pulsar. El giro no es adorno: es la
+   respuesta al toque. Se queda deshabilitado además, así que el propio giro
+   explica por qué no acepta otro clic. */
+.btn-icono.girando svg { animation: girar-refresco 0.9s linear infinite; }
+.btn-icono.girando { cursor: progress; }
+@keyframes girar-refresco {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-icono.girando svg { animation: none; }
+  /* Sin giro, al menos que se apague un poco: la señal no puede desaparecer
+     solo porque alguien pidió menos movimiento. */
+  .btn-icono.girando { opacity: 0.55; }
+}
