@@ -2482,25 +2482,7 @@ async function iniciar() {
     aviso.className = 'camara-aviso';
     aviso.textContent = demo ? 'Vista de la entrada' : 'Toca para ver';
 
-    // Agrandar. Aparece solo cuando ya se está viendo: un botón para ampliar
-    // un marco vacío no tiene qué ampliar.
-    const crecer = document.createElement('button');
-    crecer.type = 'button';
-    crecer.className = 'camara-crecer';
-    crecer.setAttribute('aria-label', 'Agrandar');
-    const ICONO_CRECER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
-    const ICONO_ENCOGER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
-    crecer.innerHTML = ICONO_CRECER;
-    crecer.addEventListener('click', (ev) => {
-      // Sin esto, el toque llegaría también al marco y cortaría la conexión:
-      // el marco entero es el interruptor de ver/dejar de ver.
-      ev.stopPropagation();
-      const grande = marco.classList.toggle('grande');
-      crecer.innerHTML = grande ? ICONO_ENCOGER : ICONO_CRECER;
-      crecer.setAttribute('aria-label', grande ? 'Reducir' : 'Agrandar');
-    });
-
-    marco.append(video, aviso, crecer);
+    marco.append(video, aviso);
 
     const titulo = document.createElement('span');
     titulo.className = 'etiqueta-control';
@@ -2522,9 +2504,6 @@ async function iniciar() {
       if (pc) { try { pc.close(); } catch (e) { /* ya estaba */ } pc = null; }
       video.srcObject = null;
       marco.classList.remove('viendo');
-      // Y se vuelve al tamaño chico: dejar el hueco grande y vacío ocuparía
-      // media pantalla para no enseñar nada.
-      marco.classList.remove('grande');
       const seCierra = sesion;
       sesion = null;
       if (seCierra) {

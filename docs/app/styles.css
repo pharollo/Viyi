@@ -4385,10 +4385,11 @@ input:checked ~ .pase-tgl::before {
   position: relative;
   aspect-ratio: 16 / 9;
   width: 100%;
-  /* Un tope arriba y otro abajo: en el teléfono manda el ancho disponible, y
-     en pantalla grande no tiene sentido una entrada de metro y medio. */
+  /* El tope manda sobre el ancho disponible. A lo ancho de la pantalla la
+     cámara dominaba el panel; del tamaño de un botón no se distingue una cara.
+     360 la deja claramente por encima de un control sin comerse la vista. */
   min-width: 220px;
-  max-width: 520px;
+  max-width: 360px;
   margin-inline: auto;
   overflow: hidden;
   border-radius: 18px;
@@ -4414,30 +4415,6 @@ input:checked ~ .pase-tgl::before {
 }
 .camara-marco.viendo video { opacity: 1; }
 
-/* Agrandar: el marco pasa a vertical —que es como se mira una entrada en el
-   teléfono— y la imagen deja de recortarse. `contain` en vez de `cover` porque
-   al agrandar lo que se quiere es VER MÁS, no llenar el hueco. */
-.camara-marco.grande { aspect-ratio: 3 / 4; }
-.camara-marco.grande video { object-fit: contain; background: #000; }
-.camara-crecer {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  display: none;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: none;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.45);
-  color: #fff;
-  cursor: pointer;
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-}
-/* Solo aparece cuando hay algo que agrandar. */
-.camara-marco.viendo .camara-crecer { display: grid; place-items: center; }
-.camara-crecer svg { width: 18px; height: 18px; }
 .camara-aviso {
   position: absolute;
   inset: 0;
