@@ -4374,11 +4374,22 @@ input:checked ~ .pase-tgl::before {
    con proporción de vídeo. Se enseña vacío antes de conectar en vez de crecer
    de golpe cuando llega la imagen: un control que cambia de tamaño mueve todo
    lo que tiene debajo justo cuando lo estás mirando. */
-.control-camara { cursor: pointer; }
+/* La cámara ocupa la fila entera: no es un botón, es una imagen, y compartir
+   línea con un portón la dejaría del tamaño de un sello.
+   El `flex: 1 1 100%` es lo que hace que `width: 100%` tenga contra qué
+   medirse. Sin él, `.control` centra a sus hijos y el ancho del marco acababa
+   siendo el del texto de abajo — que es exactamente cómo quedó del tamaño de
+   una estampilla al sacar el vídeo del flujo. */
+.control-camara { cursor: pointer; flex: 1 1 100%; width: 100%; }
 .camara-marco {
   position: relative;
   aspect-ratio: 16 / 9;
   width: 100%;
+  /* Un tope arriba y otro abajo: en el teléfono manda el ancho disponible, y
+     en pantalla grande no tiene sentido una entrada de metro y medio. */
+  min-width: 220px;
+  max-width: 520px;
+  margin-inline: auto;
   overflow: hidden;
   border-radius: 18px;
   background: var(--superficie);
