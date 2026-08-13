@@ -3617,6 +3617,15 @@ input:checked ~ .pase-tgl::before {
   bottom: 9px;
 }
 
+/* El velo se va: oscurecía media ilustración para hacerle sitio a un texto que
+   ya no existe.
+   Estaba para que `.nombre-boton` se leyera DENTRO del botón, sobre la foto.
+   Pero ese nombre ya no se pinta en ningún lado —no aparece ni en el HTML ni en
+   el JavaScript— y los rótulos que se ven ("Sala", "Pared") van debajo del
+   círculo, sobre el fondo de la app, donde no hace falta ningún velo.
+   Mismo caso que la ilustración de la cámara, y misma decisión: se queda la
+   regla con el degradado a cero en vez de borrarla, porque el día que un nombre
+   vuelva adentro esto es cambiar un número. */
 .boton-circular.medio.boton-imagen::before {
   content: '';
   position: absolute;
@@ -3624,7 +3633,7 @@ input:checked ~ .pase-tgl::before {
   right: 0;
   bottom: 0;
   height: 52%;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0));
+  background: linear-gradient(to top, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0));
   pointer-events: none;
   z-index: 1;
 }
