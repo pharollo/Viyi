@@ -4523,3 +4523,24 @@ input:checked ~ .pase-tgl::before {
 .casillas-rama[open] > summary .pase-grupo-flecha { transform: rotate(90deg); }
 /* Los hijos sangrados bajo la flecha, para que se lea a qué pertenecen. */
 .casillas-dentro { padding-left: 22px; }
+
+
+/* ── Secciones plegadas: lo que se mira poco no hace bulto ──────────────── */
+.plegado > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.17em;
+  font-weight: 600;
+  margin: 18px 0 8px;
+}
+.plegado > summary::-webkit-details-marker { display: none; }
+.plegado > summary::after {
+  content: "›";
+  color: var(--texto-suave, #888);
+  font-size: 1.1em;
+  transition: transform 0.15s;
+}
+.plegado[open] > summary::after { transform: rotate(90deg); }

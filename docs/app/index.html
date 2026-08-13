@@ -15,7 +15,7 @@
        fuente del sistema y la propia entra cuando baja. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&family=Fredoka:wght@500;600&display=swap"></noscript>
-  <link rel="stylesheet" href="styles.css?v=361">
+  <link rel="stylesheet" href="styles.css?v=362">
 </head>
 <body>
   <header>
@@ -273,19 +273,22 @@
           <div id="mapa-zonas"></div>
           <p id="mapa-nota" class="campo-ayuda"></p>
         </div>
-        <div class="encabezado-admin">
-          <h2>Conexión</h2>
-          <button id="btn-refrescar-conexiones" type="button" class="btn-secundario btn-icono" aria-label="Actualizar">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-          </button>
-        </div>
-        <div id="filtro-conexiones" class="pase-scope">
-          <button type="button" class="chip-scope" data-filtro="todos">Todos</button>
-          <button type="button" class="chip-scope activa" data-filtro="caidas">Caídas</button>
-          <button type="button" class="chip-scope" data-filtro="estables">Estables</button>
-        </div>
-        <ul id="lista-conexiones" class="lista-con"></ul>
-        <p id="con-limpios" class="campo-ayuda oculto"></p>
+        <!-- Plegada: las estadísticas de conexión hacen bulto y se miran
+             poco. Una línea que dice "Conexión" basta; quien las necesite
+             las abre. El botón de refrescar vive junto a los filtros. -->
+        <details id="plegado-conexiones" class="plegado">
+          <summary>Conexión</summary>
+          <div id="filtro-conexiones" class="pase-scope">
+            <button type="button" class="chip-scope" data-filtro="todos">Todos</button>
+            <button type="button" class="chip-scope activa" data-filtro="caidas">Caídas</button>
+            <button type="button" class="chip-scope" data-filtro="estables">Estables</button>
+            <button id="btn-refrescar-conexiones" type="button" class="btn-secundario btn-icono" aria-label="Actualizar">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </button>
+          </div>
+          <ul id="lista-conexiones" class="lista-con"></ul>
+          <p id="con-limpios" class="campo-ayuda oculto"></p>
+        </details>
         <div class="encabezado-admin">
           <h2>Actividad</h2>
           <button id="btn-refrescar" type="button" class="btn-secundario btn-icono" aria-label="Actualizar">
