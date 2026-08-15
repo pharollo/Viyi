@@ -3303,12 +3303,57 @@ exports.vigilarServicioTuya = onSchedule(
   },
 );
 
+// Barre los accesos por pase que ya vencieron.
+//
+// No son un riesgo —`autorizar()` comprueba la vigencia en cada comando, así
+// que un pase muerto no abre nada— pero se acumulan: el 11 de agosto de 2026
+// había 18 de 21 cuentas arrastrando pases vencidos, algunos de hacía tres
+// semanas. Basura que ensucia el documento del usuario y confunde a quien lo
+// lee.
+//
+// ⚠️ Con un día de gracia, no al vencer. Un pase que acaba de caducar todavía
+// puede querer verse o renovarse, y borrarlo en el mismo minuto convertiría
+// cualquier reloj torcido en una pérdida de datos. Un día es de sobra para
+// distinguir "caducó" de "caducó hace rato".
+async function limpiarAccesosVencidos() {
+  const GRACIA = 24 * 60 * 60 * 1000;
+  const corte = Date.now() - GRACIA;
+  const snap = await db.collection('usuarios').get();
+  let cuentas = 0;
+  let borrados = 0;
+  for (const doc of snap.docs) {
+    const accesos = doc.data().accesos || {};
+    const fuera = {};
+    for (const [dispositivoId, acc] of Object.entries(accesos)) {
+      const expira = acc && acc.expira && typeof acc.expira.toMillis === 'function'
+        ? acc.expira.toMillis() : null;
+      // Sin fecha de expiración no se toca: es un acceso sin caducidad, no uno
+      // vencido. Confundirlos sería quitarle a alguien lo que sí tiene.
+      if (expira !== null && expira < corte) {
+        fuera[`accesos.${dispositivoId}`] = admin.firestore.FieldValue.delete();
+        borrados++;
+      }
+    }
+    if (Object.keys(fuera).length) {
+      cuentas++;
+      await doc.ref.update(fuera).catch((err) =>
+        console.error(`No pude limpiar los pases de ${doc.id}: ${err.message}`));
+    }
+  }
+  if (borrados) console.log(`Pases vencidos borrados: ${borrados} en ${cuentas} cuentas`);
+  return { borrados, cuentas };
+}
+
 exports.revisarConexionProgramada = onSchedule(
   { ...RARA, schedule: 'every 10 minutes', timeZone: 'America/Caracas', secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, ...SECRETS_HB, ...SECRETS_SHELLY, ...SECRETS_NEST] },
   async () => {
     const { dispositivos } = await revisarConexion();
     const caidos = dispositivos.filter((d) => d.online === false).map((d) => d.nombre);
     if (caidos.length) console.warn('Dispositivos sin conexión:', caidos.join(', '));
+    // La limpieza va después y aparte: que falle no puede costar el chequeo de
+    // conexión, que es lo que de verdad se vigila cada diez minutos.
+    await limpiarAccesosVencidos().catch((err) =>
+      console.error('No pude barrer los pases vencidos:', err.message));
   },
 );
 

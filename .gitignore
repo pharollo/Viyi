@@ -5,3 +5,20 @@ node_modules/
 .DS_Store
 firebase-debug.log
 .claude/
+
+# Credenciales de Google (Device Access / Nest). Nunca al repositorio.
+client_secret_*.json
+
+# Fuentes de diseño y binarios pesados: viven en local, nunca al repo.
+# (Se colaron una vez y GitHub rechazó el push por tamaño.)
+/*-src.png
+/*.mov
+docs/*.mov
+/*.pkg
+/*.wav
+/*.jpg
+/*.rtf
+/jet-3estados.png
+/jet-3estados-screenshot.png
+/logo-google-120.png
+/logo-google-512.png

@@ -2634,11 +2634,28 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
 
 /* El Guardar del Locker. Apagado dice "esto ya es lo tuyo"; encendido, que hay
    algo probándose sin grabar. */
+/* Guardar se queda A LA VISTA mientras eliges.
+   Al final de la sección quedaba fuera de pantalla: había que probarse un
+   estilo, bajar a buscar el botón y volver a mirar arriba.
+   `sticky` no servía —siendo lo último de su sección no tiene contra qué
+   pegarse— así que va FIJO al borde de abajo, justo encima de la barra de
+   pestañas. Solo existe cuando el Locker está a la vista, porque su sección
+   entera se esconde con la pestaña. */
 .vest-guardar {
   display: block;
-  width: 100%;
-  margin-top: 16px;
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(62px + env(safe-area-inset-bottom));
+  width: auto;
+  margin: 0;
+  z-index: 40;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
 }
+
+/* Y su sitio en el flujo, para que el último estilo de la galería no quede
+   debajo del botón. */
+#vestuario { padding-bottom: 76px; }
 
 .vest-guardado {
   min-height: 16px;
@@ -4544,3 +4561,21 @@ input:checked ~ .pase-tgl::before {
   transition: transform 0.15s;
 }
 .plegado[open] > summary::after { transform: rotate(90deg); }
+
+
+/* ViYi se comporta como app, no como página.
+   Sin zoom al tocar dos veces, y sin seleccionar texto al mantener pulsado: en
+   una app de abrir puertas, un menú de copiar encima del botón es un estorbo, y
+   el zoom se dispara solo al pulsar rápido. Los campos donde SÍ se escribe
+   quedan fuera —ahí seleccionar es lo normal—. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+input, textarea, select, [contenteditable] {
+  -webkit-user-select: auto;
+  user-select: auto;
+  -webkit-touch-callout: default;
+}
