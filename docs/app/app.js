@@ -4330,10 +4330,19 @@ async function iniciar() {
     // Solo RESIDENTES: un visitante entró por una invitación y no vive ahí, así
     // que no puede ser dueño de un aparato. Se reutiliza el mismo criterio que
     // separa la lista de Vecinos, para que no haya dos definiciones.
+    //
+    // Y `esResidente` a secas, sin quitar a los admins. Los quitaba, y eso dejaba
+    // fuera al que administra el edificio Y VIVE en él: su propia luz no se le
+    // podía asignar, así que se quedaba «del condominio» —encendible por todo el
+    // vecino con ese inmueble en su alcance— sin manera de arreglarlo desde el
+    // panel. Administrar no quita ser vecino; es lo mismo que ya se corrigió
+    // cuando ser admin borraba lo que te habían compartido. Además la condición
+    // de más creaba la segunda definición que este comentario dice evitar: la
+    // lista de Vecinos nunca excluyó a los admins.
     const sDueno = selector(
       [['', '— del condominio —']].concat(
         cacheUsuarios
-          .filter((u) => u.rol !== 'admin' && esResidente(u))
+          .filter(esResidente)
           .map((u) => [u.uid, nombreCompleto(u)])),
       d.dueno || '');
     const iCuenta = entrada(tuya.cuenta, 'ej: Torre A, Ana Pérez');
