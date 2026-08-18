@@ -1634,7 +1634,23 @@ async function iniciar() {
   // dos botones con música sonando juntos no es una función, es un accidente.
   let pararLaQueSuena = null;
   async function musicaDeBoton(url) {
-    if (!ctx || ctx.state !== 'running') return null;
+    if (!ctx) return null;
+    // ⚠️ Si sigue suspendido, se ESPERA a que despierte en vez de rendirse.
+    //
+    // El `resume()` del despertar se lanza en el `pointerdown` y no se espera a
+    // nadie; en el Mac ya ha terminado para cuando llega el `click`, pero en el
+    // iPhone no, y aquí se encontraba `suspended` y devolvía null. Resultado: el
+    // botón con música no sonaba NUNCA en iPhone —y sin ruido de error, porque
+    // un null aquí significa "sin audio" y el botón abre igual—. Los clics
+    // normales sí se oían, y por eso parecía cosa de ese skin: tienen respaldo
+    // en `<audio>`, y la música no.
+    //
+    // Se puede despertar aquí porque esto corre dentro del `click`, que para
+    // iOS es un gesto tan válido como el `pointerdown`.
+    if (ctx.state !== 'running') {
+      try { await ctx.resume(); } catch (e) { return null; }
+      if (ctx.state !== 'running') return null;
+    }
     if (!musicaCargada[url]) {
       musicaCargada[url] = fetch(url)
         .then((r) => r.arrayBuffer())
