@@ -857,13 +857,22 @@ exports.adminCrearUsuario = onCall(RARA, async (request) => {
         const nuevos = [...lista];
         for (const x of inmInicial) if (!nuevos.some((y) => y.id === x.id)) nuevos.push(x);
         const sumados = nuevos.length - lista.length;
-        if (sumados > 0) {
-          await ref.set(
-            { inmuebles: nuevos, inmueblesIds: await conAncestros(nuevos.map((x) => x.id)) },
-            { merge: true },
-          );
+        // `inmueblesIds` (la cadena expandida) es la que usan las LISTAS por
+        // edificio y las reglas para decidir quién ve a quién. Si quedó vieja
+        // —se movió el árbol, o la ficha es anterior a que se guardara la
+        // cadena— el vecino TIENE el inmueble pero NO aparece en ninguna lista:
+        // "ya estaba en ese inmueble" e invisible a la vez, sin forma de
+        // arreglarlo desde la app. Se recalcula SIEMPRE y se reescribe si
+        // cambió, aunque no se sume ninguno nuevo: así este mismo guardado la
+        // repara y el vecino vuelve a aparecer.
+        const idsNuevos = await conAncestros(nuevos.map((x) => x.id));
+        const idsViejos = prev.inmueblesIds || [];
+        const idsCambiaron = idsNuevos.length !== idsViejos.length
+          || idsNuevos.some((x) => !idsViejos.includes(x));
+        if (sumados > 0 || idsCambiaron) {
+          await ref.set({ inmuebles: nuevos, inmueblesIds: idsNuevos }, { merge: true });
         }
-        return { uid: user.uid, yaExistia: true, sumados };
+        return { uid: user.uid, yaExistia: true, sumados, reparado: sumados === 0 && idsCambiaron };
       }
       // Existe en Auth pero SIN ficha (entró con Google desde la portada): se
       // reutiliza su cuenta y se le hace la ficha abajo, como a uno nuevo.

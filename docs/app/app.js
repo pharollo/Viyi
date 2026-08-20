@@ -5732,10 +5732,13 @@ async function iniciar() {
             });
             if (res.data && res.data.yaExistia) {
               // Ya tenía cuenta: no se "crea", se le suma el inmueble elegido
-              // (es lo que rescata a quien quedó fuera de tu alcance).
+              // (es lo que rescata a quien quedó fuera de tu alcance). Y si su
+              // ficha tenía la cadena vieja, este guardado la reparó y ya aparece.
               toast(res.data.sumados > 0
                 ? 'Ese vecino ya existía; le sumé el inmueble ✓'
-                : 'Ese vecino ya estaba en ese inmueble.', 'ok');
+                : (res.data.reparado
+                  ? 'Corregí sus datos — ahora sí aparece en la lista ✓'
+                  : 'Ese vecino ya estaba en ese inmueble.'), 'ok');
             } else if (res.data && res.data.sinClave) {
               await cargarGestion();
               pantallaInvitar({ creados: [{ uid: res.data.uid, email: iEmail.value.trim(), inmueble: '' }] });
