@@ -809,30 +809,6 @@ exports.adminCrearUsuario = onCall(RARA, async (request) => {
   if (password && String(password).length < 6) {
     throw new HttpsError('invalid-argument', 'La contraseña debe tener al menos 6 caracteres.');
   }
-  let user;
-  try {
-    user = await admin.auth().createUser(
-      password ? { email, password, displayName: nombre } : { email, displayName: nombre },
-    );
-  } catch (err) {
-    if (err.code === 'auth/email-already-exists') {
-      // Ya entró por su cuenta con Google desde la portada: existe en Auth pero
-      // sin ficha, así que no salía en la lista Y tampoco se dejaba crear —
-      // callejón sin salida. Se reutiliza su cuenta y se le hace la ficha.
-      try {
-        user = await admin.auth().getUserByEmail(email);
-      } catch (err2) {
-        throw new HttpsError('already-exists', 'Ya existe una cuenta con ese correo.');
-      }
-      if ((await db.doc(`usuarios/${user.uid}`).get()).exists) {
-        throw new HttpsError('already-exists', 'Ese vecino ya está dado de alta.');
-      }
-    } else if (err.code === 'auth/invalid-email') {
-      throw new HttpsError('invalid-argument', 'El correo no es válido.');
-    } else {
-      throw new HttpsError('internal', 'No se pudo crear la cuenta.');
-    }
-  }
   const inmInicial = limpiarInmuebles(inmuebles) || [];
   exigirInmueblesAsignables(alcance, inmInicial);
   // Solo el dueño (admin global) crea administradores. Un admin de edificio
@@ -840,12 +816,69 @@ exports.adminCrearUsuario = onCall(RARA, async (request) => {
   if (alcance && rol === 'admin') {
     throw new HttpsError('permission-denied', 'No puedes crear administradores.');
   }
+  const rolNuevo = rol === 'admin' ? 'admin' : 'vecino';
+  // Un vecino SIN inmueble queda HUÉRFANO: cae fuera de toda lista por edificio
+  // (que filtra por `inmueblesIds`) y fuera del alcance de cualquier admin
+  // (`vecinoEnAlcance` mira sus inmuebles asignados). Ni quien lo crea vuelve a
+  // verlo ni a editarlo, y no había forma de deshacerlo desde la app. Se exige
+  // al menos uno. Un admin no lo necesita: su alcance viene de `administra`, no
+  // de dónde vive; el lote (`adminCrearVecinosLote`) ya lo exigía por su lado.
+  if (rolNuevo === 'vecino' && !inmInicial.length) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Asígnale al menos un inmueble. Sin casa, el vecino queda fuera de tu alcance: no podrías verlo ni editarlo después.',
+    );
+  }
+  let user;
+  try {
+    user = await admin.auth().createUser(
+      password ? { email, password, displayName: nombre } : { email, displayName: nombre },
+    );
+  } catch (err) {
+    if (err.code === 'auth/email-already-exists') {
+      try {
+        user = await admin.auth().getUserByEmail(email);
+      } catch (err2) {
+        throw new HttpsError('already-exists', 'Ya existe una cuenta con ese correo.');
+      }
+      const ref = db.doc(`usuarios/${user.uid}`);
+      const previa = await ref.get();
+      if (previa.exists) {
+        // Ya tiene ficha. Antes esto era un callejón sin salida ("ya está dado
+        // de alta"): si esa ficha caía FUERA del alcance de quien la buscaba, no
+        // había forma de traerla desde la app —le pasó a una vecina de Tulipanes
+        // IV—. Ahora se le SUMAN los inmuebles elegidos, igual que el alta por
+        // lote: así un admin suma a su edificio a alguien que ya usaba ViYi, o
+        // rescata a quien quedó huérfano, sin tocar la consola. Va acotado por
+        // alcance porque `inmInicial` ya pasó `exigirInmueblesAsignables`. NO se
+        // tocan rol ni estado: eso es de Editar, no de un alta.
+        const prev = previa.data() || {};
+        const lista = prev.inmuebles || [];
+        const nuevos = [...lista];
+        for (const x of inmInicial) if (!nuevos.some((y) => y.id === x.id)) nuevos.push(x);
+        const sumados = nuevos.length - lista.length;
+        if (sumados > 0) {
+          await ref.set(
+            { inmuebles: nuevos, inmueblesIds: await conAncestros(nuevos.map((x) => x.id)) },
+            { merge: true },
+          );
+        }
+        return { uid: user.uid, yaExistia: true, sumados };
+      }
+      // Existe en Auth pero SIN ficha (entró con Google desde la portada): se
+      // reutiliza su cuenta y se le hace la ficha abajo, como a uno nuevo.
+    } else if (err.code === 'auth/invalid-email') {
+      throw new HttpsError('invalid-argument', 'El correo no es válido.');
+    } else {
+      throw new HttpsError('internal', 'No se pudo crear la cuenta.');
+    }
+  }
   await db.doc(`usuarios/${user.uid}`).set({
     nombre: nombrePropio(nombre),
     apellido: nombrePropio(apellido),
     unidad: unidad || '',
     email,
-    rol: rol === 'admin' ? 'admin' : 'vecino',
+    rol: rolNuevo,
     activo: true,
     dispositivos: Array.isArray(dispositivos) ? dispositivos : [],
     inmuebles: inmInicial,

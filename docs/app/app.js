@@ -5712,6 +5712,15 @@ async function iniciar() {
         b.disabled = true;
         try {
           if (esNuevo) {
+            // Un vecino necesita casa: sin inmueble queda huérfano —invisible en
+            // las listas por edificio y fuera del alcance de quien lo crea, sin
+            // vuelta atrás desde la app—. Se corta aquí con un aviso claro en vez
+            // de dejar que el backend lo rechace con un error pelado.
+            if (sRol.value !== 'admin' && !casInm.seleccionados().length) {
+              toast('Elígele al menos un inmueble al vecino: sin casa quedaría fuera de tu alcance.', 'error');
+              b.disabled = false;
+              return;
+            }
             const res = await adminCrearUsuario({
               nombre: iNombre.value.trim(),
               apellido: iApellido.value.trim(),
@@ -5721,12 +5730,19 @@ async function iniciar() {
               dispositivos: casillas.seleccionados(),
               inmuebles: casInm.seleccionados(),
             });
-            if (res.data && res.data.sinClave) {
+            if (res.data && res.data.yaExistia) {
+              // Ya tenía cuenta: no se "crea", se le suma el inmueble elegido
+              // (es lo que rescata a quien quedó fuera de tu alcance).
+              toast(res.data.sumados > 0
+                ? 'Ese vecino ya existía; le sumé el inmueble ✓'
+                : 'Ese vecino ya estaba en ese inmueble.', 'ok');
+            } else if (res.data && res.data.sinClave) {
               await cargarGestion();
               pantallaInvitar({ creados: [{ uid: res.data.uid, email: iEmail.value.trim(), inmueble: '' }] });
               return;
+            } else {
+              toast('Vecino creado ✓ Ya puede entrar con su correo y contraseña.', 'ok');
             }
-            toast('Vecino creado ✓ Ya puede entrar con su correo y contraseña.', 'ok');
           } else {
             await adminActualizarUsuario({
               uid: u.uid,
