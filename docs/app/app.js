@@ -2749,7 +2749,7 @@ async function iniciar() {
   // sensor de contacto enlazado (`dispositivo.sensorId`). Mismo sondeo que el
   // control de sensor: cada 15 s mientras la pestaña está a la vista, y se
   // apaga cuando no.
-  function badgeEstadoPuerta(sensorId) {
+  function badgeEstadoPuerta(sensorId, control) {
     const b = document.createElement('div');
     b.className = 'estado-puerta sin-saber';
     b.textContent = '—';
@@ -2758,6 +2758,12 @@ async function iniciar() {
       b.classList.toggle('cerrada', activo === false);
       b.classList.toggle('sin-saber', activo === null || activo === undefined);
       b.textContent = activo === true ? 'Abierta' : activo === false ? 'Cerrada' : '—';
+      // El estado marca también el CONTROL, para el aura del botón: abierta se
+      // enciende con un aro; cerrada, apagado.
+      if (control) {
+        control.classList.toggle('puerta-abierta', activo === true);
+        control.classList.toggle('puerta-cerrada', activo === false);
+      }
     };
     const leer = async () => {
       try { const r = await consultarEstado({ dispositivoId: sensorId }); pintar(r.data && r.data.activo); }

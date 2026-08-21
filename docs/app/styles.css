@@ -4422,6 +4422,23 @@ input:checked ~ .pase-tgl::before {
 .estado-puerta.cerrada { color: var(--texto); }
 .estado-puerta.sin-saber { opacity: 0.55; }
 
+/* Puerta ABIERTA: un aura alrededor del propio botón, para verlo de un vistazo
+   sin leer. Va con `filter` (no box-shadow) para no pisar el relieve del botón;
+   dos sombras difuminadas hacen el halo, y late suave para pedir la mirada. */
+.control.puerta-abierta .boton-circular,
+.control.puerta-abierta .pilder {
+  filter: drop-shadow(0 0 6px var(--primario)) drop-shadow(0 0 16px var(--primario));
+  animation: aura-puerta 2.2s ease-in-out infinite;
+}
+@keyframes aura-puerta {
+  0%, 100% { filter: drop-shadow(0 0 4px var(--primario)) drop-shadow(0 0 10px var(--primario)); }
+  50%      { filter: drop-shadow(0 0 8px var(--primario)) drop-shadow(0 0 22px var(--primario)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .control.puerta-abierta .boton-circular,
+  .control.puerta-abierta .pilder { animation: none; }
+}
+
 /* ---- Cámara en vivo -------------------------------------------------------
    El marco es el hueco hundido de siempre —la misma pieza que el sensor— pero
    con proporción de vídeo. Se enseña vacío antes de conectar en vez de crecer
