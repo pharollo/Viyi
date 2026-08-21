@@ -2745,7 +2745,45 @@ async function iniciar() {
     return control;
   }
 
+  // Un indicador "Abierta/Cerrada" colgado del propio botón, alimentado por un
+  // sensor de contacto enlazado (`dispositivo.sensorId`). Mismo sondeo que el
+  // control de sensor: cada 15 s mientras la pestaña está a la vista, y se
+  // apaga cuando no.
+  function badgeEstadoPuerta(sensorId) {
+    const b = document.createElement('div');
+    b.className = 'estado-puerta sin-saber';
+    b.textContent = '—';
+    const pintar = (activo) => {
+      b.classList.toggle('abierta', activo === true);
+      b.classList.toggle('cerrada', activo === false);
+      b.classList.toggle('sin-saber', activo === null || activo === undefined);
+      b.textContent = activo === true ? 'Abierta' : activo === false ? 'Cerrada' : '—';
+    };
+    const leer = async () => {
+      try { const r = await consultarEstado({ dispositivoId: sensorId }); pintar(r.data && r.data.activo); }
+      catch (e) { pintar(null); }
+    };
+    leer();
+    let reloj = null;
+    const arrancar = () => { if (!reloj) reloj = setInterval(leer, 15000); };
+    const parar = () => { clearInterval(reloj); reloj = null; };
+    document.addEventListener('visibilitychange', () => (document.hidden ? parar() : (leer(), arrancar())));
+    if (!document.hidden) arrancar();
+    return b;
+  }
+
   function construirTarjeta(dispositivo, demo, aspectoForzado) {
+    const control = construirControl(dispositivo, demo, aspectoForzado);
+    // Si la puerta tiene un sensor de estado enlazado, se le cuelga el indicador
+    // al propio botón (no un aparato aparte). Ni en el Locker ni en demo.
+    if (dispositivo.sensorId && !demo && !aspectoForzado) {
+      control.appendChild(badgeEstadoPuerta(dispositivo.sensorId));
+      control.classList.add('con-estado-puerta');
+    }
+    return control;
+  }
+
+  function construirControl(dispositivo, demo, aspectoForzado) {
     // El aspecto sale del vestuario del vecino (o del que puso el admin).
     const aspecto = aspectoForzado || aspectoDe(dispositivo);
     // Si le llegó por un pase con título, el botón se viste de ese evento. Se
@@ -4842,6 +4880,13 @@ async function iniciar() {
     const campoDetectar = document.createElement('div');
     campoDetectar.className = 'campo';
     campoDetectar.append(btnDetectar, iResultadoDps);
+    // Sensor de estado (opcional, solo puertas de pulso): un aparato en modo
+    // `sensor` que dice si ESTA puerta está abierta o cerrada. El botón lo lee y
+    // muestra "Abierta/Cerrada" encima. Se listan los sensores ya dados de alta.
+    const sensoresDisp = (cacheDispositivos || []).filter((x) => x.modo === 'sensor' && x.id !== (d.id || ''));
+    const sSensor = selector([['', 'Ninguno'], ...sensoresDisp.map((x) => [x.id, x.nombre])], d.sensorId || '');
+    const campoSensor = campo('Sensor de estado (opcional)', sSensor);
+
     const actualizarCampos = () => {
       const esHb = sProveedor.value === 'homebridge';
       const esShelly = sProveedor.value === 'shelly';
@@ -4873,6 +4918,9 @@ async function iniciar() {
       campoShelly.classList.toggle('oculto', !esShelly);
       campoShellyCanal.classList.toggle('oculto', !esShelly);
       cInvertir.label.classList.toggle('oculto', sModo.value !== 'cortina');
+      // El sensor de estado solo aplica a una puerta de pulso, y solo si hay
+      // algún sensor dado de alta que enlazar.
+      campoSensor.classList.toggle('oculto', sModo.value !== 'pulso' || !sensoresDisp.length);
     };
     sProveedor.addEventListener('change', actualizarCampos);
     sModo.addEventListener('change', actualizarCampos);
@@ -4899,6 +4947,7 @@ async function iniciar() {
             modo: sModo.value,
             proveedor: sProveedor.value,
             orden: Number(iOrden.value) || 99,
+            sensorId: sModo.value === 'pulso' ? sSensor.value : '',
             activo: cActivo.c.checked,
             registrar: cRegistrar.c.checked,
             tuyaDeviceId: iDevice.value.trim(),
@@ -4969,6 +5018,7 @@ async function iniciar() {
       campoModo,
       campoAspecto,
       campoSegundos,
+      campoSensor,
       campo('Inmueble (dónde está)', sInmueble),
       campo('Dueño del aparato', sDueno),
       campo('Orden (menor = primero)', iOrden),

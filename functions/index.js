@@ -1907,6 +1907,7 @@ exports.adminGuardarDispositivo = onCall(RARA, async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const {
     id, nombre, tipo, subtipo, modo, etiquetaBoton, aspecto, segundosApertura, orden, activo, inmueble,
+    sensorId,
     dueno, cuentaTuya, registrar: registrarPedido, shellyId, shellyCanal,
     proveedor, tuyaDeviceId, codigo, pulsoMs, codigoBrillo, brilloMax,
     codigoTermoSwitch, codigoTempObjetivo, codigoTempActual, codigoModo, escalaTemp,
@@ -2002,6 +2003,10 @@ exports.adminGuardarDispositivo = onCall(RARA, async (request) => {
     // animándose eternamente.
     segundosApertura: Math.min(120, Math.max(1, Number(segundosApertura) || 15)),
     orden: Number(orden) || 99,
+    // Enlace OPCIONAL a un sensor de contacto que dice si ESTA puerta está
+    // abierta o cerrada. El botón lo lee y muestra el estado encima; vacío = sin
+    // sensor. Es el id de otro aparato, no un secreto, así que va en lo público.
+    sensorId: (typeof sensorId === 'string' && /^[a-z0-9-]{2,40}$/.test(sensorId.trim())) ? sensorId.trim() : '',
     activo: activo !== false,
     // Inmueble donde está físicamente. Sirve para dos cosas: de él hereda el
     // acceso el vecino, y sirve para saber dónde buscar el aparato si se cae la
