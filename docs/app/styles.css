@@ -4408,7 +4408,9 @@ input:checked ~ .pase-tgl::before {
   align-items: center;
   justify-content: center;
   min-height: 26px;
-  padding: 0 14px;
+  /* 2px arriba y 0 abajo: el uppercase (sin trazos bajos) queda alto al centrar
+     la línea; este empujón lo baja al centro ÓPTICO de la cápsula. */
+  padding: 2px 14px 0;
   line-height: 1;
   font-size: 13px;
   font-weight: 700;
