@@ -4479,6 +4479,18 @@ input:checked ~ .pase-tgl::before {
 .campo-ajustes-nivel { display: flex; flex-direction: column; gap: 10px; }
 .subtitulo-editor { margin: 4px 0 0; font-size: 15px; font-weight: 600; color: var(--texto); }
 
+/* Cartel de "instalar en la pantalla de inicio" (PWA), en Perfil. */
+.instalar-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+.instalar-banner span { flex: 1; line-height: 1.45; }
+.instalar-banner b { color: var(--texto); }
+.instalar-banner .btn-primario { padding: 8px 16px; font-size: 14px; white-space: nowrap; }
+
 /* ---- Cámara en vivo -------------------------------------------------------
    El marco es el hueco hundido de siempre —la misma pieza que el sensor— pero
    con proporción de vídeo. Se enseña vacío antes de conectar en vez de crecer

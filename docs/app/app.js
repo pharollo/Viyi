@@ -6100,6 +6100,73 @@ async function iniciar() {
     }
   }
 
+  // --- Instalar en la pantalla de inicio (PWA) ---
+  // Android/Chrome: botón que dispara el instalador nativo (`beforeinstallprompt`).
+  // iPhone/Safari: guía manual, porque Apple NO deja dispararlo desde la web.
+  // Se oculta si ya está instalada, y solo aparece donde de verdad se puede.
+  let promptInstalar = null;
+  const estaInstalada = () => window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    promptInstalar = e;
+    const b = $('instalar-banner');
+    if (b && b._pintar) b._pintar();
+  });
+  window.addEventListener('appinstalled', () => {
+    promptInstalar = null;
+    const b = $('instalar-banner');
+    if (b) b.hidden = true;
+  });
+  function prepararInstalacion() {
+    const cont = $('tab-perfil');
+    if (!cont || estaInstalada()) return;
+    let banner = $('instalar-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'instalar-banner';
+      banner.className = 'tarjeta instalar-banner';
+      cont.prepend(banner);
+    }
+    const ua = navigator.userAgent || '';
+    const esIOS = /iphone|ipad|ipod/i.test(ua)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const esSafari = /safari/i.test(ua) && !/crios|fxios|android|chrome|edg/i.test(ua);
+    const pintar = () => {
+      if (estaInstalada()) { banner.hidden = true; return; }
+      banner.innerHTML = '';
+      if (promptInstalar) {
+        // Android / Chrome: un toque instala.
+        const t = document.createElement('span');
+        t.textContent = 'Instala ViYi en tu teléfono para abrirla como una app.';
+        const b = document.createElement('button');
+        b.className = 'btn-primario';
+        b.textContent = 'Instalar';
+        b.addEventListener('click', async () => {
+          const p = promptInstalar; promptInstalar = null; banner.hidden = true;
+          try { p.prompt(); await p.userChoice; } catch (e) { /* la cerró */ }
+        });
+        banner.append(t, b);
+        banner.hidden = false;
+      } else if (esIOS && esSafari) {
+        // iPhone Safari: solo se puede a mano; se enseña cómo, con el ícono.
+        const t = document.createElement('span');
+        t.innerHTML = 'Para instalar ViYi en tu iPhone: toca <b>Compartir</b> '
+          + '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" '
+          + 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px">'
+          + '<path d="M12 16V4M8 8l4-4 4 4"/><path d="M6 12v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6"/></svg>'
+          + ' y luego <b>Añadir a inicio</b>.';
+        banner.append(t);
+        banner.hidden = false;
+      } else {
+        // Otro navegador (o iOS fuera de Safari): no se puede instalar así.
+        banner.hidden = true;
+      }
+    };
+    banner._pintar = pintar;
+    pintar();
+  }
+
   async function abrirPerfil() {
     if (!usuarioActual) return;
     $('perfil-nombre').value = usuarioActual.nombre || '';
@@ -6130,6 +6197,7 @@ async function iniciar() {
     const mostrarInmuebles = inmuebles.length > 0;
     $('seccion-inmuebles').classList.toggle('oculto', !mostrarInmuebles);
     if (mostrarInmuebles) renderInmueblesPerfil(inmuebles);
+    prepararInstalacion();
   }
 
   // El Locker vivía dentro de "Mi perfil", y a Perfil solo se llegaba tocando
