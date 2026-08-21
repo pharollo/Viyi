@@ -6172,6 +6172,52 @@ async function iniciar() {
     pintar();
   }
 
+  // --- Auto-actualización (service worker) ---
+  // Registra el SW; cuando hay una versión nueva ESPERANDO, muestra un botón
+  // "Actualizar" que la toma y recarga. Así nadie se queda con la versión vieja
+  // pegada por el caché del iPhone. La primera vez hay que recargar a mano UNA
+  // vez para estrenar el SW; de ahí en adelante, solito.
+  function mostrarBannerActualizar(reg) {
+    if ($('sw-actualizar')) return;
+    const banner = document.createElement('div');
+    banner.id = 'sw-actualizar';
+    banner.className = 'sw-actualizar';
+    const t = document.createElement('span');
+    t.textContent = 'Hay una versión nueva de ViYi.';
+    const b = document.createElement('button');
+    b.className = 'btn-primario';
+    b.textContent = 'Actualizar';
+    b.addEventListener('click', () => {
+      b.disabled = true;
+      if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    });
+    banner.append(t, b);
+    document.body.appendChild(banner);
+  }
+
+  function registrarServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      // Cuando el SW nuevo toma el control, recargar UNA vez para estrenarlo.
+      let recargando = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (recargando) return;
+        recargando = true;
+        window.location.reload();
+      });
+      const vigilar = (worker) => worker.addEventListener('statechange', () => {
+        // 'installed' + ya hay controlador = es una ACTUALIZACIÓN (no la primera
+        // instalación), así que se ofrece el botón.
+        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+          mostrarBannerActualizar(reg);
+        }
+      });
+      if (reg.waiting && navigator.serviceWorker.controller) mostrarBannerActualizar(reg);
+      reg.addEventListener('updatefound', () => { if (reg.installing) vigilar(reg.installing); });
+    }).catch(() => { /* sin SW la app funciona igual, solo sin auto-update */ });
+  }
+  registrarServiceWorker();
+
   async function abrirPerfil() {
     if (!usuarioActual) return;
     $('perfil-nombre').value = usuarioActual.nombre || '';

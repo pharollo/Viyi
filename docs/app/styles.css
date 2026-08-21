@@ -4500,6 +4500,26 @@ input:checked ~ .pase-tgl::before {
 .instalar-banner b { color: var(--texto); }
 .instalar-banner .btn-primario { padding: 8px 16px; font-size: 14px; white-space: nowrap; }
 
+/* Aviso "hay versión nueva" (service worker), flotando sobre la barra de abajo. */
+.sw-actualizar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 74px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--superficie);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), inset 1px 1px 2px var(--sombra-clara);
+  font-size: 14px;
+  color: var(--texto);
+}
+.sw-actualizar span { flex: 1; }
+.sw-actualizar .btn-primario { padding: 8px 16px; font-size: 14px; white-space: nowrap; }
+
 /* ---- Cámara en vivo -------------------------------------------------------
    El marco es el hueco hundido de siempre —la misma pieza que el sensor— pero
    con proporción de vídeo. Se enseña vacío antes de conectar en vez de crecer
