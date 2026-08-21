@@ -2745,6 +2745,54 @@ async function iniciar() {
     return control;
   }
 
+  // Medidor de tanque: un sensor de NIVEL de líquido. Un tanque que se llena
+  // hasta el % que reporta, con la cifra dentro, y de dato la profundidad y la
+  // batería. Se relee cada 30 s (el nivel cambia despacio). Bajo del 20% se
+  // pone naranja para que salte a la vista.
+  function controlNivel(dispositivo, demo) {
+    const control = document.createElement('div');
+    control.className = 'control control-nivel';
+    const tanque = document.createElement('div');
+    tanque.className = 'tanque sin-saber';
+    tanque.innerHTML = '<div class="tanque-agua"></div><div class="tanque-cifra">—</div>';
+    const agua = tanque.querySelector('.tanque-agua');
+    const cifra = tanque.querySelector('.tanque-cifra');
+    control.appendChild(tanque);
+    const titulo = document.createElement('span');
+    titulo.className = 'etiqueta-control';
+    titulo.textContent = dispositivo.nombre;
+    const detalle = document.createElement('span');
+    detalle.className = 'nivel-detalle';
+    control.append(titulo, detalle);
+
+    const pintar = (r) => {
+      const n = r && typeof r.nivel === 'number' ? r.nivel : null;
+      agua.style.height = (n === null ? 0 : n) + '%';
+      cifra.textContent = n === null ? '—' : `${n}%`;
+      tanque.classList.toggle('bajo', n !== null && n <= 20);
+      tanque.classList.toggle('sin-saber', n === null);
+      const partes = [];
+      if (r && typeof r.profundidad === 'number') partes.push(`${r.profundidad.toFixed(1).replace('.', ',')} m`);
+      if (r && typeof r.bateria === 'number') partes.push(`🔋 ${r.bateria}%`);
+      detalle.textContent = partes.join(' · ');
+    };
+    pintar(demo ? { nivel: 65 } : null);
+
+    if (!demo) {
+      const leer = async () => {
+        try { const res = await consultarEstado({ dispositivoId: dispositivo.id }); pintar(res.data); }
+        catch (e) { pintar(null); }
+      };
+      leer();
+      let reloj = null;
+      const arrancar = () => { if (!reloj) reloj = setInterval(leer, 30000); };
+      const parar = () => { clearInterval(reloj); reloj = null; };
+      document.addEventListener('visibilitychange', () => (document.hidden ? parar() : (leer(), arrancar())));
+      if (!document.hidden) arrancar();
+    }
+    return control;
+  }
+
   // Un indicador "Abierta/Cerrada" colgado del propio botón, alimentado por un
   // sensor de contacto enlazado (`dispositivo.sensorId`). Mismo sondeo que el
   // control de sensor: cada 15 s mientras la pestaña está a la vista, y se
@@ -2801,6 +2849,7 @@ async function iniciar() {
     // El sensor va primero: no tiene aspecto que elegir, porque no es un botón.
     if (dispositivo.modo === 'camara') return controlCamara(dispositivo, demo);
     if (dispositivo.modo === 'sensor') return controlSensor(dispositivo, demo);
+    if (dispositivo.modo === 'nivel') return controlNivel(dispositivo, demo);
     if (dispositivo.modo === 'pulso' && aspecto === 'jet') {
       return vestirDeEvento(controlJet(dispositivo, demo), evento);
     }
@@ -4369,7 +4418,7 @@ async function iniciar() {
     sTipo.addEventListener('change', actualizarSub);
     // (sModo aún no existe aquí; el cambio de modo y la llamada inicial van más
     // abajo, cuando sModo ya está definido.)
-    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (perilla de apertura)'], ['dimmer', 'Dimmer (perilla de brillo)'], ['termostato', 'Termostato (temperatura)'], ['sensor', 'Sensor (solo informa)'], ['camara', 'Cámara (vídeo en vivo)']], d.modo || 'pulso');
+    const sModo = selector([['pulso', 'Pulso (abrir y soltar)'], ['interruptor', 'Interruptor (on/off)'], ['cortina', 'Cortina (perilla de apertura)'], ['dimmer', 'Dimmer (perilla de brillo)'], ['termostato', 'Termostato (temperatura)'], ['sensor', 'Sensor (solo informa)'], ['nivel', 'Nivel de tanque (medidor)'], ['camara', 'Cámara (vídeo en vivo)']], d.modo || 'pulso');
     const campoModo = campo('Modo', sModo);
     // Un termostato solo tiene el modo termostato: al elegir ese tipo se
     // auto-selecciona el modo y se oculta el campo; al salir, se restablece.

@@ -431,7 +431,7 @@ const TIPOS_DE_ACCESO = ['puerta', 'ascensor'];
 // defecto de quien no entre en la lista. Tiene que ir en paralelo con el
 // selector `sModo` del editor (docs/app/app.js): si el editor ofrece un modo
 // que aquí no esté, se guarda como 'pulso' en silencio.
-const MODOS_VALIDOS = ['interruptor', 'cortina', 'dimmer', 'termostato', 'sensor', 'camara'];
+const MODOS_VALIDOS = ['interruptor', 'cortina', 'dimmer', 'termostato', 'sensor', 'nivel', 'camara'];
 const seRegistra = (d) => {
   const disp = d || {};
   if (typeof disp.registrar === 'boolean') return disp.registrar;
@@ -3975,6 +3975,26 @@ exports.consultarEstado = onCall(
         // sin tener que adivinar cuál publica ESE modelo de sensor.
         if (activo === null) console.log(`Sensor ${dispositivoId}: no hallé "${codigoSensor}" | crudo:`, JSON.stringify(estados));
         return { activo, valor: bruto === undefined ? null : bruto };
+      }
+      if (dispositivo.modo === 'nivel') {
+        // Sensor de nivel de líquido (tanque de agua). Lo principal es
+        // `liquid_level_percent` (0-100). `liquid_depth` es la profundidad en
+        // decímetros (÷10 = metros); `liquid_state` el estado (normal/alarma);
+        // `battery_percentage` la batería. El código del % se deja cambiar por
+        // si un modelo usa otro; los demás son estándar y se leen si están.
+        const codigoNivel = (config.codigo && config.codigo !== 'switch_1') ? config.codigo : 'liquid_level_percent';
+        const val = (c) => { const p = (estados || []).find((e) => e.code === c); return p ? p.value : undefined; };
+        const pct = val(codigoNivel);
+        const prof = val('liquid_depth');
+        const bat = val('battery_percentage');
+        const est = val('liquid_state');
+        if (typeof pct !== 'number') console.log(`Nivel ${dispositivoId}: no hallé "${codigoNivel}" | crudo:`, JSON.stringify(estados));
+        return {
+          nivel: typeof pct === 'number' ? Math.max(0, Math.min(100, pct)) : null,
+          profundidad: typeof prof === 'number' ? prof / 10 : null,
+          estadoNivel: typeof est === 'string' ? est : null,
+          bateria: typeof bat === 'number' ? bat : null,
+        };
       }
       const punto = (estados || []).find((e) => e.code === codigo);
       const encendido = punto ? Boolean(punto.value) : null;
