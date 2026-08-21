@@ -18,7 +18,7 @@
 // la app muestra un botón "Actualizar". Al tocarlo, este SW recibe SKIP_WAITING,
 // toma el control y la página se recarga una vez.
 
-const CACHE = 'viyi-1';
+const CACHE = 'viyi-2';
 
 self.addEventListener('install', (e) => {
   // Guarda el cascarón para que offline arranque; el resto se llena al usarse.
