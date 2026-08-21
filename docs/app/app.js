@@ -2761,20 +2761,17 @@ async function iniciar() {
     const titulo = document.createElement('span');
     titulo.className = 'etiqueta-control';
     titulo.textContent = dispositivo.nombre;
-    const detalle = document.createElement('span');
-    detalle.className = 'nivel-detalle';
-    control.append(titulo, detalle);
+    control.append(titulo);
 
+    // Solo el NIVEL: la profundidad y la batería no dicen mucho (y con adaptador
+    // la batería es un valor de relleno). El backend los sigue devolviendo por si
+    // algún día hacen falta, pero aquí se muestra solo el %.
     const pintar = (r) => {
       const n = r && typeof r.nivel === 'number' ? r.nivel : null;
       agua.style.height = (n === null ? 0 : n) + '%';
       cifra.textContent = n === null ? '—' : `${n}%`;
       tanque.classList.toggle('bajo', n !== null && n <= 20);
       tanque.classList.toggle('sin-saber', n === null);
-      const partes = [];
-      if (r && typeof r.profundidad === 'number') partes.push(`${r.profundidad.toFixed(1).replace('.', ',')} m`);
-      if (r && typeof r.bateria === 'number') partes.push(`🔋 ${r.bateria}%`);
-      detalle.textContent = partes.join(' · ');
     };
     pintar(demo ? { nivel: 65 } : null);
 
