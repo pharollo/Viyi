@@ -2464,6 +2464,38 @@ exports.adminInspeccionarDispositivo = onCall(
   }
 );
 
+// Escribe los AJUSTES de un sensor de nivel Tuya (altura de instalación,
+// profundidad máxima, nivel máx/mín). Es lo único que la nube de Tuya deja
+// tocar de estos aparatos: la bomba/válvula se maneja en local y su DP no sale
+// en la especificación, así que no se puede desde aquí. Los valores llegan ya
+// en las UNIDADES CRUDAS del aparato (el frente aplica la escala que declara la
+// especificación); aquí solo se validan y se mandan.
+exports.adminAjustarNivel = onCall(
+  { ...RARA, secrets: [TUYA_CLIENT_ID, TUYA_CLIENT_SECRET] },
+  async (request) => {
+    const alcance = alcanceDe(await exigirAdmin(request));
+    const { dispositivoId, ajustes } = request.data || {};
+    if (!dispositivoId || typeof dispositivoId !== 'string' || !Array.isArray(ajustes)) {
+      throw new HttpsError('invalid-argument', 'Faltan el aparato o los ajustes.');
+    }
+    const snap = await db.doc(`dispositivos/${dispositivoId}`).get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Ese aparato no existe.');
+    if (alcance) exigirInmueble(alcance, snap.data().inmueble || '', 'Ese aparato');
+    const cfg = await db.doc(`dispositivos/${dispositivoId}/privado/tuya`).get();
+    const tuyaDeviceId = cfg.exists ? (cfg.data().tuyaDeviceId || '') : '';
+    if (!tuyaDeviceId) throw new HttpsError('failed-precondition', 'Ese aparato no es de Tuya.');
+    // Lista blanca de códigos: no se le manda al aparato cualquier cosa, solo
+    // sus ajustes conocidos, y solo enteros.
+    const PERMITIDOS = new Set(['installation_height', 'liquid_depth_max', 'max_set', 'mini_set']);
+    const comandos = (ajustes || [])
+      .filter((a) => a && PERMITIDOS.has(a.code) && Number.isFinite(Number(a.value)))
+      .map((a) => ({ code: a.code, value: Math.round(Number(a.value)) }));
+    if (!comandos.length) throw new HttpsError('invalid-argument', 'Ningún ajuste válido para enviar.');
+    await tuya().enviarComandos(tuyaDeviceId, comandos);
+    return { ok: true, enviados: comandos.length };
+  }
+);
+
 exports.adminEliminarDispositivo = onCall(RARA, async (request) => {
   const alcance = alcanceDe(await exigirAdmin(request));
   const { id } = request.data || {};

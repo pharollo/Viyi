@@ -4475,6 +4475,10 @@ input:checked ~ .pase-tgl::before {
 }
 .nivel-detalle { font-size: 13px; color: var(--texto-suave); }
 
+/* Sección "Ajustes del tanque" dentro del editor (modo nivel). */
+.campo-ajustes-nivel { display: flex; flex-direction: column; gap: 10px; }
+.subtitulo-editor { margin: 4px 0 0; font-size: 15px; font-weight: 600; color: var(--texto); }
+
 /* ---- Cámara en vivo -------------------------------------------------------
    El marco es el hueco hundido de siempre —la misma pieza que el sensor— pero
    con proporción de vídeo. Se enseña vacío antes de conectar en vez de crecer

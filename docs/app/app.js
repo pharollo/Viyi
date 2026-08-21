@@ -74,6 +74,7 @@ async function iniciar() {
   const adminInvitarVecinos = httpsCallable(functions, 'adminInvitarVecinos');
   const adminEliminarUsuario = httpsCallable(functions, 'adminEliminarUsuario');
   const adminInspeccionarDispositivo = httpsCallable(functions, 'adminInspeccionarDispositivo');
+  const adminAjustarNivel = httpsCallable(functions, 'adminAjustarNivel');
   const adminListarAccesoriosHomebridge = httpsCallable(functions, 'adminListarAccesoriosHomebridge');
   const adminListarDispositivosTuya = httpsCallable(functions, 'adminListarDispositivosTuya');
   const adminListarDispositivosShelly = httpsCallable(functions, 'adminListarDispositivosShelly');
@@ -4950,6 +4951,84 @@ async function iniciar() {
     const sSensor = selector([['', 'Ninguno'], ...sensoresDisp.map((x) => [x.id, x.nombre])], d.sensorId || '');
     const campoSensor = campo('Sensor de estado (opcional)', sSensor);
 
+    // --- Ajustes del tanque (solo modo NIVEL): escribe la config al sensor ---
+    // La bomba/válvula no se puede (Tuya no la expone por la nube), pero SÍ los
+    // umbrales y medidas. "Leer" trae los valores actuales con su escala; luego
+    // se cambian y "Guardar ajustes" los escribe. Escribir requiere el aparato
+    // ya guardado (hay que saber su Device ID por dentro).
+    const iAltura = entrada('', 'metros', 'number');
+    const iProfMax = entrada('', 'metros', 'number');
+    const iNivelMax = entrada('', '%', 'number');
+    const iNivelMin = entrada('', '%', 'number');
+    const escalaAjuste = { installation_height: 0, liquid_depth_max: 0, max_set: 0, mini_set: 0 };
+    const msgAjustes = document.createElement('p');
+    msgAjustes.className = 'dps-detectados';
+
+    const leerAjustes = async () => {
+      const idTuya = iDevice.value.trim();
+      if (!idTuya) { msgAjustes.textContent = 'Falta el Device ID de Tuya.'; return; }
+      msgAjustes.textContent = 'Leyendo del sensor…';
+      try {
+        const res = await adminInspeccionarDispositivo({ tuyaDeviceId: idTuya });
+        const funcs = (res.data && res.data.funciones) || [];
+        const estado = (res.data && res.data.estado) || [];
+        const escalaDe = (code) => { try { const f = funcs.find((x) => x.code === code); const v = JSON.parse((f && f.values) || '{}'); return Number(v.scale) || 0; } catch (e) { return 0; } };
+        const crudo = (code) => { const e = estado.find((x) => x.code === code); return e && typeof e.value === 'number' ? e.value : null; };
+        const enUnidad = (code, input) => {
+          escalaAjuste[code] = escalaDe(code);
+          const raw = crudo(code);
+          input.value = raw === null ? '' : (raw / Math.pow(10, escalaAjuste[code]));
+        };
+        enUnidad('installation_height', iAltura);
+        enUnidad('liquid_depth_max', iProfMax);
+        enUnidad('max_set', iNivelMax);
+        enUnidad('mini_set', iNivelMin);
+        msgAjustes.textContent = 'Valores actuales cargados. Cámbialos y toca "Guardar ajustes en el sensor".';
+      } catch (e) { msgAjustes.textContent = e.message || 'No pude leer los ajustes.'; }
+    };
+
+    const guardarAjustes = async (ev) => {
+      if (esNuevo) { msgAjustes.textContent = 'Guarda primero el aparato (botón Guardar de abajo) y luego ajusta.'; return; }
+      const idOk = (iId.value || '').trim().toLowerCase();
+      const b = ev.currentTarget;
+      b.disabled = true;
+      const aCrudo = (code, input) => {
+        const n = Number(input.value);
+        return (input.value !== '' && Number.isFinite(n)) ? { code, value: Math.round(n * Math.pow(10, escalaAjuste[code] || 0)) } : null;
+      };
+      const ajustes = [
+        aCrudo('installation_height', iAltura),
+        aCrudo('liquid_depth_max', iProfMax),
+        aCrudo('max_set', iNivelMax),
+        aCrudo('mini_set', iNivelMin),
+      ].filter(Boolean);
+      if (!ajustes.length) { msgAjustes.textContent = 'No hay nada que enviar.'; b.disabled = false; return; }
+      try {
+        await adminAjustarNivel({ dispositivoId: idOk, ajustes });
+        msgAjustes.textContent = 'Ajustes enviados al sensor ✓';
+        toast('Ajustes enviados al sensor ✓', 'ok');
+      } catch (e) {
+        msgAjustes.textContent = e.message || 'No se pudieron enviar.';
+        toast(e.message || 'No se pudieron enviar.', 'error');
+      } finally { b.disabled = false; }
+    };
+
+    const campoAjustesNivel = document.createElement('div');
+    campoAjustesNivel.className = 'campo campo-ajustes-nivel';
+    const tituloAjustes = document.createElement('h3');
+    tituloAjustes.className = 'subtitulo-editor';
+    tituloAjustes.textContent = 'Ajustes del tanque (se escriben al sensor)';
+    campoAjustesNivel.append(
+      tituloAjustes,
+      campo('Altura de instalación (m)', iAltura),
+      campo('Profundidad máxima (m)', iProfMax),
+      campo('Nivel máximo — cierra la válvula (%)', iNivelMax),
+      campo('Nivel mínimo — abre la válvula (%)', iNivelMin),
+      botonForm('Leer del sensor', 'btn-secundario', leerAjustes),
+      botonForm('Guardar ajustes en el sensor', 'btn-primario', guardarAjustes),
+      msgAjustes,
+    );
+
     const actualizarCampos = () => {
       const esHb = sProveedor.value === 'homebridge';
       const esShelly = sProveedor.value === 'shelly';
@@ -4984,6 +5063,7 @@ async function iniciar() {
       // El sensor de estado solo aplica a una puerta de pulso, y solo si hay
       // algún sensor dado de alta que enlazar.
       campoSensor.classList.toggle('oculto', sModo.value !== 'pulso' || !sensoresDisp.length);
+      campoAjustesNivel.classList.toggle('oculto', sModo.value !== 'nivel');
     };
     sProveedor.addEventListener('change', actualizarCampos);
     sModo.addEventListener('change', actualizarCampos);
@@ -5103,6 +5183,7 @@ async function iniciar() {
       campoBrilloMax,
       cInvertir.label,
       campoDetectar,
+      campoAjustesNivel,
       // Al final de la ficha: no son datos del aparato sino interruptores de
       // cómo se usa, y ahí no parten el formulario en dos.
       cRegistrar.label,
