@@ -4402,11 +4402,18 @@ input:checked ~ .pase-tgl::before {
   align-self: center;
   width: fit-content;
   margin: 10px auto 0;
+  /* Flex + altura fija + line-height 1: centra la palabra vertical dentro de la
+     cápsula (el uppercase, al no tener trazos bajos, dejaba aire abajo). */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 0 14px;
+  line-height: 1;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  padding: 4px 14px;
   border-radius: 999px;
   color: var(--texto-suave);
   background: var(--superficie);
