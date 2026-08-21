@@ -570,7 +570,12 @@ async function iniciar() {
 
   function aspectoDe(d) {
     const mio = usuarioActual && usuarioActual.aspectos && usuarioActual.aspectos[d.id];
-    const elegido = mio || d.aspecto || 'normal';
+    // Si le llegó por un PASE, el skin que eligió quien invitó viaja en el
+    // acceso: así el invitado ve el botón igual que el originador. Su propia
+    // elección (si la tuviera) manda por encima.
+    const dePase = usuarioActual && usuarioActual.accesos && usuarioActual.accesos[d.id]
+      && usuarioActual.accesos[d.id].aspecto;
+    const elegido = mio || dePase || d.aspecto || 'normal';
     return aspectosDe(d).some((a) => a.id === elegido) ? elegido : 'normal';
   }
 
@@ -7681,7 +7686,15 @@ async function iniciar() {
     try {
       const multiuso = paseMultiuso;
       const evento = tituloCase($('pase-evento').value.trim());
-      const res = await crearPase({ dispositivos: seleccion, duracion: paseDuracionSel, multiuso, evento, desde: desdeElegido() });
+      // Los skins que YO tengo puestos en esos botones viajan con el pase, para
+      // que el invitado los vea igual que yo. Solo lo que no es 'normal'.
+      const compartibles = dispositivosCompartibles();
+      const aspectos = {};
+      for (const id of seleccion) {
+        const dev = compartibles.find((x) => x.id === id);
+        if (dev) { const a = aspectoDe(dev); if (a && a !== 'normal') aspectos[id] = a; }
+      }
+      const res = await crearPase({ dispositivos: seleccion, duracion: paseDuracionSel, multiuso, evento, desde: desdeElegido(), aspectos });
       const url = `${location.origin}${location.pathname}?p=${res.data.token}`;
       mostrarResultadoPase(url);
       cargarMisPases();

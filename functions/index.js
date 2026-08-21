@@ -3611,7 +3611,7 @@ exports.crearPase = onCall(OCASIONAL, async (request) => {
     throw new HttpsError('unauthenticated', 'Inicia sesión primero.');
   }
   const uid = request.auth.uid;
-  const { dispositivos, duracion, multiuso, evento, desde: desdeMs } = request.data || {};
+  const { dispositivos, duracion, multiuso, evento, desde: desdeMs, aspectos } = request.data || {};
   if (!Array.isArray(dispositivos) || !dispositivos.length) {
     throw new HttpsError('invalid-argument', 'Elige al menos un dispositivo para compartir.');
   }
@@ -3635,12 +3635,25 @@ exports.crearPase = onCall(OCASIONAL, async (request) => {
     ? FIN_INDEFINIDO
     : admin.firestore.Timestamp.fromMillis(desde.toMillis() + ms);
   // Token corto y URL-safe (12 chars, 72 bits) para un enlace más corto.
+  // Los SKINS que el originador tiene puestos en estos botones, para que el
+  // invitado los vea igual que él. Solo de lo que de verdad comparte, y como
+  // texto acotado; el aspecto se valida contra el catálogo al PINTARLO, así que
+  // uno inválido cae a 'normal' sin romper nada. 'normal' no se guarda (es el
+  // valor por defecto).
+  const aspectosLimpios = {};
+  if (aspectos && typeof aspectos === 'object' && !Array.isArray(aspectos)) {
+    for (const id of compartir) {
+      const a = aspectos[id];
+      if (typeof a === 'string' && a && a !== 'normal' && a.length <= 30) aspectosLimpios[id] = a;
+    }
+  }
   const token = crypto.randomBytes(9).toString('base64url');
   await db.doc(`pases/${token}`).set({
     por: uid,
     porNombre: usuario.nombre || '',
     porApellido: usuario.apellido || '',
     dispositivos: compartir,
+    aspectos: aspectosLimpios,
     evento: (typeof evento === 'string' ? evento.trim() : '').slice(0, 60),
     duracion,
     desde,
@@ -3698,6 +3711,9 @@ exports.canjearPase = onCall(async (request) => {
       expira,
       por: pase.por,
       token,
+      // El skin que el originador tiene en ese botón, para que el invitado lo
+      // vea igual que él (además del vestido del evento).
+      aspecto: (pase.aspectos && pase.aspectos[id]) || '',
       evento: pase.evento || '',
       porNombre: pase.porNombre || '',
       porApellido: pase.porApellido || '',
