@@ -1703,11 +1703,30 @@ exports.adminCrearVecinosLote = onCall(RARA, async (request) => {
       }
       if (uid) {
         const ref = db.doc(`usuarios/${uid}`);
-        const prev = (await ref.get()).data() || {};
-        const lista = prev.inmuebles || [];
-        if (!lista.some((x) => x.id === inm.id)) {
-          const nuevos = [...lista, inm];
-          await ref.set({ inmuebles: nuevos, inmueblesIds: await conAncestros(nuevos.map((x) => x.id)) }, { merge: true });
+        const prev = (await ref.get()).data();
+        const lista = (prev && prev.inmuebles) || [];
+        const yaLoTiene = lista.some((x) => x && x.id === inm.id);
+        const inmuebles = yaLoTiene ? lista : [...lista, inm];
+        if (!prev || !prev.nombre) {
+          // Tiene cuenta de Auth (entró con Google desde la portada) pero NO
+          // ficha —o una a medias, sin nombre—. Antes esta rama hacía un merge
+          // de SOLO `inmuebles` y dejaba una ficha SIN nombre ni correo:
+          // invisible en la lista y el buscador, y el alta chocaba con "ya está
+          // dado de alta" sin salida. Ahora se le crea la ficha COMPLETA con los
+          // datos de la fila (que ya venían), reusando su uid.
+          await ref.set({
+            nombre: nombrePropio(nombre),
+            apellido: nombrePropio((f && f.apellido) || (prev && prev.apellido) || ''),
+            unidad: (prev && prev.unidad) || '',
+            email,
+            rol: (prev && prev.rol) || 'vecino',
+            activo: prev && prev.activo === false ? false : true,
+            dispositivos: (prev && prev.dispositivos) || [],
+            inmuebles,
+            inmueblesIds: await conAncestros(inmuebles.map((x) => x && x.id).filter(Boolean)),
+          }, { merge: true });
+        } else if (!yaLoTiene) {
+          await ref.set({ inmuebles, inmueblesIds: await conAncestros(inmuebles.map((x) => x && x.id).filter(Boolean)) }, { merge: true });
         }
         asignados.push({ uid, email, inmueble: inm.nombre });
         continue;
