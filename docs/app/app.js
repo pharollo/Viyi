@@ -4780,6 +4780,11 @@ async function iniciar() {
         const sw = funciones.find((f) => f.type === 'Boolean' && /switch|light/i.test(f.code)) || funciones.find((f) => f.type === 'Boolean');
         if (sw) iCodigo.value = sw.code;
         const lista = funciones.map((f) => f.code).join(', ');
+        // Los valores EN VIVO (lo que el aparato reporta AHORA). Para un sensor
+        // de nivel es lo más útil: revela el código del nivel con su número
+        // —p. ej. `liquid_level_percent = 97`— que no se adivina de la lista.
+        const listaViva = ((res.data && res.data.estado) || [])
+          .map((e) => `${e.code} = ${JSON.stringify(e.value)}`).join(', ');
 
         // El detector buscaba SIEMPRE un DP de brillo, así que en un termostato
         // avisaba de que no lo encontró —cierto, y completamente inútil—
@@ -4875,7 +4880,8 @@ async function iniciar() {
         iResultadoDps.innerHTML = (brillo
           ? `✓ Brillo detectado: <b>${brillo.code}</b>${iBrilloMax.value ? ` (máx ${iBrilloMax.value})` : ''}`
           : '⚠ No encontré un DP de brillo; elige a mano uno con "bright".')
-          + `<br>DPs disponibles: ${lista}`;
+          + `<br>DPs disponibles: ${lista}`
+          + (listaViva ? `<br>Leyendo ahora: ${listaViva}` : '');
       } catch (err) {
         iResultadoDps.textContent = err.message || 'No se pudo detectar.';
       } finally {

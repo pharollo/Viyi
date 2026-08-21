@@ -2442,7 +2442,10 @@ exports.adminInspeccionarDispositivo = onCall(
     }
     const spec = await tuya().especificacion(tuyaDeviceId.trim()).catch(() => null);
     const estado = await tuya().estado(tuyaDeviceId.trim()).catch(() => null);
-    let funciones = (spec && spec.functions) || [];
+    // `functions` son los DPs ESCRIBIBLES (los ajustes); `status`, los de SOLO
+    // LECTURA —la telemetría: nivel, profundidad, voltaje—. El inspector miraba
+    // solo los primeros, así que un sensor de nivel no enseñaba su dato clave.
+    let funciones = [...((spec && spec.functions) || []), ...((spec && spec.status) || [])];
     // Fallback: si no hay especificación, usar los DPs del estado actual.
     if (!funciones.length && Array.isArray(estado)) {
       funciones = estado.map((e) => ({
