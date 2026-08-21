@@ -2710,11 +2710,18 @@ async function iniciar() {
     titulo.textContent = dispositivo.nombre;
     control.append(titulo);
 
+    // Las palabras según qué informa el sensor: una PUERTA/ventana dice
+    // Abierta/Cerrada; uno de MOVIMIENTO, Hay alguien/Sin movimiento. Se deduce
+    // del código (Tuya) o la característica (Homebridge) con que se dio de alta.
+    const señal = String(dispositivo.codigo || dispositivo.caracteristica || '');
+    const esPuerta = /door|contact|puerta|magnet|window|ventana/i.test(señal);
+    const dice = (activo) => esPuerta
+      ? (activo === true ? 'Abierta' : activo === false ? 'Cerrada' : '—')
+      : (activo === true ? 'Hay alguien' : activo === false ? 'Sin movimiento' : '—');
     const pintar = (activo) => {
       ficha.classList.toggle('activo', activo === true);
       ficha.classList.toggle('sin-saber', activo === null || activo === undefined);
-      ficha.querySelector('.sensor-dice').textContent = activo === true ? 'Hay alguien'
-        : activo === false ? 'Sin movimiento' : '—';
+      ficha.querySelector('.sensor-dice').textContent = dice(activo);
     };
     pintar(demo ? true : null);
 

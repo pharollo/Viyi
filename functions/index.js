@@ -3953,6 +3953,21 @@ exports.consultarEstado = onCall(
         }
         return { posicion };
       }
+      if (dispositivo.modo === 'sensor') {
+        // Sensor magnético (reed) de puerta o ventana: reporta un booleano
+        // —separado = abierto, junto = cerrado—. El código por defecto de Tuya
+        // es `doorcontact_state`; se deja cambiar por si el modelo usa otro
+        // (algunos: `switch`, `pir`). Solo LEE: a un sensor no se le manda nada.
+        const codigoSensor = (config.codigo && config.codigo !== 'switch_1') ? config.codigo : 'doorcontact_state';
+        const p = (estados || []).find((e) => e.code === codigoSensor);
+        const bruto = p ? p.value : undefined;
+        const activo = typeof bruto === 'boolean' ? bruto
+          : (typeof bruto === 'number' ? bruto !== 0 : null);
+        // Si no aparece el código, se registra el estado crudo para dar con él
+        // sin tener que adivinar cuál publica ESE modelo de sensor.
+        if (activo === null) console.log(`Sensor ${dispositivoId}: no hallé "${codigoSensor}" | crudo:`, JSON.stringify(estados));
+        return { activo, valor: bruto === undefined ? null : bruto };
+      }
       const punto = (estados || []).find((e) => e.code === codigo);
       const encendido = punto ? Boolean(punto.value) : null;
       const codigoBrillo = config.codigoBrillo || 'bright_value_v2';
