@@ -1446,6 +1446,11 @@ async function iniciar() {
   function renderDispositivos(dispositivos) {
     const contenedor = $('lista-dispositivos');
     contenedor.textContent = '';
+    // Un sensor ENLAZADO a una puerta (su estado ya se muestra en el propio
+    // botón, como aura y pastilla) no se pinta como control aparte: sería el
+    // mismo dato dos veces.
+    const sensoresEnBoton = new Set((dispositivos || []).map((d) => d.sensorId).filter(Boolean));
+    dispositivos = (dispositivos || []).filter((d) => !(d.modo === 'sensor' && sensoresEnBoton.has(d.id)));
     if (!dispositivos.length) {
       const aviso = document.createElement('p');
       aviso.className = 'centrado';
