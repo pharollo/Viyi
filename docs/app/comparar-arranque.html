@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comparar aro — Arranque</title>
+<style>
+  :root { color-scheme: dark; }
+  body { background:#141414; color:#e8eaed; margin:0; font-family:-apple-system,system-ui,sans-serif; padding:20px 12px 60px; }
+  h1 { font-size:18px; text-align:center; font-weight:600; margin:8px 0 4px; }
+  p.sub { text-align:center; color:#9aa0a6; font-size:13px; margin:0 0 22px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:26px 12px; max-width:520px; margin:0 auto; }
+  .celda { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .num { font-size:15px; font-weight:700; color:#7fb3ff; }
+  .desc { font-size:11px; color:#9aa0a6; text-align:center; line-height:1.25; }
+  .btn { position:relative; width:150px; height:150px; border-radius:50%; overflow:hidden; }
+  .btn img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
+  .aro { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); border-radius:50%; aspect-ratio:1; pointer-events:none; z-index:1; }
+
+  /* 1 · fino ceñido */
+  .v1 { width:51%; border:3px solid rgba(120,185,255,.98); box-shadow:0 0 5px 1px rgba(120,180,255,.9), 0 0 12px 3px rgba(60,130,255,.5); }
+  /* 2 · medio (actual) */
+  .v2 { width:52%; border:4px solid rgba(95,170,255,.95); box-shadow:0 0 6px 2px rgba(120,180,255,.9), 0 0 16px 5px rgba(60,130,255,.55); }
+  /* 3 · grueso */
+  .v3 { width:53%; border:6px solid rgba(95,170,255,.95); box-shadow:0 0 8px 2px rgba(120,180,255,.9), 0 0 18px 5px rgba(60,130,255,.55); }
+  /* 4 · fino + halo amplio */
+  .v4 { width:51%; border:3px solid rgba(130,190,255,.98); box-shadow:0 0 6px 2px rgba(130,185,255,.9), 0 0 30px 9px rgba(60,130,255,.55); }
+  /* 5 · neón intenso (núcleo claro) */
+  .v5 { width:52%; border:3px solid rgba(210,230,255,1); box-shadow:0 0 4px 1px #fff, 0 0 10px 3px rgba(120,180,255,.95), 0 0 22px 7px rgba(50,120,255,.6); }
+  /* 6 · pegado al negro, muy ceñido */
+  .v6 { width:49.5%; border:4px solid rgba(90,165,255,.98); box-shadow:0 0 6px 2px rgba(110,175,255,.9), 0 0 14px 4px rgba(55,125,255,.5); }
+</style></head>
+<body>
+  <h1>¿Cuál aro te gusta?</h1>
+  <p class="sub">Dime el número. Todos van alrededor del botón negro.</p>
+  <div class="grid">
+    <div class="celda"><div class="btn"><img src="boton-arranque.png?v=2" alt=""><span class="aro v1"></span></div><div class="num">1</div><div class="desc">Fino ceñido</div></div>
+    <div class="celda"><div class="btn"><img src="boton-arranque.png?v=2" alt=""><span class="aro v2"></span></div><div class="num">2</div><div class="desc">Medio (actual)</div></div>
+    <div class="celda"><div class="btn"><img src="boton-arranque.png?v=2" alt=""><span class="aro v3"></span></div><div class="num">3</div><div class="desc">Grueso</div></div>
+    <div class="celda"><div class="btn"><img src="boton-arranque.png?v=2" alt=""><span class="aro v4"></span></div><div class="num">4</div><div class="desc">Fino + halo amplio</div></div>
+    <div class="celda"><div class="btn"><img src="boton-arranque.png?v=2" alt=""><span class="aro v5"></span></div><div class="num">5</div><div class="desc">Neón intenso (núcleo blanco)</div></div>
+    <div class="celda"><div class="btn"><img src="boton-arranque.png?v=2" alt=""><span class="aro v6"></span></div><div class="num">6</div><div class="desc">Muy pegado al negro</div></div>
+  </div>
+</body></html>
