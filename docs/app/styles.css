@@ -1494,34 +1494,6 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
   opacity: 1;
 }
 
-/* Aspecto Arranque: botón redondo de arranque (aro azul maquinado, cromo, domo
-   glossy). UNA sola foto (apagada); el aro de luz azul lo pinta el CSS ENCIMA
-   del domo, así el botón nunca cambia de tamaño ni de ángulo —solo se prende—.
-   Se enciende al PRESIONAR (destello) y se queda encendido si la puerta está
-   ABIERTA (el control lleva `.puerta-abierta`, del sensor). */
-/* Aspecto Arranque: DOS renders del MISMO botón (mismo encuadre) que se cruzan
-   por opacidad —apagado y con el aro de luz azul horneado alrededor del domo—.
-   El aro va en la foto, así sigue la perspectiva del domo (elíptico); un círculo
-   CSS no puede. Se enciende al PRESIONAR y se queda encendido si la puerta está
-   ABIERTA (`.puerta-abierta`, del sensor). */
-.boton-arranque .boton-logo {
-  transition: opacity 0.3s ease;
-}
-.boton-arranque .cara-on {
-  opacity: 0;
-  /* La cara encendida solo puede AÑADIR luz sobre la apagada: con `screen` sus
-     zonas oscuras no aportan nada (el bisel y el aluminio quedan los de la foto
-     base) y solo se cuela el resplandor del aro. Así dos renders que no son
-     idénticos no se leen como "cambió la foto", sino como luz que se enciende. */
-  mix-blend-mode: screen;
-}
-.boton-arranque.activo .cara-on,
-.boton-arranque.enviando .cara-on,
-.boton-arranque.exito .cara-on,
-.control.puerta-abierta .boton-arranque .cara-on {
-  opacity: 1;
-}
-
 /* Aspecto Bordado: el parche gira en sentido horario mientras el botón está
    activo (enviando / éxito). En reposo, quieto. Como el parche está centrado y
    el botón recorta al círculo, gira en su sitio sin mostrar el negro. */
