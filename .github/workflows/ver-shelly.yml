@@ -1,0 +1,37 @@
+name: Ver Shelly (temporal)
+on:
+  workflow_dispatch: {}
+jobs:
+  ver:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - working-directory: functions
+        run: npm ci
+      - working-directory: functions
+        run: |
+          node -e '
+            const admin = require("firebase-admin");
+            admin.initializeApp({ projectId: "viyi-25a09" });
+            const db = admin.firestore();
+            (async () => {
+              const snap = await db.collection("dispositivos").where("proveedor","==","shelly").get();
+              console.log("SHELLY count:", snap.size);
+              for (const doc of snap.docs) {
+                const d = doc.data();
+                console.log("DISP", doc.id, JSON.stringify({nombre:d.nombre, modo:d.modo, tipo:d.tipo, subtipo:d.subtipo, aspecto:d.aspecto, activo:d.activo, inmueble:d.inmueble, inmuebles:d.inmuebles, inmueblesIds:d.inmueblesIds}));
+              }
+              // aspectos del admin
+              const us = await db.collection("usuarios").where("email","==","farolo@hotmail.com").get();
+              for (const u of us.docs) {
+                const asp = (u.data().aspectos)||{};
+                console.log("ADMIN", u.id, "aspectos:", JSON.stringify(asp));
+                console.log("ADMIN dispositivos[]:", JSON.stringify(u.data().dispositivos||[]));
+              }
+            })().catch(e=>{console.error("ERROR:", e.message); process.exit(1);});
+          '
