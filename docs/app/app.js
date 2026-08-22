@@ -399,7 +399,7 @@ async function iniciar() {
   // uno nuevo = una línea aquí + su clase en styles.css + la opción en el
   // editor + aceptarlo en adminGuardarDispositivo.
   const ASPECTOS_IMAGEN = {
-    arranque: { img: 'boton-arranque.png?v=1', clase: 'boton-arranque' },
+    arranque: { img: 'boton-arranque.png?v=2', clase: 'boton-arranque' },
     bordado: { img: 'bordado.jpg?v=1', clase: 'boton-bordado' },
     hal: { img: 'hal.jpg?v=1', clase: 'boton-hal' },
     ascensor: { img: 'ascensor.webp?v=5', clase: 'boton-ascensor' },
@@ -2907,7 +2907,7 @@ async function iniciar() {
         // presionar; y si la puerta tiene sensor y está ABIERTA, se queda
         // encendido (el control lleva la clase `.puerta-abierta`).
         boton.className = 'boton-circular grande boton-imagen boton-arranque';
-        boton.innerHTML = '<img src="boton-arranque.png?v=1" alt="" class="boton-logo cara-off">'
+        boton.innerHTML = '<img src="boton-arranque.png?v=2" alt="" class="boton-logo cara-off">'
           + '<span class="aro-luz" aria-hidden="true"></span>';
       } else if (ASPECTOS_IMAGEN[aspecto]) {
         // Aspectos de una sola imagen (Bordado, Hal): la foto es el botón y su

@@ -1499,68 +1499,54 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
    del domo, así el botón nunca cambia de tamaño ni de ángulo —solo se prende—.
    Se enciende al PRESIONAR (destello) y se queda encendido si la puerta está
    ABIERTA (el control lleva `.puerta-abierta`, del sensor). */
-/* Al encender se ilumina TODO el botón: un aro fino en el borde del domo
-   (`.aro-luz`), un aro glow sobre el anillo azul exterior (`::after`) y un
-   realce general de la foto. Todos son círculos (`aspect-ratio:1`), así el
+/* Aspecto Arranque: al ENCENDER se prende un ARO AZUL GRUESO sobre el aluminio
+   anodizado (el anillo exterior), rodeando todo el botón, con un HALO azul
+   alrededor. Todo es círculo (`aspect-ratio:1`) y va sobre una sola foto: el
    botón nunca cambia de tamaño ni de ángulo —solo se prende—. */
+.boton-arranque .cara-off {
+  transition: filter 0.3s ease;
+}
 .boton-arranque .aro-luz {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 43%;
+  width: 86%;                 /* sobre el anillo de aluminio anodizado exterior */
   height: auto;
   aspect-ratio: 1;            /* círculo SIEMPRE, aunque el botón no sea cuadrado */
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  border: 2px solid rgba(160, 205, 255, 0.98);
-  /* Solo halo HACIA AFUERA: el domo se queda oscuro. Sin `inset`, que llenaba
-     el centro y lo hacía parecer un eclipse. */
+  border: 6px solid rgba(95, 170, 255, 0.9);   /* aro GRUESO */
   box-shadow:
-    0 0 4px 1px rgba(130, 185, 255, 0.9),
-    0 0 10px 2px rgba(60, 130, 255, 0.5);
-  opacity: 0;
-  pointer-events: none;
-  z-index: 2;
-  transition: opacity 0.3s ease;
-}
-/* Aro exterior: brilla sobre el anillo azul maquinado, cerca del borde. */
-.boton-arranque::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 90%;
-  height: auto;
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  border: 2px solid rgba(150, 200, 255, 0.85);
-  box-shadow:
-    0 0 8px 2px rgba(70, 140, 255, 0.55),
-    inset 0 0 10px 2px rgba(70, 140, 255, 0.35);
+    0 0 14px 4px rgba(70, 140, 255, 0.75),      /* glow hacia afuera (borde) */
+    inset 0 0 14px 3px rgba(80, 150, 255, 0.6); /* glow hacia adentro */
   opacity: 0;
   pointer-events: none;
   z-index: 1;
   transition: opacity 0.3s ease;
 }
-.boton-arranque .cara-off {
-  transition: filter 0.3s ease;
-}
 .boton-arranque.activo .aro-luz,
 .boton-arranque.enviando .aro-luz,
 .boton-arranque.exito .aro-luz,
-.control.puerta-abierta .boton-arranque .aro-luz,
-.boton-arranque.activo::after,
-.boton-arranque.enviando::after,
-.boton-arranque.exito::after,
-.control.puerta-abierta .boton-arranque::after {
+.control.puerta-abierta .boton-arranque .aro-luz {
   opacity: 1;
 }
 .boton-arranque.activo .cara-off,
 .boton-arranque.enviando .cara-off,
 .boton-arranque.exito .cara-off,
 .control.puerta-abierta .boton-arranque .cara-off {
-  filter: brightness(1.12) saturate(1.18);
+  filter: brightness(1.12) saturate(1.2);
+}
+/* Halo AZUL alrededor de todo el botón (fuera del aluminio). Va en el botón,
+   cuyo `box-shadow` NO lo recorta el `overflow:hidden` de dentro. Se conserva
+   la sombra neumórfica base. */
+.boton-arranque.activo,
+.boton-arranque.enviando,
+.boton-arranque.exito,
+.control.puerta-abierta .boton-arranque {
+  box-shadow:
+    9px 9px 18px var(--sombra-oscura),
+    -9px -9px 18px var(--sombra-clara),
+    0 0 24px 7px rgba(70, 140, 255, 0.5);
 }
 
 /* Aspecto Bordado: el parche gira en sentido horario mientras el botón está
