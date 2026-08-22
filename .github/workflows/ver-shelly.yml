@@ -20,18 +20,22 @@ jobs:
             admin.initializeApp({ projectId: "viyi-25a09" });
             const db = admin.firestore();
             (async () => {
-              const snap = await db.collection("dispositivos").where("proveedor","==","shelly").get();
-              console.log("SHELLY count:", snap.size);
-              for (const doc of snap.docs) {
-                const d = doc.data();
-                console.log("DISP", doc.id, JSON.stringify({nombre:d.nombre, modo:d.modo, tipo:d.tipo, subtipo:d.subtipo, aspecto:d.aspecto, activo:d.activo, inmueble:d.inmueble, inmuebles:d.inmuebles, inmueblesIds:d.inmueblesIds}));
+              // Inmueble del shelly y su cadena de padres
+              let id = "inm_353def68d2224b2c";
+              for (let i=0;i<6 && id;i++){
+                const s = await db.doc("inmuebles/"+id).get();
+                if(!s.exists){ console.log("INM", id, "NO EXISTE"); break; }
+                const d=s.data();
+                console.log("INM", id, JSON.stringify({nombre:d.nombre, tipo:d.tipo, padre:d.padre||d.parent||null}));
+                id = d.padre || d.parent || null;
               }
-              // aspectos del admin
+              // Inmuebles del admin
               const us = await db.collection("usuarios").where("email","==","farolo@hotmail.com").get();
-              for (const u of us.docs) {
-                const asp = (u.data().aspectos)||{};
-                console.log("ADMIN", u.id, "aspectos:", JSON.stringify(asp));
-                console.log("ADMIN dispositivos[]:", JSON.stringify(u.data().dispositivos||[]));
+              for (const u of us.docs){
+                const d=u.data();
+                console.log("ADMIN inmuebles:", JSON.stringify(d.inmuebles||[]));
+                console.log("ADMIN inmueblesIds:", JSON.stringify(d.inmueblesIds||[]));
+                console.log("ADMIN rol:", d.rol, "activo:", d.activo);
               }
             })().catch(e=>{console.error("ERROR:", e.message); process.exit(1);});
           '
