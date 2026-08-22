@@ -1509,6 +1509,11 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
 }
 .boton-arranque .cara-on {
   opacity: 0;
+  /* La cara encendida solo puede AÑADIR luz sobre la apagada: con `screen` sus
+     zonas oscuras no aportan nada (el bisel y el aluminio quedan los de la foto
+     base) y solo se cuela el resplandor del aro. Así dos renders que no son
+     idénticos no se leen como "cambió la foto", sino como luz que se enciende. */
+  mix-blend-mode: screen;
 }
 .boton-arranque.activo .cara-on,
 .boton-arranque.enviando .cara-on,
