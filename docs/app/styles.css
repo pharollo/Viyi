@@ -1505,6 +1505,8 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
   opacity: 0;
 }
 .boton-arranque.activo .cara-on,
+.boton-arranque.enviando .cara-on,
+.boton-arranque.exito .cara-on,
 .control.puerta-abierta .boton-arranque .cara-on {
   opacity: 1;
 }
