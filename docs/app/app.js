@@ -399,7 +399,7 @@ async function iniciar() {
   // uno nuevo = una línea aquí + su clase en styles.css + la opción en el
   // editor + aceptarlo en adminGuardarDispositivo.
   const ASPECTOS_IMAGEN = {
-    arranque: { img: 'boton-arranque.png?v=2', clase: 'boton-arranque' },
+    arranque: { img: 'boton-arranque.png?v=3', clase: 'boton-arranque' },
     bordado: { img: 'bordado.jpg?v=1', clase: 'boton-bordado' },
     hal: { img: 'hal.jpg?v=1', clase: 'boton-hal' },
     ascensor: { img: 'ascensor.webp?v=5', clase: 'boton-ascensor' },
@@ -2901,14 +2901,15 @@ async function iniciar() {
           setTimeout(() => boton.classList.remove('mostrar-atras'), 2500);
         });
       } else if (aspecto === 'arranque') {
-        // Botón de arranque: UNA sola foto (el botón apagado) y el aro de luz
-        // azul lo pinta el CSS ENCIMA, para que el botón nunca cambie de tamaño
-        // ni de ángulo —solo se prende—. Se enciende con un destello al
-        // presionar; y si la puerta tiene sensor y está ABIERTA, se queda
-        // encendido (el control lleva la clase `.puerta-abierta`).
+        // Botón de arranque: DOS renders del MISMO botón, mismo encuadre —uno
+        // apagado y otro con el aro de luz azul horneado—. Se cruzan por
+        // opacidad, así el aro sigue la perspectiva del domo (un círculo CSS no
+        // puede: el domo es una elipse). Se enciende al presionar; y si la
+        // puerta tiene sensor y está ABIERTA, se queda encendido (el control
+        // lleva la clase `.puerta-abierta`). El cruce lo hace el CSS.
         boton.className = 'boton-circular grande boton-imagen boton-arranque';
-        boton.innerHTML = '<img src="boton-arranque.png?v=2" alt="" class="boton-logo cara-off">'
-          + '<span class="aro-luz" aria-hidden="true"></span>';
+        boton.innerHTML = '<img src="boton-arranque.png?v=3" alt="" class="boton-logo cara-off">'
+          + '<img src="boton-arranque-on.png?v=1" alt="" class="boton-logo cara-on">';
       } else if (ASPECTOS_IMAGEN[aspecto]) {
         // Aspectos de una sola imagen (Bordado, Hal): la foto es el botón y su
         // clase le da la animación al activarse (ver styles.css).

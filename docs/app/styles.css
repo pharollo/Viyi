@@ -1499,32 +1499,21 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
    del domo, así el botón nunca cambia de tamaño ni de ángulo —solo se prende—.
    Se enciende al PRESIONAR (destello) y se queda encendido si la puerta está
    ABIERTA (el control lleva `.puerta-abierta`, del sensor). */
-/* Aspecto Arranque: al ENCENDER se prende un ARO AZUL alrededor del BOTÓN NEGRO
-   (el domo), como un neón que lo bordea. El aro es un círculo (`aspect-ratio:1`)
-   sobre una sola foto: el botón nunca cambia de tamaño ni de ángulo —solo se
-   prende—. */
-.boton-arranque .aro-luz {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 53%;                 /* justo en el borde del domo negro */
-  height: auto;
-  aspect-ratio: 1;            /* círculo SIEMPRE, aunque el botón no sea cuadrado */
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  border: 4px solid rgba(95, 170, 255, 0.95);
-  box-shadow:
-    0 0 6px 2px rgba(120, 180, 255, 0.9),       /* glow ceñido al aro */
-    0 0 16px 5px rgba(60, 130, 255, 0.55);      /* halo suave alrededor del domo */
-  opacity: 0;
-  pointer-events: none;
-  z-index: 1;
+/* Aspecto Arranque: DOS renders del MISMO botón (mismo encuadre) que se cruzan
+   por opacidad —apagado y con el aro de luz azul horneado alrededor del domo—.
+   El aro va en la foto, así sigue la perspectiva del domo (elíptico); un círculo
+   CSS no puede. Se enciende al PRESIONAR y se queda encendido si la puerta está
+   ABIERTA (`.puerta-abierta`, del sensor). */
+.boton-arranque .boton-logo {
   transition: opacity 0.3s ease;
 }
-.boton-arranque.activo .aro-luz,
-.boton-arranque.enviando .aro-luz,
-.boton-arranque.exito .aro-luz,
-.control.puerta-abierta .boton-arranque .aro-luz {
+.boton-arranque .cara-on {
+  opacity: 0;
+}
+.boton-arranque.activo .cara-on,
+.boton-arranque.enviando .cara-on,
+.boton-arranque.exito .cara-on,
+.control.puerta-abierta .boton-arranque .cara-on {
   opacity: 1;
 }
 
