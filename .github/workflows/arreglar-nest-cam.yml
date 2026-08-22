@@ -1,0 +1,51 @@
+name: Arreglar id de cámara Nest (temporal)
+on:
+  workflow_dispatch:
+    inputs:
+      nuevo_id:
+        description: 'Nuevo device id de la cámara'
+        required: true
+      aplicar:
+        description: 'poner true para escribir el cambio'
+        required: false
+        default: 'false'
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - working-directory: functions
+        run: npm ci
+      - name: Buscar y (opcional) actualizar
+        working-directory: functions
+        env:
+          NUEVO_ID: ${{ github.event.inputs.nuevo_id }}
+          APLICAR: ${{ github.event.inputs.aplicar }}
+        run: |
+          node -e '
+            const admin = require("firebase-admin");
+            admin.initializeApp({ projectId: "viyi-25a09" });
+            const db = admin.firestore();
+            (async () => {
+              const snap = await db.collection("dispositivos").where("proveedor","==","nest").get();
+              for (const doc of snap.docs) {
+                const d = doc.data();
+                const cfgRef = db.doc(`dispositivos/${doc.id}/privado/tuya`);
+                const cfg = await cfgRef.get();
+                const nid = cfg.exists ? (cfg.data().nestDeviceId||"") : "";
+                console.log(`DISP ${doc.id} | nombre="${d.nombre}" tipo=${d.tipo} modo=${d.modo} | nestDeviceId=${nid}`);
+                const esCam = d.tipo === "camara" || d.modo === "camara";
+                if (esCam && process.env.APLICAR === "true") {
+                  await cfgRef.set({ nestDeviceId: process.env.NUEVO_ID }, { merge: true });
+                  console.log(`  -> ACTUALIZADO a ${process.env.NUEVO_ID}`);
+                }
+              }
+              console.log("LISTO");
+            })().catch((e)=>{ console.error("ERROR:", e.message); process.exit(1); });
+          '
