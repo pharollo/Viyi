@@ -1495,19 +1495,33 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
 }
 
 /* Aspecto Arranque: botón redondo de arranque (aro azul maquinado, cromo, domo
-   glossy). Dos capas —apagada y con el aro de luz azul— que se cruzan por
-   opacidad. El "on" se enciende al PRESIONAR (destello) y se queda encendido si
-   la puerta está ABIERTA (el control lleva `.puerta-abierta`, del sensor). */
-.boton-arranque .boton-logo {
-  transition: opacity 0.35s ease;
-}
-.boton-arranque .cara-on {
+   glossy). UNA sola foto (apagada); el aro de luz azul lo pinta el CSS ENCIMA
+   del domo, así el botón nunca cambia de tamaño ni de ángulo —solo se prende—.
+   Se enciende al PRESIONAR (destello) y se queda encendido si la puerta está
+   ABIERTA (el control lleva `.puerta-abierta`, del sensor). */
+.boton-arranque .aro-luz {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 43%;
+  height: 43%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid rgba(160, 205, 255, 0.98);
+  box-shadow:
+    0 0 3px 1px rgba(140, 190, 255, 0.95),
+    0 0 9px 2px rgba(70, 140, 255, 0.8),
+    0 0 18px 4px rgba(45, 115, 255, 0.4),
+    inset 0 0 8px 1px rgba(90, 160, 255, 0.5);
   opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+  transition: opacity 0.3s ease;
 }
-.boton-arranque.activo .cara-on,
-.boton-arranque.enviando .cara-on,
-.boton-arranque.exito .cara-on,
-.control.puerta-abierta .boton-arranque .cara-on {
+.boton-arranque.activo .aro-luz,
+.boton-arranque.enviando .aro-luz,
+.boton-arranque.exito .aro-luz,
+.control.puerta-abierta .boton-arranque .aro-luz {
   opacity: 1;
 }
 
