@@ -1,0 +1,32 @@
+name: Verificar aparatos de Nest (temporal)
+on:
+  workflow_dispatch: {}
+jobs:
+  listar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - run: npm install -g firebase-tools
+      - name: Listar aparatos que Google le devuelve a ViYi
+        run: |
+          set -e
+          for s in NEST_PROJECT_ID NEST_CLIENT_ID NEST_CLIENT_SECRET NEST_REFRESH_TOKEN; do
+            v="$(firebase functions:secrets:access "$s" --project viyi-25a09 2>/dev/null | tail -n1)"
+            echo "::add-mask::$v"
+            export "$s=$v"
+          done
+          cd functions
+          node -e '
+            const { NestClient } = require("./nest");
+            const c = new NestClient({ projectId: process.env.NEST_PROJECT_ID, clientId: process.env.NEST_CLIENT_ID, clientSecret: process.env.NEST_CLIENT_SECRET, refreshToken: process.env.NEST_REFRESH_TOKEN });
+            c.listarDispositivos().then((l) => {
+              console.log("APARATOS:", l.length);
+              for (const d of l) console.log("-", JSON.stringify(d));
+            }).catch((e) => { console.error("ERROR:", e.message); process.exit(1); });
+          '
