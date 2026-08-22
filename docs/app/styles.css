@@ -1504,15 +1504,16 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
   top: 50%;
   left: 50%;
   width: 43%;
-  height: 43%;
+  height: auto;
+  aspect-ratio: 1;            /* círculo SIEMPRE, aunque el botón no sea cuadrado */
   transform: translate(-50%, -50%);
   border-radius: 50%;
   border: 2px solid rgba(160, 205, 255, 0.98);
+  /* Solo halo HACIA AFUERA: el domo se queda oscuro. Sin `inset`, que llenaba
+     el centro y lo hacía parecer un eclipse. */
   box-shadow:
-    0 0 3px 1px rgba(140, 190, 255, 0.95),
-    0 0 9px 2px rgba(70, 140, 255, 0.8),
-    0 0 18px 4px rgba(45, 115, 255, 0.4),
-    inset 0 0 8px 1px rgba(90, 160, 255, 0.5);
+    0 0 4px 1px rgba(130, 185, 255, 0.9),
+    0 0 10px 2px rgba(60, 130, 255, 0.5);
   opacity: 0;
   pointer-events: none;
   z-index: 1;
