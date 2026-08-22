@@ -2554,7 +2554,7 @@ async function iniciar() {
     // Si no carga, el marco sería un gris mudo y entonces las palabras sí hacen
     // falta. Se comprueba de verdad en vez de suponerlo: una cámara nueva sin
     // su archivo no puede quedarse sin decir qué hacer.
-    const fondo = `reposo-${dispositivo.id}.jpg?v=1`;
+    const fondo = `reposo-${dispositivo.id}.jpg?v=2`;
     const prueba = new Image();
     prueba.addEventListener('load', () => {
       marco.style.backgroundImage = `url('${fondo}')`;
