@@ -1494,6 +1494,21 @@ main { padding-bottom: calc(var(--alto-barra) + 6px + env(safe-area-inset-bottom
   opacity: 1;
 }
 
+/* Aspecto Arranque: botón redondo de arranque (aro azul maquinado, cromo, domo
+   glossy). Dos capas —apagada y con el aro de luz azul— que se cruzan por
+   opacidad. El "on" se enciende al PRESIONAR (destello) y se queda encendido si
+   la puerta está ABIERTA (el control lleva `.puerta-abierta`, del sensor). */
+.boton-arranque .boton-logo {
+  transition: opacity 0.35s ease;
+}
+.boton-arranque .cara-on {
+  opacity: 0;
+}
+.boton-arranque.activo .cara-on,
+.control.puerta-abierta .boton-arranque .cara-on {
+  opacity: 1;
+}
+
 /* Aspecto Bordado: el parche gira en sentido horario mientras el botón está
    activo (enviando / éxito). En reposo, quieto. Como el parche está centrado y
    el botón recorta al círculo, gira en su sitio sin mostrar el negro. */

@@ -399,6 +399,7 @@ async function iniciar() {
   // uno nuevo = una línea aquí + su clase en styles.css + la opción en el
   // editor + aceptarlo en adminGuardarDispositivo.
   const ASPECTOS_IMAGEN = {
+    arranque: { img: 'boton-arranque.png?v=1', clase: 'boton-arranque' },
     bordado: { img: 'bordado.jpg?v=1', clase: 'boton-bordado' },
     hal: { img: 'hal.jpg?v=1', clase: 'boton-hal' },
     ascensor: { img: 'ascensor.webp?v=5', clase: 'boton-ascensor' },
@@ -509,6 +510,10 @@ async function iniciar() {
     { id: 'bordado', nombre: 'Bordado', modos: ['pulso'], soloPuerta: true },
     { id: 'argentina', nombre: 'Argentina', modos: ['pulso'], soloPuerta: true },
     { id: 'jet', nombre: 'Jet Switch', modos: ['pulso'], soloPuerta: true },
+    // Arranque: botón redondo de arranque de motor (aro azul maquinado, cromo,
+    // domo glossy). Dos estados: apagado y con el aro de luz cuando la puerta
+    // está abierta (vía sensor) o al presionar.
+    { id: 'arranque', nombre: 'Arranque', modos: ['pulso'], soloPuerta: true },
     // Pilder: la palanca sirve donde hay un estado que enseñar, así que va en
     // interruptores (se queda arriba mientras está encendido) y en puertas
     // (sube al abrir y baja al cerrarse). Es el primer control propio que
@@ -2895,6 +2900,14 @@ async function iniciar() {
           boton.classList.add('mostrar-atras');
           setTimeout(() => boton.classList.remove('mostrar-atras'), 2500);
         });
+      } else if (aspecto === 'arranque') {
+        // Botón de arranque: DOS capas —apagado y con el aro de luz— que se
+        // cruzan por opacidad. Se enciende con un destello al presionar; y si la
+        // puerta tiene sensor y está ABIERTA, se queda encendido (el control
+        // lleva la clase `.puerta-abierta`). El cruce lo hace el CSS.
+        boton.className = 'boton-circular grande boton-imagen boton-arranque';
+        boton.innerHTML = '<img src="boton-arranque.png?v=1" alt="" class="boton-logo cara-off">'
+          + '<img src="boton-arranque-on.png?v=1" alt="" class="boton-logo cara-on">';
       } else if (ASPECTOS_IMAGEN[aspecto]) {
         // Aspectos de una sola imagen (Bordado, Hal): la foto es el botón y su
         // clase le da la animación al activarse (ver styles.css).
